@@ -16,7 +16,7 @@
     },
     async received() {
       const r = await API.http('GET', '/me/offers/received');
-      return r.offers.length ? r.offers.map((o) => row(`<div style="display:flex;gap:12px;align-items:center;min-width:0"><img class="thumb-s" src="${esc(o.itemImage)}" alt=""><div style="min-width:0"><b>${esc(o.itemTitle)}</b><div class="muted" style="font-size:13px"><b style="color:#fff">${fmtUsd(o.usd)}</b> · ${sol}${fmtSol(o.sol)} SOL · from ${short(o.bidder)}</div></div></div><div class="row-btns"><a class="btn btn-primary btn-sm" href="artwork.html?id=${encodeURIComponent(o.itemId)}">Review</a></div>`)).join('') : empty('No offers on your NFTs yet', 'You\'ll get a notification the moment someone makes one.');
+      return r.offers.length ? r.offers.map((o) => row(`<div style="display:flex;gap:12px;align-items:center;min-width:0">${G.imgTag(o.itemImage, "", 120, ' class="thumb-s"')}<div style="min-width:0"><b>${esc(o.itemTitle)}</b><div class="muted" style="font-size:13px"><b style="color:#fff">${fmtUsd(o.usd)}</b> · ${sol}${fmtSol(o.sol)} SOL · from ${short(o.bidder)}</div></div></div><div class="row-btns"><a class="btn btn-primary btn-sm" href="artwork.html?id=${encodeURIComponent(o.itemId)}">Review</a></div>`)).join('') : empty('No offers on your NFTs yet', 'You\'ll get a notification the moment someone makes one.');
     },
     async made() {
       const r = await API.http('GET', '/me/offers/made');

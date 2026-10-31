@@ -204,7 +204,8 @@ ul { list-style: none; }
 .verified { width: 14px; height: 14px; color: #3b9bff; flex: none; }
 .price-row { margin-top: 8px; font-size: 12px; color: var(--muted); }
 .price { display: flex; align-items: center; gap: 7px; font-size: 18px; font-weight: 800; color: #fff; margin-top: 2px; }
-.sol { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, #14f195, #9945ff); display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #0a0a14; flex: none; }
+.sol { display: inline-block; vertical-align: -0.2em; width: 20px; height: 16px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 398 312'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='#9945FF'/%3E%3Cstop offset='1' stop-color='#14F195'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(#g)'%3E%3Cpath d='M65 238c2-2 6-4 9-4h317c6 0 9 7 5 11l-63 63c-2 2-6 4-9 4H7c-6 0-9-7-5-11l63-63z'/%3E%3Cpath d='M65 4C67 1 70 0 74 0h317c6 0 9 7 5 11l-63 63c-2 2-6 4-9 4H7c-6 0-9-7-5-11L65 4z'/%3E%3Cpath d='M333 120c-2-2-6-4-9-4H7c-6 0-9 7-5 11l63 63c2 2 6 4 9 4h317c6 0 9-7 5-11l-63-63z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; font-size: 0; flex: none; }
+.cur { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, #14f195, #9945ff); display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #0a0a14; flex: none; }
 .card .btn { margin-top: 12px; height: 40px; border-radius: 12px; }
 .card .btn-primary { border-radius: 12px; }
 
@@ -284,7 +285,7 @@ select option { background: #140e26; color: #fff; }
 .bid-top { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .bid-top small { color: var(--muted); display: block; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; }
 .big-price { display: flex; gap: 9px; align-items: center; font-size: 34px; font-weight: 800; }
-.big-price .sol { width: 30px; height: 30px; font-size: 15px; }
+.big-price .sol { width: 30px; height: 24px; }
 .countdown { display: flex; gap: 8px; }
 .countdown div { min-width: 56px; padding: 8px 6px; text-align: center; border-radius: 12px; background: rgba(8,4,18,.55); border: 1px solid var(--line); }
 .countdown b { font-family: var(--font-display); font-weight: 400; font-size: 26px; display: block; font-variant-numeric: tabular-nums; }
@@ -351,7 +352,7 @@ select option { background: #140e26; color: #fff; }
 .seg-wide button { height: 40px; border-radius: 9px; font-weight: 700; font-size: 14px; color: var(--muted); }
 .seg-wide button.on { background: rgba(255,47,122,.18); color: #fff; box-shadow: inset 0 0 0 1.5px var(--pink); }
 .input-pre { position: relative; }
-.input-pre .sol { position: absolute; left: 12px; top: 12px; }
+.input-pre .cur { position: absolute; left: 12px; top: 12px; }
 .input-pre input { padding-left: 44px; }
 .pct { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px 6px 12px; background: rgba(255,255,255,.045); }
 .pct span { flex: 1; font-size: 14px; }
@@ -394,7 +395,7 @@ select option { background: #140e26; color: #fff; }
 .mini-row img { width: 96px; height: 76px; object-fit: cover; border-radius: 12px; flex: none; }
 .mini-row h4 { font-size: 15px; } .mini-row small { color: var(--muted); }
 .mini-row .price { font-size: 15px; margin-top: 4px; }
-.mini-row .price .sol { width: 16px; height: 16px; font-size: 9px; }
+.mini-row .price .sol { width: 16px; height: 13px; }
 .how-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .how-card { padding: 22px; border-radius: var(--radius-lg); background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .how-card .num { font-family: var(--font-display); font-size: 46px; color: var(--pink); opacity: .9; line-height: 1; }
@@ -510,7 +511,7 @@ select option { background: #140e26; color: #fff; }
   .grid.cols-list { grid-template-columns: 1fr; }
   .card-body { padding: 10px; }
   .card-body h3 { font-size: 14px; }
-  .price { font-size: 15px; } .sol { width: 17px; height: 17px; font-size: 9px; }
+  .price { font-size: 15px; } .sol { width: 17px; height: 14px; }
   .card .btn { height: 36px; font-size: 13px; }
   .tag-era { font-size: 10px; padding: 3px 7px; }
   .like { height: 26px; padding: 0 8px; font-size: 11px; }

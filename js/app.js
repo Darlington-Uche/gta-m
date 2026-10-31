@@ -9,6 +9,8 @@
 
   /* ---------- helpers ---------- */
   const { fmtUsd, fmtSol, short } = API;
+  const T = (u, w) => API.thumb(u, w);
+  const imgTag = (u, alt, w, extra) => `<img src="${esc(T(u, w))}" data-o="${esc(u)}" onerror="if(this.dataset.o&&this.src!==this.dataset.o){this.src=this.dataset.o}" alt="${esc(alt)}" loading="lazy" decoding="async"${extra || ''}>`;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function timeStr(ms) {
     if (ms <= 0) return 'now';
@@ -42,7 +44,7 @@
     trend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
     submit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 15 3-3 2 2 3-4"/></svg>'
   };
-  const sol = '<span class="sol">S</span>';
+  const sol = '<span class="sol" role="img" aria-label="SOL"></span>';
 
   /* ---------- layout ---------- */
   const PAGES = [
@@ -60,7 +62,7 @@
     <header class="topbar"><div class="wrap inner">
       <a class="logo" href="index.html" aria-label="GTA Marketplace home"><b>GTA</b><i>Marketplace</i></a>
       <nav class="nav-links" aria-label="Main">${links}</nav>
-      <div class="search">${I.search}<input id="gSearch" type="search" placeholder="Search GTA art, characters, locations…" autocomplete="off" aria-label="Search"><div class="search-results" id="gResults"></div></div>
+      <div class="search">${I.search}<input id="gSearch" type="search" placeholder="Search" autocomplete="off" aria-label="Search"><div class="search-results" id="gResults"></div></div>
       <div class="top-actions">
         <a class="icon-btn cart-btn" id="bellBtn" href="profile.html#notifications" aria-label="Notifications" hidden>${I.bell}<span class="badge" id="bellBadge" hidden>0</span></a>
         <button class="btn btn-primary" id="walletBtn">Connect<span class="long">&nbsp;Wallet</span></button>
@@ -73,7 +75,7 @@
       if (p[0] === 'create') return `<a href="${p[2]}" class="create-fab ${p[0] === page ? 'active' : ''}" aria-label="Create">${p[3]}<span>${p[1]}</span></a>`;
       return `<a href="${p[2]}" class="${p[0] === page ? 'active' : ''}">${p[3]}<span>${p[1]}</span></a>`;
     });
-    const dock = `<nav class="dock" aria-label="Mobile navigation">${dockLinks.slice(0, 2).join('')}${dockLinks[4]}${dockLinks.slice(2, 4).join('')}<a href="profile.html" class="cart-dock ${page === 'profile' ? 'active' : ''}" id="dockProfile">${I.user}<span>Profile</span><span class="badge" id="dockBadge" hidden>0</span></a></nav>`;
+    const dock = `<nav class="dock" aria-label="Mobile navigation">${dockLinks.slice(0, 2).join('')}${dockLinks[4]}${dockLinks.slice(2, 4).join('')}</nav>`;
 
     const footer = `
     <footer class="footer"><div class="wrap inner">
@@ -124,7 +126,7 @@
       : a.state === 'listed' ? `<a class="btn btn-outline" href="artwork.html?id=${encodeURIComponent(a.id)}">Buy now</a>`
         : `<a class="btn btn-glass" href="artwork.html?id=${encodeURIComponent(a.id)}">Make offer</a>`;
     return `<article class="card" data-id="${esc(a.id)}">
-      <a class="thumb" href="artwork.html?id=${encodeURIComponent(a.id)}"><img src="${esc(a.img)}" alt="${esc(a.title)}" loading="lazy">
+      <a class="thumb" href="artwork.html?id=${encodeURIComponent(a.id)}">${imgTag(a.img, a.title, 480)}
         <span class="tag-era">${esc(a.eraShort)}</span><span class="timer st-${a.state}">${esc(stateChip(a))}</span><span class="rarity ${a.rarity}">${a.rarity}</span></a>
       <button class="like ${liked ? 'on' : ''}" data-like="${esc(a.id)}" aria-label="Like">${I.heart}<span>${a.likes}</span></button>
       <div class="card-body">
@@ -139,9 +141,9 @@
     const covers = (c.covers && c.covers.length ? c.covers : meta.covers || [c.cover]).filter(Boolean).slice(0, 4);
     const cover = c.cover || covers[0];
     const floor = c.floorUsd != null ? fmtUsd(c.floorUsd) : '—';
-    return `<article class="col-card"><a class="col-cover" href="explore.html?era=${esc(c.era)}"><img src="${esc(cover)}" alt="${esc(name)}" loading="lazy"><span class="col-mark">${esc(c.short || D.eraShort[c.era])}</span><span class="timer st-${c.live ? 'minted' : 'mint'}">${c.live ? 'Live' : 'Coming soon'}</span></a>
+    return `<article class="col-card"><a class="col-cover" href="explore.html?era=${esc(c.era)}">${imgTag(cover, name, 640)}<span class="col-mark">${esc(c.short || D.eraShort[c.era])}</span><span class="timer st-${c.live ? 'minted' : 'mint'}">${c.live ? 'Live' : 'Coming soon'}</span></a>
       <div class="col-body"><h3>${esc(name)}</h3><p>${esc(c.blurb || meta.blurb || '')}</p>
-      <div class="minis">${covers.map((s) => `<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</div>
+      <div class="minis">${covers.map((s) => `${imgTag(s, "", 160)}`).join('')}</div>
       <div class="col-meta"><span>${(c.items || 0).toLocaleString()} Artworks<br>${c.minted || 0} minted · ${c.owners || 0} owners</span><span style="text-align:right">Floor<b>${floor}</b></span></div>
       <a class="btn btn-primary btn-block" href="explore.html?era=${esc(c.era)}">View Collection</a></div></article>`;
   }
@@ -175,6 +177,7 @@
     renderUnread();
   }
   function renderUnread() {
+    const av = $('#avatar'); if (av) av.classList.toggle('has-unread', !!(S.unread && S.wallet));
     [$('#bellBadge'), $('#dockBadge')].forEach((b) => { if (!b) return; b.textContent = S.unread > 9 ? '9+' : S.unread; b.hidden = !S.unread || !S.wallet; });
   }
   function walletModal(open) {
@@ -239,7 +242,7 @@
       if (!q) { box.classList.remove('open'); return; }
       t = setTimeout(async () => {
         const r = await API.items({ q, limit: 7 }).catch(() => ({ items: [] }));
-        box.innerHTML = r.items.length ? r.items.map((a) => { const [, main] = priceBlock(a); return `<a href="artwork.html?id=${encodeURIComponent(a.id)}"><img src="${esc(a.img)}" alt=""><span><b>${esc(a.title)}</b><small>${esc(a.eraShort)} · ${esc(a.category)} · ${stateChip(a)}</small></span></a>`; }).join('') : '<div class="none">No matches</div>';
+        box.innerHTML = r.items.length ? r.items.map((a) => { const [, main] = priceBlock(a); return `<a href="artwork.html?id=${encodeURIComponent(a.id)}">${imgTag(a.img, "", 120)}<span><b>${esc(a.title)}</b><small>${esc(a.eraShort)} · ${esc(a.category)} · ${stateChip(a)}</small></span></a>`; }).join('') : '<div class="none">No matches</div>';
         box.classList.add('open');
       }, 220);
     });
@@ -281,8 +284,9 @@
 
   /* ---------- expose + boot ---------- */
   const ready = API.init().then(() => { renderBanner(); renderWallet(); });
-  window.GTA = { API, D, S, $, $$, I, sol, esc, fmtUsd, fmtSol, short, ago, timeStr, card, colCard, cardsInto, priceBlock, stateChip, toast, needWallet, walletModal, runTx, call, offerWindow, ready };
+  window.GTA = { imgTag, API, D, S, $, $$, I, sol, esc, fmtUsd, fmtSol, short, ago, timeStr, card, colCard, cardsInto, priceBlock, stateChip, toast, needWallet, walletModal, runTx, call, offerWindow, ready };
 
+  if ('serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.origin)) navigator.serviceWorker.register('sw.js').catch(() => {});
   renderLayout();
   renderWallet(); initSearch(); bind();
   setInterval(() => document.dispatchEvent(new CustomEvent('gta:tick')), 1000);

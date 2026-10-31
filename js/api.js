@@ -33,6 +33,9 @@
     let payload;
     if (body instanceof FormData) payload = body;
     else if (body !== undefined && body !== null) { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
+    // Public GETs are cached for a short while in this tab so moving between pages is instant. Any write clears it.
+    const cacheable = method === 'GET' && opt.auth === false;
+    if (cacheable) { const c = cacheGet(path); if (c) return c; }
     let res;
     try { res = await fetch(API + path, { method, headers, body: payload }); }
     catch (e) { throw new ApiError('Cannot reach the server. Check your connection.', 'network', 0); }
@@ -42,8 +45,15 @@
       if (res.status === 401 && S.token && opt.auth !== false) signOut(true);
       throw new ApiError(err.message || 'Request failed (' + res.status + ')', err.code || 'http_' + res.status, res.status);
     }
+    if (cacheable) cacheSet(path, json); else if (method !== 'GET') cacheClear();
     return json;
   }
+  const CACHE_MS = 45000;
+  function cacheGet(k) { try { const r = JSON.parse(sessionStorage.getItem('gta_c:' + k)); return r && Date.now() - r.t < CACHE_MS ? r.j : null; } catch (e) { return null; } }
+  function cacheSet(k, j) { try { sessionStorage.setItem('gta_c:' + k, JSON.stringify({ t: Date.now(), j })); } catch (e) { cacheClear(); } }
+  function cacheClear() { try { Object.keys(sessionStorage).filter((k) => k.startsWith('gta_c:')).forEach((k) => sessionStorage.removeItem(k)); } catch (e) { /* ignore */ } }
+  /** Small, cached WebP copy of a GitHub-hosted image for cards and lists (falls back to the original if the resizer fails). */
+  const thumb = (u, w) => (u && /^https:\/\/raw\.githubusercontent\.com\//.test(u) ? 'https://wsrv.nl/?url=' + encodeURIComponent(u) + '&w=' + (w || 480) + '&we&output=webp&q=78' : u);
   const qs = (o) => { const p = new URLSearchParams(); Object.entries(o || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, v); }); const s = p.toString(); return s ? '?' + s : ''; };
 
   /* ---------- formatting ---------- */
@@ -267,7 +277,7 @@
   }
 
   window.GTA_API = {
-    S, ApiError, http, qs, on, emit, ls, init, items, item, offersFor, loadCollections, stats, normApi,
+    S, ApiError, http, qs, thumb, cacheClear, on, emit, ls, init, items, item, offersFor, loadCollections, stats, normApi,
     connect, signOut, detect, testWallets, refreshMe, act, signTx,
     fmtUsd, fmtSol, short, initials,
     get isDemo() { return S.demo || !S.online; },
