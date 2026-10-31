@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Auctions — GTA Marketplace</title>
+<meta name="description" content="Timed auctions ending soon. Place your bid before the clock hits zero.">
+<meta name="theme-color" content="#07050f">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/integration.css">
+</head>
+<body data-page="auctions">
+
+<section class="hero" style="--hero:url(../assets/hero/hero-auctions.svg)"><div class="wrap inner"><h1>Live Offers</h1><p>Every minted NFT with offers on the table. Owners can accept the best one any time — or hold out for more.</p></div></section>
+<div class="wrap">
+  <div class="section" style="padding-bottom:0"><div class="era-rail" id="eraRail"></div></div>
+  <div class="shop" data-mode="auctions">
+    <aside class="filters" id="filters" aria-label="Filters">
+      <h3>Filters <span><button id="resetF">Reset</button> <button class="close-f btn btn-glass btn-sm" id="closeF" style="display:none;margin-left:6px">Done</button></span></h3>
+      <div class="f-group"><h4>Game Era</h4><div id="fEra"></div></div>
+      <div class="f-group"><h4>Category</h4><div id="fCat"></div></div>
+      <div class="f-group"><h4>Price Range (USD)</h4><div class="range"><input id="pMin" type="number" min="0" step="1" placeholder="Min" inputmode="decimal"><span>–</span><input id="pMax" type="number" min="0" step="1" placeholder="Max" inputmode="decimal"></div></div>
+      <div class="f-group" id="fTypeG"><h4>Status</h4><div id="fType"></div></div>
+      <div class="f-group"><h4>Rarity</h4><div id="fRar"></div></div>
+    </aside>
+    <main>
+      <div class="toolbar">
+        <h2><span id="count">0</span> With Offers</h2>
+        <div class="right">
+          <button class="btn btn-glass btn-sm filter-toggle" id="openF">Filters</button>
+          <div class="seg"><button class="on" data-view="grid">Grid</button><button data-view="list">List</button></div>
+          <select class="select" id="sort"><option value="recent">Recently Added</option><option value="offers">Most Offers</option><option value="price_low">Price: Low to High</option><option value="price_high">Price: High to Low</option><option value="liked">Most Liked</option></select>
+        </div>
+      </div>
+      <div class="win-note" id="winNote" hidden></div>
+      <div class="chips" id="chips"></div>
+      <div class="grid" id="results"></div>
+      <div class="pager"><button class="btn btn-glass" id="more">Load more</button></div>
+    </main>
+  </div>
+</div>
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/shop.js"></script>
+</body>
+</html>

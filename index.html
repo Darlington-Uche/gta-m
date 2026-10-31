@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home — GTA Marketplace</title>
+<meta name="description" content="Collect, bid on and submit GTA-inspired art.">
+<meta name="theme-color" content="#07050f">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/integration.css">
+</head>
+<body data-page="index">
+
+<section class="hero hero-home" style="--hero:url(../assets/hero/hero.jpg)"><div class="wrap inner">
+  <h1>Collect the<br>Culture</h1>
+  <p>The marketplace for GTA-inspired art. Mint, collect and trade original characters, locations and vehicles from every era — and submit your own.</p>
+  <div class="hero-cta"><a class="btn btn-primary btn-lg" href="explore.html">Explore Artworks</a><a class="btn btn-glass btn-lg" href="create.html">Submit Your Art</a></div>
+  <div class="hero-stats">
+    <div class="stat"><b id="stArt">40</b><span>Artworks</span></div>
+    <div class="stat"><b id="stCol">8</b><span>Collections</span></div>
+    <div class="stat"><b id="stVol">0</b><span>Volume</span></div>
+  </div>
+</div></section>
+
+<div class="wrap">
+  <section class="section"><div class="section-head"><h2>Browse by Era</h2><a class="more" href="explore.html">View all →</a></div>
+    <div class="era-rail" id="eraRail"></div></section>
+
+  <section class="section"><div class="section-head"><h2>Featured</h2><a class="more" href="auctions.html">All offers →</a></div>
+    <div class="featured" id="featured"></div></section>
+
+  <section class="section"><div class="section-head"><h2>Trending Now</h2><a class="more" href="explore.html">See more →</a></div>
+    <div class="grid" id="trending"></div></section>
+
+  <section class="section"><div class="section-head"><h2>Hot Collections</h2><a class="more" href="collections.html">All collections →</a></div>
+    <div class="col-grid" id="hotCols"></div></section>
+
+  <section class="section"><div class="section-head"><h2>How It Works</h2></div>
+    <div class="how-grid">
+      <div class="how-card"><div class="num">01</div><h4>Submit artwork</h4><p>Upload your original GTA-inspired piece and fill in the details.</p></div>
+      <div class="how-card"><div class="num">02</div><h4>We review it</h4><p>Our team checks quality and guidelines before anything goes live.</p></div>
+      <div class="how-card"><div class="num">03</div><h4>Mint it</h4><p>Approved art joins its era's collection. Mint it at the listed price and it's yours on-chain.</p></div>
+      <div class="how-card"><div class="num">04</div><h4>Trade freely</h4><p>Make offers on any minted NFT, or set your own sale price. Owners accept the offer they like.</p></div>
+    </div></section>
+
+  <section class="cta-band" style="--hero:url(../assets/hero/hero-create.svg)">
+    <h2>Turn your GTA ideas into value</h2><p>Share your creativity with the community and earn from it.</p>
+    <a class="btn btn-primary btn-lg" href="create.html">Create &amp; Submit</a>
+  </section>
+</div>
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>

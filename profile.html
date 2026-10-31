@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Profile — GTA Marketplace</title>
+<meta name="description" content="Your NFTs, offers and notifications.">
+<meta name="theme-color" content="#07050f">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/integration.css">
+</head>
+<body data-page="profile">
+
+<section class="hero" style="--hero:url(../assets/hero/hero-explore.svg)"><div class="wrap inner"><h1>Your Profile</h1><p id="who">Connect your wallet to see your NFTs, offers and notifications.</p></div></section>
+<div class="wrap">
+  <div id="gate" class="empty" style="margin-top:24px"><b>Wallet not connected</b>Connect to see everything you own and every offer on it.<br><br><button class="btn btn-primary" id="gateBtn">Connect wallet</button></div>
+  <div id="app" hidden>
+    <div class="prof-head"><div><small class="muted">Wallet</small><div class="addr" id="pAddr"></div></div><div class="row-btns"><button class="btn btn-glass btn-sm" id="syncBtn">Refresh from chain</button><button class="btn btn-glass btn-sm" id="outBtn">Disconnect</button></div></div>
+    <div class="tabs prof-tabs" id="tabs">
+      <button class="on" data-t="nfts">My NFTs</button><button data-t="received">Offers received <i class="cnt" id="cReceived"></i></button><button data-t="made">Offers made</button><button data-t="notifications">Notifications <i class="cnt" id="cNotif"></i></button><button data-t="activity">Activity</button><button data-t="submissions">Submissions</button>
+    </div>
+    <div id="pane" class="section" style="padding-top:8px"></div>
+  </div>
+</div>
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+</body>
+</html>

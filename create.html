@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Create — GTA Marketplace</title>
+<meta name="description" content="Create and submit GTA-inspired artwork.">
+<meta name="theme-color" content="#07050f">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/integration.css">
+</head>
+<body data-page="create">
+
+
+<section class="hero" style="--hero:url(../assets/hero/hero-create.svg)"><div class="wrap inner"><h1>Create &amp;<br>Submit GTA Artwork</h1><p>Got a GTA-inspired idea? Create and submit your artwork for review. Once approved, it joins its era's collection and anyone can mint it.</p></div></section>
+<div class="wrap">
+  <div class="steps" aria-label="Progress">
+    <div class="step on"><i>1</i>Upload</div><div class="step-line"></div>
+    <div class="step"><i>2</i>Details</div><div class="step-line"></div>
+    <div class="step"><i>3</i>Token &amp; Auction</div><div class="step-line"></div>
+    <div class="step"><i>4</i>Review &amp; Submit</div>
+  </div>
+  <div class="create">
+    <aside class="side-left" style="display:grid;gap:18px">
+      <div class="promo" style="--img:url(../assets/art/art-31.svg)"><div><h3 class="display">Turn your GTA<br>ideas into value</h3><p class="muted" style="margin-top:8px">Share your creativity with the community and earn from it.</p></div></div>
+      <div class="panel how">
+        <div class="how-item"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><span><b>Submit Artwork</b><small>Upload your original GTA-inspired artwork.</small></span></div>
+        <div class="how-item"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span><b>Our Team Reviews</b><small>We verify the artwork for quality and guidelines.</small></span></div>
+        <div class="how-item"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span><b>Get Approved</b><small>Once approved, you can list it for auction.</small></span></div>
+        <div class="how-item"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><span><b>Earn &amp; Grow</b><small>Your artwork gets exposure to GTA fans worldwide.</small></span></div>
+      </div>
+      <div class="promo" style="--img:url(../assets/art/art-23.svg);min-height:200px"><h3 class="display" style="transform:rotate(-6deg);font-size:34px">Good art<br>builds bigger<br>worlds</h3></div>
+    </aside>
+
+    <div class="create-main">
+      <div class="two">
+        <section class="panel"><h3>Upload Artwork</h3><p class="sub">Supported formats: JPG, PNG, GIF, MP4 (Max 50MB)</p>
+          <div class="field" style="margin:0">
+            <div class="drop" id="drop" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><p>Drag &amp; drop your file here</p><small>or</small><button type="button" class="btn btn-primary" id="chooseBtn">Choose File</button></div>
+            <input type="file" id="fileIn" accept="image/jpeg,image/png,image/gif,video/mp4" multiple hidden>
+            <div class="err" id="upErr">Upload at least one file.</div>
+          </div>
+          <h4 style="margin:20px 0 0;font-size:14px">Add More Views <span class="muted" style="font-weight:400">(Optional)</span></h4>
+          <div class="views" id="views"></div>
+        </section>
+        <section class="panel"><h3>Artwork Details</h3><p class="sub">Tell collectors what makes it special.</p>
+          <div class="field"><label for="title">Title</label><input id="title" maxlength="60" placeholder="e.g. Vice City Sunset" autocomplete="off"><div class="err">Give your artwork a title.</div></div>
+          <div class="field"><label for="desc">Description</label><textarea id="desc" maxlength="600" placeholder="Tell us about your artwork, inspiration, and what makes it special…"></textarea><div class="err">Add a short description (10+ characters).</div></div>
+          <div class="two" style="gap:12px"><div class="field"><label for="eraSel">Game/Series</label><select id="eraSel"></select></div><div class="field"><label for="catSel">Category</label><select id="catSel"></select></div></div>
+          <div class="field" style="margin:0"><label>Tags <span class="muted" style="font-weight:400">(Optional)</span></label><div class="tags-box"><span id="tagList" style="display:contents"></span><input id="tagIn" placeholder="Add a tag and press enter…"></div></div>
+        </section>
+      </div>
+      <div class="two">
+        <section class="panel"><h3>What happens next</h3>
+          <p class="sub">Your submission goes to our review queue. If it's approved it's added to the era's collection and priced by our team. Your wallet is recorded as the submitter so we can reach you about rewards.</p>
+          <p class="hint">Check your submission status any time on your profile.</p></section>
+        <section class="panel"><h3>Pricing</h3><p class="sub">Suggest what collectors should pay to mint it. Our team makes the final call when your artwork is approved.</p>
+          <div class="field" style="margin:0"><label id="priceLbl" for="price">Suggested mint price (USD)</label><div class="input-pre"><span class="sol">$</span><input id="price" type="number" min="0" step="1" placeholder="0" inputmode="decimal"></div><div class="err">Enter a price above 0.</div><p class="hint" id="usd">Free mints are possible too — just say so in the description.</p></div></section>
+      </div>
+    </div>
+
+    <aside class="create-right" style="display:grid;gap:18px">
+      <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Preview</h3></div>
+        <div class="preview-card"><div class="pimg" id="pImg"></div></div>
+        <div class="preview-thumbs" id="pThumbs"></div>
+        <div class="preview-body" style="padding:14px 0 0"><div style="display:flex;justify-content:space-between;align-items:start;gap:8px"><h4 id="pTitle">Untitled artwork</h4><button type="button" class="btn btn-glass btn-sm" id="editBtn">Edit</button></div>
+          <div class="row"><span id="pEra"></span><span id="pCat"></span></div><div id="pTags" style="display:flex;gap:6px;flex-wrap:wrap"></div><div class="price" id="pPrice" style="margin-top:12px"></div></div></section>
+      <section class="panel"><h3 style="font-size:20px;margin-bottom:10px">Submission Guidelines</h3>
+        <ul class="guidelines"><li>Original artwork only (no direct copies of official assets)</li><li>Must be GTA-inspired</li><li>High quality and clear resolution</li><li>No explicit or illegal content</li><li>Our team will review all submissions</li></ul></section>
+      <button type="button" class="btn btn-primary btn-lg btn-block" id="submitBtn">Submit for Review</button>
+    </aside>
+  </div>
+</div>
+<div class="modal" id="okModal" role="dialog" aria-modal="true"><h3>Submitted for review</h3><p class="sub">Thanks! Our team will review your artwork. Once it's approved it's added to its era's collection and priced by our team.</p><button class="btn btn-primary btn-block" id="okHome">Browse the marketplace</button><button class="btn btn-glass btn-block" id="okClose" style="margin-top:10px">Stay here</button></div>
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/create.js"></script>
+</body>
+</html>
