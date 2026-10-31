@@ -34,7 +34,7 @@
     if (body instanceof FormData) payload = body;
     else if (body !== undefined && body !== null) { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
     // Public GETs are cached for a short while in this tab so moving between pages is instant. Any write clears it.
-    const cacheable = method === 'GET' && opt.auth === false;
+    const cacheable = method === 'GET' && opt.auth === false && /^\/(meta|collections|stats)(\?|$)|^\/items\?/.test(path); // never item detail / offers: those must be live
     if (cacheable) { const c = cacheGet(path); if (c) return c; }
     let res;
     try { res = await fetch(API + path, { method, headers, body: payload }); }
@@ -48,7 +48,7 @@
     if (cacheable) cacheSet(path, json); else if (method !== 'GET') cacheClear();
     return json;
   }
-  const CACHE_MS = 45000;
+  const CACHE_MS = 20000;
   function cacheGet(k) { try { const r = JSON.parse(sessionStorage.getItem('gta_c:' + k)); return r && Date.now() - r.t < CACHE_MS ? r.j : null; } catch (e) { return null; } }
   function cacheSet(k, j) { try { sessionStorage.setItem('gta_c:' + k, JSON.stringify({ t: Date.now(), j })); } catch (e) { cacheClear(); } }
   function cacheClear() { try { Object.keys(sessionStorage).filter((k) => k.startsWith('gta_c:')).forEach((k) => sessionStorage.removeItem(k)); } catch (e) { /* ignore */ } }

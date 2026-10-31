@@ -85,3 +85,5 @@ img { max-width: 100%; }
   .views { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 }
 @media (max-width: 560px) { .stat span { font-size: 10.5px; letter-spacing: .03em; white-space: nowrap; } .stat { padding: 12px 8px; text-align: center; } }
+
+[hidden] { display: none !important; }

@@ -222,6 +222,7 @@
       return r;
     } catch (e) {
       lis.forEach((li) => { if (li.className === 'on') li.className = 'bad'; });
+      $('#txLink').hidden = true;
       $('#txMsg').textContent = e.message || 'Something went wrong.'; $('#txMsg').className = 'sub bad';
       $('#txClose').hidden = false; $('#txClose').textContent = 'Close';
       return null;

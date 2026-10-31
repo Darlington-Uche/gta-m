@@ -25,12 +25,10 @@
   }
   function boxOwner() {
     const l = a.listing, top = offers[0];
-    const incoming = offers.length ? `<div class="own-offers"><h4>Offers on your NFT</h4>${offers.map((o) => `<div class="own-offer"><div><b>${fmtUsd(o.usd)}</b> <small class="muted">${sol}${fmtSol(o.sol)} SOL · ${short(o.bidder)} · ${G.ago(o.createdAt)}</small></div><div class="row-btns"><button class="btn btn-primary btn-sm" data-accept="${o.id}">Accept</button><button class="btn btn-glass btn-sm" data-reject="${o.id}">Decline</button></div></div>`).join('')}<p class="hint">Accepting sends the NFT to the bidder and pays you from escrow, minus ${(S.meta.settings.saleFeeBps / 100).toFixed(1)}% platform fee and a ~$${S.meta.settings.acceptFeeUsd} network fee. Every other offer is refunded automatically.</p></div>` : '<p class="hint">No offers yet. Collectors can make an offer any time — you don\'t need to list it.</p>';
+    const incoming = offers.length ? `<div class="own-offers"><h4>Offers on your NFT</h4>${offers.map((o) => `<div class="own-offer"><div><b>${fmtUsd(o.usd)}</b> <small class="muted">${sol}${fmtSol(o.sol)} SOL · ${short(o.bidder)} · ${G.ago(o.createdAt)}</small></div><div class="row-btns"><button class="btn btn-primary btn-sm" data-accept="${o.id}">Accept</button><button class="btn btn-glass btn-sm" data-reject="${o.id}">Decline</button></div></div>`).join('')}<p class="hint">Accepting sends the NFT to the bidder and pays you from escrow, minus ${(S.meta.settings.saleFeeBps / 100).toFixed(1)}% platform fee and a ~$${S.meta.settings.acceptFeeUsd} network fee. Every other offer is refunded automatically.</p></div>` : '<p class="hint">No offers yet. Collectors can make an offer any time.</p>';
     return `<div class="bid-top"><div><small>You own this</small><div class="big-price" style="font-size:22px">${top ? 'Top offer ' + fmtUsd(top.usd) : 'No offers yet'}</div></div>
-      <div><small>Sale price</small><div class="big-price" style="font-size:22px">${l ? fmtUsd(l.priceUsd) : 'Not set'}</div>${l ? `<small class="usd-sub" style="text-transform:none;letter-spacing:0">${solLine(l.priceUsd)}</small>` : ''}</div></div>
-      <div class="bid-form"><div class="field" style="margin:0"><input id="saleAmt" type="number" min="${minOffer()}" step="1" value="${l ? l.priceUsd : ''}" placeholder="Sale price" inputmode="decimal" aria-label="Sale price in USD"><span class="unit">USD</span></div><button class="btn btn-primary btn-lg" id="saleBtn">${l ? 'Update' : 'Set price'}</button></div>
-      ${l ? '<button class="btn btn-glass btn-block" id="unlistBtn" style="margin-top:10px">Remove sale price</button>' : ''}
-      <p class="hint">${l ? 'Anyone can buy instantly at this price. You can still accept offers.' : 'Optional. Setting a price asks you to approve once in your wallet so the buyer\'s payment and the NFT transfer happen together.'}</p>
+      <div><small>Offers</small><div class="big-price" style="font-size:22px">${offers.length}</div></div></div>
+      <p class="hint">Collectors make offers on your NFT. Accept the one you like and you are paid from escrow — you can't set a fixed price.</p>
       ${incoming}`;
   }
   function boxBuyer() {
@@ -125,14 +123,6 @@
     const cancel = e.target.closest('[data-cancel]');
     if (cancel) { if (await call('DELETE', '/offers/' + cancel.dataset.cancel, null, 'Offer cancelled — your SOL is on its way back.')) await reload(); return; }
 
-    if (e.target.closest('#saleBtn')) {
-      const usd = +$('#saleAmt').value;
-      if (!(usd >= minOffer())) { toast('Minimum price is $' + minOffer(), 'bad'); return; }
-      if (a.listing) { if (await call('PATCH', `/items/${encodeURIComponent(a.id)}/listing`, { priceUsd: usd }, 'Sale price updated')) await reload(); }
-      else { await runTx({ title: 'Set sale price $' + usd, path: `/items/${encodeURIComponent(a.id)}/listing`, body: { priceUsd: usd }, success: 'Your NFT is now for sale.' }); await reload(); }
-      return;
-    }
-    if (e.target.closest('#unlistBtn')) { if (await call('DELETE', `/items/${encodeURIComponent(a.id)}/listing`, null, 'Sale price removed')) await reload(); return; }
     const acc = e.target.closest('[data-accept]');
     if (acc) {
       const o = offers.find((x) => x.id === acc.dataset.accept);
