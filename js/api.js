@@ -163,8 +163,11 @@
     S.token = token; S.wallet = wallet; S.provider = provider;
     ls.set('jwt', token); ls.set('walletAddr', wallet); ls.set('provider', provider);
     await refreshMe();
+    startPoll();
     emit('auth', { wallet });
   }
+  let pollTimer = null;
+  function startPoll() { if (!pollTimer && !S.demo) pollTimer = setInterval(() => { if (S.token) refreshMe().catch(() => {}); }, 30000); }
   async function connect(name) {
     if (S.demo || !S.online) throw new ApiError('The server is not connected yet (demo mode).', 'demo', 0);
     if (name.startsWith('test:')) {
@@ -214,7 +217,18 @@
 
   /* ---------- prepare → sign → submit → wait for confirmation ---------- */
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const isStale = (e) => e && (e.code === 'tx_expired' || /blockhash|expired/i.test(e.message || ''));
+  /** Prepare → sign → submit. If the approval was too slow and the tx went stale, quietly prepare a fresh one once. */
   async function act(method, path, body, ui) {
+    try { return await actOnce(method, path, body, ui); }
+    catch (e) {
+      if (!isStale(e)) throw e;
+      if (ui) ui('prepare');
+      try { return await actOnce(method, path, body, ui); }
+      catch (e2) { if (isStale(e2)) throw new ApiError('That took too long to approve and the transaction expired. Please try again and approve quickly.', 'tx_expired', 0); throw e2; }
+    }
+  }
+  async function actOnce(method, path, body, ui) {
     if (!S.token) throw new ApiError('Connect your wallet first.', 'auth', 401);
     const step = (s, extra) => ui && ui(s, extra);
     step('prepare');
@@ -231,7 +245,7 @@
       await sleep(1500);
       tx = (await http('GET', '/tx/' + prep.ptxId)).tx;
     }
-    if (tx.status !== 'confirmed') throw new ApiError(tx.status === 'confirmed' ? '' : 'The transaction did not confirm (' + tx.status + '). Nothing was charged if it never landed — check your wallet and try again.', 'tx_' + tx.status, 0);
+    if (tx.status !== 'confirmed') throw new ApiError('The transaction did not confirm (' + tx.status + '). Nothing was charged if it never landed — check your wallet and try again.', 'tx_' + tx.status, 0);;
     step('done', tx);
     refreshMe().catch(() => {});
     return { prep, tx };
@@ -249,7 +263,7 @@
       console.warn('[GTA] API unreachable, falling back to demo data:', e.message);
       S.online = false; S.meta = null; await loadCollections();
     }
-    if (S.token && S.online) setInterval(() => refreshMe().catch(() => {}), 30000);
+    if (S.token && S.online) startPoll();
   }
 
   window.GTA_API = {

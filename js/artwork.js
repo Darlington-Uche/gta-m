@@ -21,7 +21,7 @@
     return `<div class="bid-top"><div><small>${free ? 'Mint' : 'Mint price'}</small><div class="big-price">${free ? 'Free' : fmtUsd(price)}</div>${free ? '' : `<small class="usd-sub" style="text-transform:none;letter-spacing:0">${solLine(price)}</small>`}</div>
       <div><small>Owner</small><div class="big-price" style="font-size:18px">None yet</div><small style="text-transform:none;letter-spacing:0">Mint it and it's yours</small></div></div>
       <div class="bid-form"><button class="btn btn-primary btn-lg btn-block" id="mintBtn" ${can ? '' : 'disabled'}>${free ? 'Mint for free' : 'Mint now'}</button></div>
-      <p class="hint">${why || 'This artwork only exists on-chain once someone mints it. You pay the price shown plus the tiny Solana network fee, and you become the owner the moment the transaction confirms.' + (free ? ' Free mints are limited per wallet.' : '')}</p>`;
+      <p class="hint">${why || 'This artwork only exists on-chain once someone mints it. You pay the price shown plus small on-chain costs (account rent ≈ 0.003 SOL, permanent image storage and the network fee — the wallet shows the exact total before you approve), and you become the owner the moment the transaction confirms.' + (free ? ' Free mints are limited per wallet.' : '')}</p>`;
   }
   function boxOwner() {
     const l = a.listing, top = offers[0];
