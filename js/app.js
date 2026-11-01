@@ -42,6 +42,7 @@
     review: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>',
     trend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+    profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9.8" r="3.2"/><path d="M5.9 18.6c1.3-2.3 3.5-3.5 6.1-3.5s4.8 1.2 6.1 3.5"/></svg>',
     submit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 15 3-3 2 2 3-4"/></svg>'
   };
   const sol = '<span class="sol" role="img" aria-label="SOL"></span>';
@@ -66,7 +67,7 @@
       <div class="top-actions">
         <a class="icon-btn cart-btn" id="bellBtn" href="profile.html#notifications" aria-label="Notifications" hidden>${I.bell}<span class="badge" id="bellBadge" hidden>0</span></a>
         <button class="btn btn-primary" id="walletBtn">Connect<span class="long">&nbsp;Wallet</span></button>
-        <a class="avatar" id="avatar" href="profile.html" title="Profile" hidden>?</a>
+        <a class="avatar" id="avatar" href="profile.html" title="Profile" aria-label="Profile" hidden></a>
       </div>
     </div></header>
     <div class="net-banner" id="netBanner" hidden></div>`;
@@ -170,7 +171,7 @@
     const b = $('#walletBtn'), av = $('#avatar'), bell = $('#bellBtn');
     if (S.wallet) {
       b.textContent = short(S.wallet); b.className = 'btn connected';
-      av.hidden = false; av.textContent = S.wallet[0].toUpperCase(); bell.hidden = false;
+      av.hidden = false; av.innerHTML = I.profile; av.title = 'Profile · ' + short(S.wallet); bell.hidden = false;
     } else {
       b.innerHTML = 'Connect<span class="long">&nbsp;Wallet</span>'; b.className = 'btn btn-primary'; av.hidden = true; bell.hidden = true;
     }
@@ -258,9 +259,10 @@
       if (like) {
         e.preventDefault();
         if (API.isDemo) { toast('Likes need the backend (demo mode)', 'bad'); return; }
-        if (needWallet()) return;
+        if (like.dataset.busy) return; like.dataset.busy = '1';
         const id = String(like.dataset.like);
         const r = await call('POST', '/items/' + encodeURIComponent(id) + '/like');
+        delete like.dataset.busy;
         if (!r) return;
         if (r.liked) S.likes.add(id); else S.likes.delete(id);
         $$(`[data-like="${CSS.escape(id)}"]`).forEach((b) => { b.classList.toggle('on', r.liked); const s = $('span', b); if (s) s.textContent = Math.max(0, +s.textContent + (r.liked ? 1 : -1)); });

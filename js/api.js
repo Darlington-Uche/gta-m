@@ -26,9 +26,15 @@
   class ApiError extends Error { constructor(message, code, status) { super(message); this.code = code; this.status = status; } }
 
   /* ---------- http ---------- */
+  // Anonymous visitors can like artworks without a wallet: a random id kept in this browser stands in for the wallet.
+  function visitorId() {
+    let v = ls.get('vid', null);
+    if (!v) { const a = new Uint8Array(18); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => { a[i] = Math.floor(Math.random() * 256); }); v = Array.from(a, (b) => b.toString(16).padStart(2, '0')).join(''); ls.set('vid', v); }
+    return v;
+  }
   async function http(method, path, body, opt = {}) {
     if (S.demo) throw new ApiError('Demo mode: set API_URL in js/config.js to connect the backend.', 'demo', 0);
-    const headers = {};
+    const headers = { 'x-visitor-id': visitorId() };
     if (S.token && opt.auth !== false) headers.authorization = 'Bearer ' + S.token;
     let payload;
     if (body instanceof FormData) payload = body;
@@ -205,11 +211,12 @@
     ls.del('jwt'); ls.del('walletAddr'); ls.del('provider');
     emit('auth', { wallet: null });
   }
+  async function loadLikes() { try { S.likes = new Set((await http('GET', '/likes/mine')).itemIds.map(String)); } catch (e) { /* ignore */ } }
   async function refreshMe() {
     if (!S.token) return null;
     const me = await http('GET', '/me');
     S.admin = !!me.admin; S.unread = me.unread || 0;
-    try { S.likes = new Set((await http('GET', '/me/likes')).itemIds); } catch (e) { /* ignore */ }
+    await loadLikes();
     emit('unread', S.unread);
     return me;
   }
@@ -270,6 +277,7 @@
       S.online = true;
       await loadCollections();
       if (S.token) await refreshMe().catch(() => { /* signOut already ran on 401 */ });
+      else await loadLikes();
     } catch (e) {
       console.warn('[GTA] API unreachable, falling back to demo data:', e.message);
       S.online = false; S.meta = null; await loadCollections();

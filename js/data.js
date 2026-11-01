@@ -2885,7 +2885,7 @@ window.GTA_DATA = {
    "era": "vi",
    "count": 0,
    "floor": 0,
-   "cover": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22600%22%20height%3D%22600%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ff4fa3%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234b0f5e%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22600%22%20height%3D%22600%22%20fill%3D%22url(%23g)%22%2F%3E%3Ctext%20x%3D%22300%22%20y%3D%22290%22%20font-family%3D%22Impact%2Csans-serif%22%20font-size%3D%2264%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EGTA%20VI%3C%2Ftext%3E%3Ctext%20x%3D%22300%22%20y%3D%22350%22%20font-family%3D%22sans-serif%22%20font-size%3D%2230%22%20fill%3D%22%23fff%22%20fill-opacity%3D%22.8%22%20text-anchor%3D%22middle%22%3ECOMING%20SOON%20%233%3C%2Ftext%3E%3C%2Fsvg%3E",
+   "cover": "assets/art/gta5.jpg",
    "covers": [
     "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22600%22%20height%3D%22600%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ff4fa3%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234b0f5e%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22600%22%20height%3D%22600%22%20fill%3D%22url(%23g)%22%2F%3E%3Ctext%20x%3D%22300%22%20y%3D%22290%22%20font-family%3D%22Impact%2Csans-serif%22%20font-size%3D%2264%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EGTA%20VI%3C%2Ftext%3E%3Ctext%20x%3D%22300%22%20y%3D%22350%22%20font-family%3D%22sans-serif%22%20font-size%3D%2230%22%20fill%3D%22%23fff%22%20fill-opacity%3D%22.8%22%20text-anchor%3D%22middle%22%3ECOMING%20SOON%20%233%3C%2Ftext%3E%3C%2Fsvg%3E",
     "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22600%22%20height%3D%22600%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ff4fa3%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234b0f5e%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22600%22%20height%3D%22600%22%20fill%3D%22url(%23g)%22%2F%3E%3Ctext%20x%3D%22300%22%20y%3D%22290%22%20font-family%3D%22Impact%2Csans-serif%22%20font-size%3D%2264%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EGTA%20VI%3C%2Ftext%3E%3Ctext%20x%3D%22300%22%20y%3D%22350%22%20font-family%3D%22sans-serif%22%20font-size%3D%2230%22%20fill%3D%22%23fff%22%20fill-opacity%3D%22.8%22%20text-anchor%3D%22middle%22%3ECOMING%20SOON%20%232%3C%2Ftext%3E%3C%2Fsvg%3E",
@@ -2928,7 +2928,7 @@ window.GTA_DATA = {
    "era": "sa",
    "count": 23,
    "floor": 2.8,
-   "cover": "assets/art/Minigun.PNG",
+   "cover": "assets/art/cj.jpg",
    "covers": [
     "assets/art/Minigun.PNG",
     "assets/art/cj.jpg",
@@ -2970,7 +2970,7 @@ window.GTA_DATA = {
    "era": "v",
    "count": 22,
    "floor": 2.8,
-   "cover": "assets/art/gta5.jpg",
+   "cover": "assets/art/Michael-De-Santa.jpg",
    "covers": [
     "assets/art/Michael-De-Santa.jpg",
     "assets/art/Los-Santos.jpg",
