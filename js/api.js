@@ -160,6 +160,14 @@
     Backpack: () => (window.backpack && window.backpack.isBackpack ? window.backpack : null)
   };
   const INSTALL = { Phantom: 'https://phantom.app/download', Solflare: 'https://solflare.com/download', Backpack: 'https://backpack.app/downloads' };
+  // Real wallet logos: use the icon the installed wallet itself announces (Wallet Standard); otherwise assets/wallets/<name>.(svg|png).
+  const stdIcons = {};
+  try {
+    const reg = { register: (...ws) => { ws.forEach((w) => { if (w && w.name && w.icon) stdIcons[w.name.toLowerCase()] = w.icon; }); return () => {}; } };
+    window.addEventListener('wallet-standard:register-wallet', (e) => { try { e.detail(reg); } catch (_) {} });
+    window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: reg }));
+  } catch (_) {}
+  const walletIcon = (name) => stdIcons[name.toLowerCase()] || `assets/wallets/${name.toLowerCase()}.png`;
   const detect = () => Object.keys(PROVIDERS).map((name) => ({ name, found: !!PROVIDERS[name](), install: INSTALL[name] }));
 
   // Test wallets exist only when the server runs the MOCK chain (offline demo). They are random keys kept in this browser.
@@ -287,7 +295,7 @@
 
   window.GTA_API = {
     S, ApiError, http, qs, thumb, cacheClear, on, emit, ls, init, items, item, offersFor, loadCollections, stats, normApi,
-    connect, signOut, detect, testWallets, refreshMe, act, signTx,
+    connect, signOut, detect, walletIcon, testWallets, refreshMe, act, signTx,
     fmtUsd, fmtSol, short, initials,
     get isDemo() { return S.demo || !S.online; },
     get wallet() { return S.wallet; }, get authed() { return !!S.token; }

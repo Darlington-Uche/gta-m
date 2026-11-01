@@ -187,7 +187,7 @@
       const colors = { Phantom: ['#ab9ff2', '#1c1530'], Solflare: ['#fc9b1f', '#2a1700'], Backpack: ['#e33e3f', '#fff'] };
       if (API.isDemo) { list.innerHTML = '<p class="muted" style="margin:6px 0 14px">The backend is not connected, so wallets are disabled. Set <code>API_URL</code> in <code>js/config.js</code>.</p>'; }
       else {
-        list.innerHTML = API.detect().map((p) => `<button class="wallet-opt" data-w="${p.name}"><span class="wi" style="background:${colors[p.name][0]};color:${colors[p.name][1]}">${p.name[0]}</span><span><b>${p.name}</b><small>${p.found ? 'Detected' : 'Not installed — tap to get it'}</small></span></button>`).join('')
+        list.innerHTML = API.detect().map((p) => `<button class="wallet-opt" data-w="${p.name}"><span class="wi" style="background:${colors[p.name][0]};color:${colors[p.name][1]}">${p.name[0]}<img src="${API.walletIcon(p.name)}" alt="" onerror="this.remove()"></span><span><b>${p.name}</b><small>${p.found ? 'Detected' : 'Not installed — tap to get it'}</small></span></button>`).join('')
           + (S.meta && S.meta.chain === 'mock' ? '<p class="muted" style="margin:14px 0 8px;font-size:12px">Offline test chain — fake wallets with free test SOL:</p>' + API.testWallets().map((w) => `<button class="wallet-opt" data-w="test:${w.name}"><span class="wi" style="background:#2de2e6;color:#03181a">${w.name[0]}</span><span><b>${w.name}</b><small>${short(w.addr)}</small></span></button>`).join('') : '');
       }
     }
