@@ -23,8 +23,8 @@
   }
   function drawRail() {
     const cols = S.collections.length ? S.collections : eraKeys().map((k) => ({ era: k, short: D.eraShort[k], cover: null }));
-    const items = [['', 'All', 'Every era', (cols[0] && cols[0].cover) || ''], ...cols.filter((c) => D.eras[c.era]).map((c) => [c.era, c.short || D.eraShort[c.era], D.eras[c.era].match(/\((\d+)\)/)[1], c.cover || ''])];
-    $('#eraRail').innerHTML = items.map((e) => `<div class="era-chip ${(!f.eras.length && !e[0]) || (f.eras.length === 1 && f.eras[0] === e[0]) ? 'active' : ''}" data-era="${e[0]}" tabindex="0">${e[3] ? `${window.GTA.imgTag(e[3], "", 160)}` : ''}<div><b>${esc(e[1])}</b><small>${e[2]}</small></div></div>`).join('');
+    const items = [['', 'All', 'Every era', D.allCover || (cols[0] && cols[0].cover) || '', (cols[0] && cols[0].cover) || ''], ...cols.filter((c) => D.eras[c.era]).map((c) => [c.era, c.short || D.eraShort[c.era], D.eras[c.era].match(/\((\d+)\)/)[1], c.cover || ''])];
+    $('#eraRail').innerHTML = items.map((e) => `<div class="era-chip ${(!f.eras.length && !e[0]) || (f.eras.length === 1 && f.eras[0] === e[0]) ? 'active' : ''}" data-era="${e[0]}" tabindex="0">${e[3] ? `${window.GTA.imgTag(e[3], "", 160, "", e[4])}` : ''}<div><b>${esc(e[1])}</b><small>${e[2]}</small></div></div>`).join('');
   }
   function query() {
     const q = { sort, page, limit: PAGE };

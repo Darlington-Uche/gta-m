@@ -10,7 +10,7 @@
   /* ---------- helpers ---------- */
   const { fmtUsd, fmtSol, short } = API;
   const T = (u, w) => API.thumb(u, w);
-  const imgTag = (u, alt, w, extra) => `<img src="${esc(T(u, w))}" data-o="${esc(u)}" onerror="if(this.dataset.o&&this.src!==this.dataset.o){this.src=this.dataset.o}" alt="${esc(alt)}" loading="lazy" decoding="async"${extra || ''}>`;
+  const imgTag = (u, alt, w, extra, fb) => `<img src="${esc(T(u, w))}" data-o="${esc(u)}"${fb ? ` data-f="${esc(fb)}"` : ''} onerror="var d=this.dataset;if(d.o&&this.src!==d.o){this.src=d.o}else if(d.f&&this.src!==d.f){this.src=d.f}else{this.style.visibility='hidden'}" alt="${esc(alt)}" loading="lazy" decoding="async"${extra || ''}>`;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function timeStr(ms) {
     if (ms <= 0) return 'now';

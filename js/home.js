@@ -10,8 +10,8 @@
 
     // era rail -> links to explore
     const cols = S.collections.filter((c) => D.eras[c.era]);
-    $('#eraRail').innerHTML = [['', 'All', 'Every era', (cols[0] || {}).cover], ...cols.map((c) => [c.era, c.short || D.eraShort[c.era], D.eras[c.era].match(/\((\d+)\)/)[1], c.cover])]
-      .map((e) => `<a class="era-chip" href="explore.html${e[0] ? '?era=' + e[0] : ''}">${e[3] ? `${window.GTA.imgTag(e[3], "", 160)}` : ''}<div><b>${esc(e[1])}</b><small>${e[2]}</small></div></a>`).join('');
+    $('#eraRail').innerHTML = [['', 'All', 'Every era', D.allCover || (cols[0] || {}).cover, (cols[0] || {}).cover], ...cols.map((c) => [c.era, c.short || D.eraShort[c.era], D.eras[c.era].match(/\((\d+)\)/)[1], c.cover])]
+      .map((e) => `<a class="era-chip" href="explore.html${e[0] ? '?era=' + e[0] : ''}">${e[3] ? `${window.GTA.imgTag(e[3], "", 160, "", e[4])}` : ''}<div><b>${esc(e[1])}</b><small>${e[2]}</small></div></a>`).join('');
 
     // featured: NFTs with the most offers, topped up with the most liked
     const hot = await API.items({ sort: 'offers', status: 'minted', hasOffers: 'true', limit: 5 }).catch(() => ({ items: [] }));
