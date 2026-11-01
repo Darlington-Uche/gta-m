@@ -127,7 +127,8 @@
     if (S.demo || !S.online) { S.collections = demoCollections(); return S.collections; }
     const r = await http('GET', '/collections', null, { auth: false });
     const covers = {};
-    S.collections = r.collections.map((c) => ({ ...c, covers: c.covers || [c.cover].filter(Boolean) }));
+    // A cover picked in data.js (a real image file) wins over the automatic one from the backend
+    S.collections = r.collections.map((c) => { const m = (D.collections || []).find((x) => x.id === c.id); const pick = m && m.cover && !/^data:/.test(m.cover) ? m.cover : null; return { ...c, cover: pick || c.cover, covers: c.covers || [c.cover].filter(Boolean) }; });
     return S.collections;
   }
   async function stats() { return S.online ? (await http('GET', '/stats', null, { auth: false })).stats : null; }
