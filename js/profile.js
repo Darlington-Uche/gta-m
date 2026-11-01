@@ -8,6 +8,13 @@
   const empty = (t, d) => `<div class="empty"><b>${t}</b>${d || ''}</div>`;
   const row = (inner) => `<div class="own-offer prof-row">${inner}</div>`;
 
+  /** Links to the on-chain transactions of an offer: payment in, refund out, or the sale. */
+  const txLinks = (o) => {
+    const l = (sig, label) => (sig ? `<a class="txl" href="${explorer(sig)}" target="_blank" rel="noopener">${label} ↗</a>` : '');
+    const parts = [l(o.paymentSignature, 'Payment tx'), l(o.refundSignature, 'Refund tx'), l(o.saleSignature, 'Sale tx')].filter(Boolean);
+    const wait = o.status === 'refund_pending' ? '<span class="muted">Refund on its way…</span>' : '';
+    return parts.length || wait ? `<div class="txls">${parts.join(' · ')}${wait}</div>` : '';
+  };
   const views = {
     async nfts() {
       const r = await API.http('GET', '/me/nfts');
@@ -20,7 +27,7 @@
     },
     async made() {
       const r = await API.http('GET', '/me/offers/made');
-      return r.offers.length ? r.offers.map((o) => row(`<div><a href="artwork.html?id=${encodeURIComponent(o.itemId)}"><b>${fmtUsd(o.usd)}</b></a> <span class="muted">· ${sol}${fmtSol(o.sol)} SOL · ${esc(o.status.replace('_', ' '))} · ${G.ago(o.createdAt)}</span></div>${o.status === 'active' ? `<button class="btn btn-glass btn-sm" data-cancel="${o.id}">Cancel &amp; refund</button>` : ''}`)).join('') : empty('You haven\'t made any offers', 'Find something you like on <a href="explore.html">Explore</a>.');
+      return r.offers.length ? r.offers.map((o) => row(`<div><a href="artwork.html?id=${encodeURIComponent(o.itemId)}"><b>${fmtUsd(o.usd)}</b></a> <span class="muted">· ${sol}${fmtSol(o.sol)} SOL · ${esc(o.status.replace('_', ' '))} · ${G.ago(o.createdAt)}</span>${txLinks(o)}</div>${o.status === 'active' ? `<button class="btn btn-glass btn-sm" data-cancel="${o.id}">Cancel &amp; refund</button>` : ''}`)).join('') : empty('You haven\'t made any offers', 'Find something you like on <a href="explore.html">Explore</a>.');
     },
     async notifications() {
       const r = await API.http('GET', '/me/notifications?limit=50');

@@ -87,3 +87,6 @@ img { max-width: 100%; }
 @media (max-width: 560px) { .stat span { font-size: 10.5px; letter-spacing: .03em; white-space: nowrap; } .stat { padding: 12px 8px; text-align: center; } }
 
 [hidden] { display: none !important; }
+
+.txls { margin-top: 6px; font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.txl { color: var(--cyan); text-decoration: underline; text-underline-offset: 3px; }
