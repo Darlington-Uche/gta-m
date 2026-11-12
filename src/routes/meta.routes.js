@@ -1,3 +1,4 @@
+import { getCollection } from '../services/collections.service.js';
 import { chain } from '../services/chain/index.js';
 import { config } from '../config/index.js';
 import { getSettings, bidWindowState } from '../services/settings.service.js';
@@ -32,6 +33,12 @@ export const routes = [
     method: 'get', path: '/metadata/:id.json', auth: 'public', summary: 'Metaplex-standard NFT metadata JSON (this URL is stored on-chain as the NFT uri)',
     handler: async (req, res) => {
       res.set('Cache-Control', 'public, max-age=300');
+      if (req.params.id.startsWith('collection-')) {
+        const c = await getCollection(req.params.id.slice(11));
+        if (!c) return res.status(404).json({ ok: false, error: { code: 'not_found', message: 'No such collection' } });
+        const base = config.nftSymbolName;
+        return res.json({ name: c.name || base, symbol: 'GTAM', description: c.blurb || 'GTA-inspired art collection. Fan-made, not affiliated with Rockstar Games or Take-Two.', image: c.cover || c.banner || '', external_url: config.assetsBaseUrl, properties: { category: 'image', files: c.cover ? [{ uri: c.cover, type: 'image/jpeg' }] : [] } });
+      }
       if (req.params.id === 'collection') return res.json({ name: config.nftSymbolName, symbol: 'GTAM', description: 'GTA-inspired art collection. Fan-made, not affiliated with Rockstar Games or Take-Two.', image: `${config.assetsBaseUrl}/assets/hero/hero-home.png`, external_url: config.assetsBaseUrl || config.publicBaseUrl });
       return res.json(metadataFor(await getItemRaw(req.params.id)));
     }

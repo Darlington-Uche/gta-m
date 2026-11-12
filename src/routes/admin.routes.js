@@ -71,18 +71,18 @@ export const routes = [
 
   // ---- deploy helpers (so nothing needs a terminal) ----
   {
-    method: 'post', path: '/admin/collections/:id/create', auth: 'admin', params: idParam,
+    method: 'post', path: '/admin/collections/:id/create', auth: 'admin', params: idParam, body: z.object({ force: z.boolean().optional() }).optional(),
     summary: 'Create the on-chain Metaplex Core collection for this era (update authority = platform authority) and register it as live. The vault pays the small rent.',
     handler: async (req) => {
       const id = req.valid.params.id;
       const existing = await getCollection(id);
-      if (existing?.address) throw conflict('already_live', `${id} already has a collection on ${config.network}: ${existing.address}`);
+      if (existing?.address && !req.valid.body?.force) throw conflict('already_live', `${id} already has a collection on ${config.network}: ${existing.address}`);
       if (config.chainDriver !== 'mock') {
         const bal = await chain.getBalance(chain.vaultAddress);
         if (bal < 20_000_000) throw bad('vault_low', `The vault needs at least ~0.02 SOL (has ${(bal / 1e9).toFixed(4)}).` + (config.isMainnet ? '' : ' Use "Airdrop devnet SOL" first.'));
       }
       const name = existing?.name && existing.name !== id ? existing.name : `GTA Market · ${ERAS[id]?.short || id}`;
-      const res = await chain.createCollection({ name, uri: `${config.publicBaseUrl}/metadata/collection.json` });
+      const res = await chain.createCollection({ name, uri: `${config.publicBaseUrl}/metadata/collection-${id}.json` });
       return { collection: await registerCollection({ id, name, address: res.address, by: req.user.wallet }), signature: res.signature };
     }
   },

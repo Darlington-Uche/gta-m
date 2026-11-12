@@ -128,13 +128,14 @@ VIEWS.collections = async (el) => {
       <label class="field">Blurb<textarea data-f="blurb" style="min-height:60px">${esc(c.blurb || '')}</textarea></label>
       <div class="row"><div class="dz" data-bn style="flex:1 1 220px;aspect-ratio:16/4;${c.banner ? `background-image:url('${esc(c.banner)}')` : ''}"><span>${c.banner ? 'Change banner' : 'Upload banner'}</span></div></div>
       <div><div class="fine">On-chain address</div>${c.address ? `<code>${esc(c.address)}</code>` : '<span class="warn">None on ' + esc(META.network) + ' yet</span>'}</div>
-      <div class="row"><button class="btn primary sm" data-save>Save</button>${c.address ? '' : '<button class="btn sm" data-create>Create on-chain</button><button class="btn sm" data-attach>Use existing address</button>'}</div></div></div>`).join('');
+      <div class="row"><button class="btn primary sm" data-save>Save</button>${c.address ? '<button class="btn sm" data-recreate>New on-chain address</button>' : '<button class="btn sm" data-create>Create on-chain</button><button class="btn sm" data-attach>Use existing address</button>'}</div></div></div>`).join('');
   const put = (id, b) => api('PUT', '/admin/collections/' + id, b);
   el.onclick = async (e) => {
     const box = e.target.closest('.coll'); if (!box) return; const id = box.dataset.id, val = (k) => $(`[data-f="${k}"]`, box).value;
     if (e.target.closest('[data-cv],[data-bn]')) { const isB = !!e.target.closest('[data-bn]'); const [f] = await pickFiles(false); if (!f) return; await busy(null, async () => { toast('Uploading…'); const url = await upload(f, isB ? 'banners' : 'collections'); await put(id, { [isB ? 'banner' : 'cover']: url }); toast('Saved'); render(); }); }
     else if (e.target.closest('[data-save]')) busy(e.target, async () => { await put(id, { name: val('name'), blurb: val('blurb'), status: val('status') }); toast('Saved'); });
     else if (e.target.closest('[data-create]')) busy(e.target, async () => { await api('POST', `/admin/collections/${id}/create`); toast('Collection created on-chain'); render(); });
+    else if (e.target.closest('[data-recreate]')) { if (confirm('Create a brand new on-chain collection for this era? The current address is replaced; NFTs already minted keep the old one.')) busy(e.target, async () => { await api('POST', `/admin/collections/${id}/create`, { force: true }); toast('New collection created on-chain'); render(); }); }
     else if (e.target.closest('[data-attach]')) { const a = prompt('Paste the existing Metaplex Core collection address'); if (a) busy(e.target, async () => { await put(id, { address: a.trim() }); toast('Attached'); render(); }); }
   };
   $('#all').onclick = (e) => busy(e.target, async () => { let n = 0; for (const c of r.collections.filter((x) => !x.address)) { try { await api('POST', `/admin/collections/${c.id}/create`); n++; } catch (err) { toast(c.id + ': ' + err.message, true); } } toast(n + ' created'); render(); });
