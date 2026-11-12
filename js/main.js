@@ -22,6 +22,7 @@ function chrome() {
   $('#hd').innerHTML = `<a class="brand" href="#/"><b>GTA</b><span>MARKET</span></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
     <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet ? `<a class="chipb" href="#/me"><i class="dot"></i>${short(S.wallet)}${badge}</a>` : '<button class="btn primary sm" id="cw">Connect wallet</button>'}</div>`;
+  const an = S.site && S.site.announcement; let bar = $('#ann'); if (an) { if (!bar) { bar = document.createElement('div'); bar.id = 'ann'; document.body.prepend(bar); } bar.textContent = an; } else if (bar) bar.remove();
   $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
 }

@@ -176,3 +176,4 @@ main { max-width: var(--wrap); margin: 0 auto; padding: 36px 24px 90px; min-heig
 .accent { color: var(--pink); }
 .grad { background: var(--vice); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero h1 .grad { background: var(--sunset); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#ann{background:var(--vice);color:#fff;text-align:center;font-weight:800;font-size:13px;padding:8px 16px;letter-spacing:.02em}
