@@ -46,9 +46,26 @@ function backdrop(path) {
   el.className = url ? 'on' + (key === 'home' ? ' tall' : '') : '';
   if (url === bdCur) return; bdCur = url;
   const layers = $$('i', el); bdFlip ^= 1; const next = layers[bdFlip], prev = layers[bdFlip ^ 1];
-  if (url) { next.style.backgroundImage = `url('${url.replace(/'/g, '%27')}')`; next.style.setProperty('--pos', custom || !d ? 'center 25%' : d[1]); next.style.setProperty('--mpos', custom || !d ? 'center 20%' : d[2]); }
+  next.classList.remove('fit'); next.dataset.ar = '';
+  if (url) {
+    const u = `url('${url.replace(/'/g, '%27')}')`;
+    next.style.backgroundImage = u; next.style.setProperty('--bi', u);
+    next.style.setProperty('--pos', custom || !d ? 'center 25%' : d[1]); next.style.setProperty('--mpos', custom || !d ? 'center 20%' : d[2]);
+    if (custom) { const im = new Image(); im.onload = () => { if (bdCur !== url) return; next.dataset.ar = im.naturalWidth / im.naturalHeight; fitBackdrop(); }; im.src = url; }
+  }
   next.classList.toggle('on', !!url); prev.classList.remove('on');
 }
+/* Uploaded images can have any shape. When "cover" would cut away a big part of one on this screen, show it whole
+   (contained) over a blurred copy of itself instead. Re-checked on resize / rotation. */
+function fitBackdrop() {
+  const el = $('#backdrop'); if (!el) return;
+  $$('i', el).forEach((i) => {
+    const ar = +i.dataset.ar; if (!ar) { i.classList.remove('fit'); return; }
+    const box = el.clientWidth / Math.max(1, el.clientHeight), keep = Math.min(ar, box) / Math.max(ar, box); // share of the image left visible with cover
+    i.classList.toggle('fit', keep < 0.7);
+  });
+}
+addEventListener('resize', () => { clearTimeout(fitBackdrop.t); fitBackdrop.t = setTimeout(fitBackdrop, 150); });
 
 let tok = 0, cleanup = null;
 async function render() {

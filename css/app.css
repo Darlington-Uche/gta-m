@@ -257,3 +257,15 @@ main { min-height: 70vh; padding-bottom: 60px; }
 @media (max-width: 760px) {
   #backdrop.tall { height: 66vh; } .hero { min-height: 0; padding-top: calc(36vh - var(--nav-h)); }
 }
+
+/* v6 — adaptive images: artwork and uploaded covers are shown whole on every screen size, never cropped */
+.card .thumb img { object-fit: contain; position: relative; }
+.card .thumb img.fill { position: absolute; inset: -12%; width: 124%; height: 124%; object-fit: cover; filter: blur(22px) saturate(1.3) brightness(.7); transform: none !important; pointer-events: none; }
+.card .thumb img:only-child { object-fit: cover; }
+.tile .bgf { position: absolute; inset: -10%; z-index: -3; background-size: cover; background-position: center; filter: blur(24px) saturate(1.3) brightness(.65); }
+.tile:not(.nocover) .bgi { background-size: contain; background-repeat: no-repeat; background-color: transparent; }
+#backdrop i.fit { background-image: none !important; animation: none; transform: none; }
+#backdrop i.fit::before, #backdrop i.fit::after { content: ''; position: absolute; inset: 0; background-image: var(--bi); background-repeat: no-repeat; }
+#backdrop i.fit::before { inset: -40px; background-size: cover; background-position: center; filter: blur(30px) saturate(1.25) brightness(.75); }
+#backdrop i.fit::after { background-size: contain; background-position: center top; }
+@media (max-width: 760px) { #backdrop i.fit::after { background-position: center calc(var(--nav-h, 64px) + 8px); } }

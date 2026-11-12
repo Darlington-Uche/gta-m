@@ -94,20 +94,49 @@ export async function stats() { return (await http('GET', '/stats', null, { auth
 export const recentSales = async (n = 12) => (await http('GET', '/activity?limit=' + n, null, { auth: false })).activity;
 
 /* ---------- wallets ---------- */
-const PROVIDERS = {
-  Phantom: () => (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom ? window.phantom.solana : window.solana && window.solana.isPhantom ? window.solana : null),
-  Solflare: () => (window.solflare && window.solflare.isSolflare ? window.solflare : null),
-  Backpack: () => (window.backpack && window.backpack.isBackpack ? window.backpack : null)
-};
-const INSTALL = { Phantom: 'https://phantom.app/download', Solflare: 'https://solflare.com/download', Backpack: 'https://backpack.app/downloads' };
-const stdIcons = {};
+// Wallet Standard: modern wallets (Jupiter, and newer Phantom / Solflare / Backpack builds) register themselves here.
+const stdWallets = {};
 try {
-  const reg = { register: (...ws) => { ws.forEach((w) => { if (w && w.name && w.icon) stdIcons[w.name.toLowerCase()] = w.icon; }); return () => {}; } };
+  const reg = { register: (...ws) => { ws.forEach((w) => { if (w && w.name && w.features && w.features['standard:connect'] && w.features['solana:signTransaction']) stdWallets[w.name.toLowerCase()] = w; }); return () => {}; } };
   window.addEventListener('wallet-standard:register-wallet', (e) => { try { e.detail(reg); } catch (_) { /* ignore */ } });
   window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: reg }));
 } catch (_) { /* ignore */ }
-export const walletIcon = (n) => `assets/wallets/${n.toLowerCase()}.png`;
-export const detectWallets = () => Object.keys(PROVIDERS).map((name) => ({ name, found: !!PROVIDERS[name](), install: INSTALL[name], icon: stdIcons[name.toLowerCase()] }));
+const findStd = (key) => Object.entries(stdWallets).find(([n]) => n.includes(key))?.[1] || null;
+/** Wraps a Wallet Standard wallet so it looks like the classic injected provider the rest of the app uses. */
+function stdProvider(w) {
+  let acct = null;
+  const pick = (accs) => (accs || []).find((a) => (a.chains || []).some((c) => c.startsWith('solana:'))) || (accs || [])[0] || null;
+  return {
+    get publicKey() { return acct ? { toString: () => acct.address } : null; },
+    async connect() { const r = await w.features['standard:connect'].connect(); acct = pick(r.accounts || w.accounts); if (!acct) throw new ApiError('No Solana account in this wallet.', 'no_wallet', 0); return { publicKey: { toString: () => acct.address } }; },
+    async signMessage(msg) { if (!acct) acct = pick(w.accounts); const f = w.features['solana:signMessage']; if (!f) throw new ApiError('This wallet cannot sign messages.', 'no_wallet', 0); const [r] = await f.signMessage({ account: acct, message: msg }); return { signature: r.signature }; },
+    async signTransaction(tx) {
+      if (!acct) acct = pick(w.accounts); if (!acct) await this.connect();
+      const [r] = await w.features['solana:signTransaction'].signTransaction({ account: acct, transaction: tx.serialize(), chain: CFG.NETWORK === 'mainnet-beta' || (S.meta && S.meta.network === 'mainnet-beta') ? 'solana:mainnet' : 'solana:devnet' });
+      return { serialize: () => r.signedTransaction };
+    },
+    disconnect() { try { w.features['standard:disconnect'] && w.features['standard:disconnect'].disconnect(); } catch (_) { /* ignore */ } }
+  };
+}
+const stdCache = new WeakMap();
+const viaStd = (key) => { const w = findStd(key); if (!w) return null; if (!stdCache.has(w)) stdCache.set(w, stdProvider(w)); return stdCache.get(w); };
+const WALLETS = {
+  Phantom: { site: 'phantom.com', install: 'https://phantom.com/download', get: () => (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom ? window.phantom.solana : window.solana && window.solana.isPhantom ? window.solana : viaStd('phantom')), browse: (u) => `https://phantom.app/ul/browse/${encodeURIComponent(u)}?ref=${encodeURIComponent(location.origin)}` },
+  Jupiter: { site: 'jup.ag', install: 'https://jup.ag/mobile', get: () => viaStd('jupiter') },
+  Solflare: { site: 'solflare.com', install: 'https://solflare.com/download', get: () => (window.solflare && window.solflare.isSolflare ? window.solflare : viaStd('solflare')), browse: (u) => `https://solflare.com/ul/v1/browse/${encodeURIComponent(u)}?ref=${encodeURIComponent(location.origin)}` },
+  Backpack: { site: 'backpack.app', install: 'https://backpack.app/downloads', get: () => (window.backpack && window.backpack.isBackpack ? window.backpack : viaStd('backpack')) }
+};
+const PROVIDERS = Object.fromEntries(Object.entries(WALLETS).map(([n, w]) => [n, w.get]));
+const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// The wallet's own icon when it is installed (it ships one through Wallet Standard), otherwise the wallet site's icon.
+export const walletIcon = (n) => { const w = findStd(n.toLowerCase()); return (w && w.icon) || `https://www.google.com/s2/favicons?domain=${WALLETS[n] ? WALLETS[n].site : ''}&sz=128`; };
+export const detectWallets = () => Object.keys(WALLETS).map((name) => ({ name, found: !!WALLETS[name].get(), install: WALLETS[name].install }));
+const INSTALL = Object.fromEntries(Object.entries(WALLETS).map(([n, w]) => [n, w.install]));
+/** No wallet in this browser: on phones open the site inside the wallet app's browser, otherwise the install page. */
+function openWallet(name) {
+  const w = WALLETS[name]; const url = isMobile() && w && w.browse ? w.browse(location.href) : INSTALL[name];
+  if (isMobile() && w && w.browse) location.href = url; else window.open(url, '_blank', 'noopener');
+}
 const b64ToBytes = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 const bytesToB64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
 let web3p;
@@ -141,7 +170,7 @@ export async function connect(name) {
     await authWith(r.token, w.addr, name); return w.addr;
   }
   const p = PROVIDERS[name] && PROVIDERS[name]();
-  if (!p) { window.open(INSTALL[name], '_blank', 'noopener'); throw new ApiError(name + ' is not installed in this browser.', 'no_wallet', 0); }
+  if (!p) { openWallet(name); throw new ApiError(isMobile() && WALLETS[name] && WALLETS[name].browse ? 'Opening ' + name + '…' : name + ' is not installed in this browser.', 'no_wallet', 0); }
   const conn = await p.connect();
   const wallet = (conn && conn.publicKey ? conn.publicKey : p.publicKey).toString();
   const { message, nonce } = await http('POST', '/auth/nonce', { wallet }, { auth: false });
@@ -238,7 +267,7 @@ export function modal(html, setup, cls) {
 }
 export const needWallet = () => walletModal();
 export function walletModal() {
-  const rows = detectWallets().map((w) => `<button class="wrow" data-w="${w.name}"><img src="${esc(walletIcon(w.name))}" alt="" onerror="${w.icon ? `this.onerror=null;this.src='${esc(w.icon)}'` : `this.replaceWith(Object.assign(document.createElement('span'),{className:'wfallback',textContent:'${w.name[0]}'}))`}"><span><b>${w.name}</b><small>${w.found ? 'Detected' : 'Not installed — tap to get it'}</small></span><i class="arr">→</i></button>`).join('');
+  const rows = detectWallets().sort((a, b) => b.found - a.found).map((w) => `<button class="wrow" data-w="${w.name}"><img src="${esc(walletIcon(w.name))}" alt="" onerror="${w.icon ? `this.onerror=null;this.src='${esc(w.icon)}'` : `this.replaceWith(Object.assign(document.createElement('span'),{className:'wfallback',textContent:'${w.name[0]}'}))`}"><span><b>${w.name}</b><small>${w.found ? 'Detected' : isMobile() && WALLETS[w.name].browse ? 'Open in the ' + w.name + ' app' : 'Not installed — tap to get it'}</small></span><i class="arr">→</i></button>`).join('');
   const tests = isMock() ? `<div class="sep">Test wallets (demo chain)</div>` + testWallets().map((w) => `<button class="wrow" data-w="test:${w.name}"><span class="wfallback">${w.name[0]}</span><span><b>${w.name}</b><small>${short(w.addr)}</small></span><i class="arr">→</i></button>`).join('') : '';
   modal(`<button class="x" data-x aria-label="Close">✕</button><h2 class="display">Connect<br>wallet</h2><p class="muted">Sign a free message to sign in — no transaction, no cost.</p><div class="wlist">${rows}${tests}</div><p class="fine">${S.meta ? 'Network: <b>' + esc(S.meta.network) + '</b>' + (S.meta.network === 'devnet' ? ' — test SOL only, get some at faucet.solana.com' : '') : ''}</p>`, (m, close) => {
     $('[data-x]', m).onclick = close;

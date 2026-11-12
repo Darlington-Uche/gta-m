@@ -3,7 +3,7 @@ import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, stats, 
 const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>';
 export const poster = (it) => {
   const price = it.state === 'mint' ? `<span class="price ${it.free ? 'free' : ''}">${usd(it.priceUsd)}</span>` : it.state === 'listed' ? `<span class="price listed">${usd(it.priceUsd)}</span>` : '<span class="price own">Owned</span>';
-  return `<a class="card" href="#/art/${esc(it.id)}"><div class="thumb">${imgTag(it.img, it.title, 560)}
+  return `<a class="card" href="#/art/${esc(it.id)}"><div class="thumb">${it.img ? imgTag(it.img, it.title, 560, 'fill') : ''}${imgTag(it.img, it.title, 560)}
   <button class="like ${S.likes.has(String(it.id)) ? 'on' : ''}" data-like="${esc(it.id)}" aria-label="Like">${heart}<span>${it.likes}</span></button></div>
   <div class="meta"><div><h3>${esc(it.title)}</h3><p><i class="rb ${esc(it.rarity)}"></i>${esc(it.eraShort)} · ${esc(it.category || '')}</p></div>${price}</div></a>`;
 };
@@ -12,7 +12,7 @@ const bg = (u) => (u ? `style="--bi:url('${esc(u)}')"` : '');
 /** Page header: uses the banner uploaded in the admin site when there is one, otherwise a clean gradient header */
 const pageHead = (key, eyebrow, title, sub) => `<div class="ph"><span class="eyebrow">${eyebrow}</span><h1 class="display">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>`;
 const HUES = [330, 285, 255, 315, 22, 200, 168, 345];
-const tile = (c, i = 0) => `<a class="tile ${c.cover ? '' : 'nocover'}" style="--h:${HUES[i % HUES.length]}" href="#/collection/${esc(c.id)}"><div class="bgi" ${c.cover ? `style="background-image:url('${esc(c.cover)}')"` : ''}></div>${c.cover ? '' : `<span class="ghost display" aria-hidden="true">${esc(c.short)}</span>`}<div><h3 class="display">${esc(c.short)}</h3><small>${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</small></div><span class="go" aria-hidden="true">→</span></a>`;
+const tile = (c, i = 0) => `<a class="tile ${c.cover ? '' : 'nocover'}" style="--h:${HUES[i % HUES.length]}" href="#/collection/${esc(c.id)}">${c.cover ? `<div class="bgf" style="background-image:url('${esc(c.cover)}')"></div>` : ''}<div class="bgi" ${c.cover ? `style="background-image:url('${esc(c.cover)}')"` : ''}></div>${c.cover ? '' : `<span class="ghost display" aria-hidden="true">${esc(c.short)}</span>`}<div><h3 class="display">${esc(c.short)}</h3><small>${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</small></div><span class="go" aria-hidden="true">→</span></a>`;
 
 /* ================= HOME ================= */
 export async function home() {
