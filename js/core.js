@@ -212,7 +212,7 @@ export async function runTx(title, fn, okText) {
 }
 export function burst() {
   const c = document.createElement('div'); c.className = 'burst'; document.body.appendChild(c);
-  const cols = ['#c8ff2e', '#ff4d1f', '#ff3d8b', '#f3ecdc'];
+  const cols = ['#ff2d8a', '#ff7a1a', '#ffc93c', '#19e3d2'];
   for (let i = 0; i < 46; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 280; p.style.cssText = `--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d - 80}px;--r:${Math.random() * 720 - 360}deg;background:${cols[i % 4]};left:50%;top:55%;animation-delay:${Math.random() * 80}ms`; c.appendChild(p); }
   setTimeout(() => c.remove(), 1400);
 }

@@ -9,7 +9,6 @@ const ic = {
   cols: '<svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
   create: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg>',
   me: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
-  admin: '<svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>'
 };
 const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/collections', 'Eras', ic.cols], ['/create', 'Submit', ic.create], ['/me', 'Profile', ic.me]];
 const routes = [
@@ -19,13 +18,12 @@ const routes = [
 
 function chrome() {
   const here = (location.hash.slice(1) || '/').split('?')[0];
-  $('#rail').innerHTML = `<a class="logo" href="#/"><b>GTA</b><small>MARKET</small></a><div class="nav">${NAV.map(([h, l, i]) => {
-    const on_ = h === '/' ? here === '/' : here.startsWith(h) || (h === '/collections' && here.startsWith('/collection'));
-    return `<a href="#${h}" class="${on_ ? 'on' : ''}">${i}${l}${h === '/me' && S.unread ? `<span class="badge">${S.unread}</span>` : ''}</a>`;
-  }).join('')}</div><div class="sp"></div><div class="nav"><a href="#/admin" class="${here.startsWith('/admin') ? 'on' : ''}" title="Admin">${ic.admin}Admin</a></div>`;
-  $('#top').innerHTML = S.wallet
-    ? `<span class="pill net">Devnet</span><a class="pill" href="#/me" title="Your balance">${money(S.balance)}</a><a class="pill" href="#/me"><i class="dot"></i>${short(S.wallet)}</a>`
-    : `<span class="pill net">Devnet</span><button class="btn primary sm" id="cw">Connect wallet</button>`;
+  const active = (h) => (h === '/' ? here === '/' : here.startsWith(h) || (h === '/collections' && here.startsWith('/collection')));
+  const badge = S.unread ? `<span class="badge">${S.unread}</span>` : '';
+  $('#hd').innerHTML = `<a class="brand" href="#/"><b>GTA</b><span>MARKET</span></a>
+    <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
+    <div class="acct"><span class="net">Devnet</span>${S.wallet ? `<a class="chipb" href="#/me" title="Your balance">${money(S.balance)}</a><a class="chipb" href="#/me"><i class="dot"></i>${short(S.wallet)}${badge}</a>` : '<button class="btn primary sm" id="cw">Connect wallet</button>'}</div>`;
+  $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
 }
 

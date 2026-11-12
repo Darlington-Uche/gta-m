@@ -2,40 +2,39 @@ import { S, D, $, $$, esc, usd, money, short, ago, thumb, items, item, offersFor
 
 const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>';
 export const poster = (it) => {
-  const price = it.state === 'mint' ? `<span class="price ${it.free ? 'free' : ''}">${usd(it.priceUsd)}</span>` : it.state === 'listed' ? `<span class="price listed">${usd(it.priceUsd)}</span>` : '<span class="price own">OWNED</span>';
-  return `<a class="poster rar-${esc(it.rarity)}" href="#/art/${esc(it.id)}"><img class="art" loading="lazy" decoding="async" src="${esc(thumb(it.img, 560))}" alt="${esc(it.title)}" onerror="this.style.opacity=.2">
-  <span class="tape">${esc(it.eraShort)}</span><button class="like ${S.likes.has(String(it.id)) ? 'on' : ''}" data-like="${esc(it.id)}" aria-label="Like">${heart}<span>${it.likes}</span></button>
-  <div class="cap"><div><b>${esc(it.title)}</b><small>${esc(it.category || '')} · ${esc(it.rarity)}</small></div>${price}</div></a>`;
+  const price = it.state === 'mint' ? `<span class="price ${it.free ? 'free' : ''}">${usd(it.priceUsd)}</span>` : it.state === 'listed' ? `<span class="price listed">${usd(it.priceUsd)}</span>` : '<span class="price own">Owned</span>';
+  return `<a class="card" href="#/art/${esc(it.id)}"><div class="thumb"><img loading="lazy" decoding="async" src="${esc(thumb(it.img, 560))}" alt="${esc(it.title)}" onerror="this.style.opacity=.15">
+  <button class="like ${S.likes.has(String(it.id)) ? 'on' : ''}" data-like="${esc(it.id)}" aria-label="Like">${heart}<span>${it.likes}</span></button></div>
+  <div class="meta"><div><h3>${esc(it.title)}</h3><p><i class="rb ${esc(it.rarity)}"></i>${esc(it.eraShort)} · ${esc(it.category || '')}</p></div>${price}</div></a>`;
 };
 const skels = (n) => `<div class="grid">${'<div class="skel"></div>'.repeat(n)}</div>`;
 const pad = (n) => String(n).padStart(2, '0');
 
 /* ================= HOME ================= */
 export async function home() {
-  const [pop, fresh, st] = await Promise.all([items({ sort: 'liked', limit: 3 }), items({ sort: 'recent', limit: 12 }), stats()]);
-  const cols = S.collections;
-  const words = [...cols.map((c) => c.short), 'Free mints', 'Devnet', 'Offers open'];
-  const tick = [...words, ...words].map((w) => `<span>${esc(w)}</span>`).join('');
-  return `<section class="hero"><div><span class="eyebrow">Art marketplace · Devnet</span>
-    <h1 class="display"><span>Own</span><span class="o">the</span><span class="l">streets.</span></h1>
+  const [pop, fresh, st] = await Promise.all([items({ sort: 'liked', limit: 1 }), items({ sort: 'recent', limit: 8 }), stats()]);
+  const f = pop.items[0];
+  return `<section class="hero"><div class="sun"></div><div class="horizon"></div>
+    <div><span class="eyebrow">Art marketplace · Devnet</span>
+    <h1 class="display">Own the<br><span class="grad">streets.</span></h1>
     <p class="sub">Collect, trade and flex original GTA-inspired art from every era — Liberty City to Vice City to San Andreas. Connect a wallet and start with $1,000 of play money.</p>
     <div class="cta"><a class="btn primary lg" href="#/explore">Browse the drops</a><a class="btn lg" href="#/create">Submit your art</a></div></div>
-    <div class="stack">${pop.items.map(poster).join('')}<div class="stamp">$1000<br>free<br>cash</div></div></section>
-  <div class="ticker"><div>${tick}</div></div>
-  <div class="sh"><h2 class="display">Fresh <span class="lime">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
-  <div class="hrail">${fresh.items.map(poster).join('')}</div>
-  <div class="sh"><h2 class="display">Pick an <span class="hot">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
-  <div class="eras">${cols.map((c, i) => `<a class="era-row" href="#/collection/${esc(c.id)}"><span class="n">${pad(i + 1)}</span><h3 class="display">${esc(c.short)}</h3><span class="meta">${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</span><span class="pv" style="background-image:url('${esc(thumb(c.cover, 400))}')"></span></a>`).join('')}</div>
-  <div class="stats">${[[st.items, 'Artworks'], [st.minted, 'Collected'], [st.sales, 'Trades'], [money(st.volume).replace('.00', ''), 'Volume']].map(([n, l]) => `<div class="stat glass"><b>${n}</b><small>${l}</small></div>`).join('')}</div>
-  <div class="cta-band glass"><div><span class="eyebrow">Creators</span><h2 class="display">Got art?<br>Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
+    ${f ? `<a class="feat" href="#/art/${esc(f.id)}"><img src="${esc(thumb(f.img, 800))}" alt="${esc(f.title)}"><div class="cap"><div><small>Most liked</small><b>${esc(f.title)}</b></div><span class="price ${f.state === 'listed' ? 'listed' : f.free ? 'free' : ''}">${f.state === 'minted' ? 'Owned' : usd(f.priceUsd)}</span></div></a>` : ''}</section>
+  <div class="stats">${[[st.items, 'Artworks'], [st.minted, 'Collected'], [st.sales, 'Trades'], [money(st.volume).replace('.00', ''), 'Volume']].map(([n, l]) => `<div class="stat glass"><b class="grad">${n}</b><small>${l}</small></div>`).join('')}</div>
+  <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
+  <div class="grid">${fresh.items.map(poster).join('')}</div>
+  <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
+  <div class="tiles">${S.collections.map(tile).join('')}</div>
+  <div class="cta-band glass"><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
 }
+const tile = (c) => `<a class="tile" href="#/collection/${esc(c.id)}"><div class="bgi" style="background-image:url('${esc(thumb(c.cover, 700))}')"></div><div><h3 class="display">${esc(c.short)}</h3><small>${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</small></div></a>`;
 
 /* ================= EXPLORE ================= */
 const CATS = ['Characters', 'Locations', 'Vehicles', 'Weapons'], RARS = ['Common', 'Rare', 'Epic', 'Legendary'];
 export async function explore({ q: init }) {
   const st = { era: '', category: '', rarity: '', status: '', sort: 'recent', q: '', page: 1, ...init };
   const sel = (k, label, opts) => `<select data-f="${k}" class="input" aria-label="${label}"><option value="">${label}</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${st[k] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
-  const html = `<div class="ph"><span class="eyebrow">Explore</span><h1 class="display">Every piece.</h1></div>
+  const html = `<div class="ph"><span class="eyebrow">Explore</span><h1 class="display">Every <span class="grad">piece.</span></h1></div>
   <div class="bar glass"><div class="row"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="input" id="q" type="search" placeholder="Search artworks, characters, eras…" value="${esc(st.q)}"></label>
     ${sel('category', 'All types', CATS.map((c) => [c, c]))}${sel('rarity', 'Any rarity', RARS.map((c) => [c, c]))}${sel('status', 'Any status', [['free', 'Free to collect'], ['mint', 'Available'], ['listed', 'For sale'], ['minted', 'Collected']])}
     ${sel('sort', 'Sort', [['recent', 'Newest'], ['price_low', 'Price ↑'], ['price_high', 'Price ↓'], ['liked', 'Most liked']]).replace('<option value="">Sort</option>', '')}</div>
@@ -85,8 +84,8 @@ export async function artwork({ args: [id] }) {
     <p class="muted">${esc(it.description)}</p>
     <div class="buybox">${box}${top ? `<span class="muted">Top offer <b class="lime">${usd(+top.usd)}</b> · ${offers.length} active</span>` : ''}</div>
     <div class="kv"><div><small>Era</small><b>${esc(it.eraLabel || it.era)}</b></div><div><small>Artist</small><b>${esc(it.artist)}</b></div><div><small>Owner</small><b>${it.owner ? (mine ? 'You' : short(it.owner)) : 'Nobody yet'}</b></div><div><small>Likes</small><b>${it.likes}</b></div></div>
-    <div><h3 class="display" style="font-size:30px;margin-bottom:12px">Offers</h3><div class="list" id="offers">${offerRows}</div></div>
-    <div><h3 class="display" style="font-size:30px;margin-bottom:12px">History</h3><div class="list">${histRows}</div></div></div></div>`;
+    <div><h3 class="h3">Offers</h3><div class="list" id="offers">${offerRows}</div></div>
+    <div><h3 class="h3">History</h3><div class="list">${histRows}</div></div></div></div>`;
   const reload = () => window.dispatchEvent(new HashChangeEvent('hashchange'));
   const priceModal = (title, ok, cb, val) => modal(`<button class="x" data-x>✕</button><h2 class="display">${title}</h2><label class="field">Price (USD)<input id="pv" class="input" type="number" min="0" step="0.01" value="${val ?? ''}" placeholder="0.00"></label><p class="fine">A 2.5% platform fee is taken from the seller on every sale.</p><div class="txfoot"><button class="btn primary" data-go>${ok}</button></div>`, (m, close) => {
     $('[data-x]', m).onclick = close; $('#pv', m).focus();
@@ -116,9 +115,7 @@ export async function artwork({ args: [id] }) {
 
 /* ================= COLLECTIONS ================= */
 export async function collections() {
-  const c = S.collections;
-  return `<div class="ph"><span class="eyebrow">Eras</span><h1 class="display">Pick your decade.</h1><p>Every GTA era is its own collection — floor prices, owners and a full gallery.</p></div>
-  <div class="ccards">${c.map((x) => `<a class="ccard" href="#/collection/${esc(x.id)}"><div class="bgi" style="background-image:url('${esc(thumb(x.cover, 700))}')"></div><div><h3 class="display">${esc(x.short)}</h3><small>${x.items} pieces · ${x.minted} collected${x.floorUsd != null ? ' · from ' + usd(x.floorUsd) : ''}</small></div></a>`).join('')}</div>`;
+  return `<div class="ph"><span class="eyebrow">Eras</span><h1 class="display">Pick your <span class="grad">decade.</span></h1><p>Every GTA era is its own collection — floor prices, owners and a full gallery.</p></div><div class="tiles">${S.collections.map(tile).join('')}</div>`;
 }
 export async function collection({ args: [id], q }) {
   id = decodeURIComponent(id);

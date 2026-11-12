@@ -6,9 +6,9 @@ const wireGate = (root) => { const b = $('#gw', root); if (b) b.onclick = wallet
 
 /* ================= CREATE / SUBMIT ================= */
 export async function create() {
-  if (!S.wallet) return { html: `<div class="ph"><span class="eyebrow">Submit</span><h1 class="display">Drop your art.</h1></div>${gate('Connect to submit', 'Sign in with a wallet so your artwork is credited to you.')}`, mount: wireGate };
+  if (!S.wallet) return { html: `<div class="ph"><span class="eyebrow">Submit</span><h1 class="display">Drop your <span class="grad">art.</span></h1></div>${gate('Connect to submit', 'Sign in with a wallet so your artwork is credited to you.')}`, mount: wireGate };
   const eras = Object.entries(D.eras || {});
-  const html = `<div class="ph"><span class="eyebrow">Submit</span><h1 class="display">Drop your art.</h1><p>Send us your GTA-inspired artwork. Our team reviews every submission, sets a price, and publishes it to the marketplace.</p></div>
+  const html = `<div class="ph"><span class="eyebrow">Submit</span><h1 class="display">Drop your <span class="grad">art.</span></h1><p>Send us your GTA-inspired artwork. Our team reviews every submission, sets a price, and publishes it to the marketplace.</p></div>
   <div class="two"><label class="drop" id="drop"><input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif"><div id="dropin"><b>Drop an image</b><span class="muted">PNG, JPG, WEBP or GIF · up to 5 MB</span></div></label>
   <div class="form glass"><label class="field">Title<input id="t" maxlength="60" placeholder="e.g. Neon Dusk, Ocean Drive"></label>
   <label class="field">Description<textarea id="d" maxlength="600" placeholder="Tell the story behind it (at least 10 characters)"></textarea></label>
@@ -44,7 +44,7 @@ const stc = (s) => (s === 'accepted' || s === 'approved' ? 'ok' : s === 'rejecte
 const none = (t, d) => `<div class="empty"><b>${t}</b>${d || ''}</div>`;
 export async function profile({ args: [tab] }) {
   tab = TABS.some(([k]) => k === tab) ? tab : 'nfts';
-  if (!S.wallet) return { html: `<div class="ph"><span class="eyebrow">Profile</span><h1 class="display">Your stash.</h1></div>${gate('Connect your wallet', 'See what you own, your offers and notifications.')}`, mount: wireGate };
+  if (!S.wallet) return { html: `<div class="ph"><span class="eyebrow">Profile</span><h1 class="display">Your <span class="grad">stash.</span></h1></div>${gate('Connect your wallet', 'See what you own, your offers and notifications.')}`, mount: wireGate };
   const me = await refreshMe();
   const link = (it, inner) => `<a href="#/art/${esc(it)}">${inner}</a>`;
   let body = '';
@@ -55,7 +55,7 @@ export async function profile({ args: [tab] }) {
   else if (tab === 'activity') body = me.activity.length ? me.activity.map((a) => `<div class="rowc"><div>${link(a.itemId, `<b>${a.type === 'mint' ? 'Collected' : a.role === 'buyer' ? 'Bought' : 'Sold'} ${esc(a.title)}</b>`)}<small>${ago(a.at)}</small></div><b>${usd(+a.usd)}</b></div>`).join('') : none('No activity yet');
   else body = me.submissions.length ? me.submissions.map((s) => `<div class="rowc"><div class="l"><img class="t" src="${esc(thumb(s.image, 120))}" alt=""><div><b>${esc(s.title)}</b><small>${esc(s.era || '')} · ${ago(s.created_at)}${s.reason ? ' · ' + esc(s.reason) : ''}</small></div></div><span class="st ${stc(s.status)}">${esc(s.status)}</span></div>`).join('') : none('No submissions', '<a class="lime" href="#/create">Submit your first piece</a>');
   const badge = { notifications: me.unread, received: me.received.filter((o) => o.status === 'active').length };
-  const html = `<div class="ph"><span class="eyebrow">Profile</span><h1 class="display">Your stash.</h1></div>
+  const html = `<div class="ph"><span class="eyebrow">Profile</span><h1 class="display">Your <span class="grad">stash.</span></h1></div>
   <div class="who"><div class="av">${esc(S.wallet.slice(0, 2).toUpperCase())}</div><div><div class="muted" style="font-weight:800;letter-spacing:.14em;font-size:11px;text-transform:uppercase">Wallet</div><code>${esc(S.wallet)}</code></div>
     <div class="glass" style="padding:12px 20px"><div class="muted" style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Play money</div><b class="display lime" style="font-size:34px">${money(me.balance)}</b></div><button class="btn sm" id="out">Disconnect</button></div>
   <div class="tabs">${TABS.map(([k, l]) => `<a href="#/me/${k}"><button class="${k === tab ? 'on' : ''}" tabindex="-1">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</button></a>`).join('')}</div><div id="pane">${body}</div>`;
