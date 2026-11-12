@@ -3,6 +3,7 @@ import { config } from '../config/index.js';
 import { AppError, forbidden, unauthorized } from '../lib/errors.js';
 import { isAdminToken, verifyToken } from '../services/auth.service.js';
 import { log } from '../lib/logger.js';
+import { getDoc } from '../lib/db.js';
 
 export function requireUser(req, _res, next) {
   const h = req.headers.authorization || '';
@@ -20,10 +21,16 @@ export function requireAdmin(req, res, next) {
     next();
   });
 }
-export function requireCron(req, _res, next) {
-  const secret = config.jobs.cronSecret;
-  if (!secret || req.headers['x-cron-secret'] !== secret) return next(forbidden('Bad cron secret'));
-  next();
+export async function requireCron(req, _res, next) {
+  try {
+    const sent = req.headers['x-cron-secret'];
+    if (!sent) return next(forbidden('Bad cron secret'));
+    if (config.jobs.cronSecret && sent === config.jobs.cronSecret) return next();
+    // Edge deploys keep the cron secret in the database (the code bundle is public, so it can't carry it)
+    const d = await getDoc('meta', 'cron');
+    if (d?.secret && sent === d.secret) return next();
+    next(forbidden('Bad cron secret'));
+  } catch (e) { next(e); }
 }
 export function optionalUser(req, _res, next) {
   const h = req.headers.authorization || '';
