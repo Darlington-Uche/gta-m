@@ -118,7 +118,9 @@ VIEWS.catalog = async (el) => {
 
 /* ---------- collections ---------- */
 VIEWS.collections = async (el) => {
-  const r = await api('GET', '/admin/collections'); const isDev = META.network === 'devnet';
+  const raw = await api('GET', '/admin/collections'); const isDev = META.network === 'devnet';
+  const have = new Map(raw.collections.map((c) => [c.id, c])); // show every era, even ones not registered yet
+  const r = { collections: ERAS.map(([id, label]) => have.get(id) || { id, name: label, short: eraName(id), blurb: '', status: 'pending', address: '' }).concat(raw.collections.filter((c) => !ERAS.some(([id]) => id === c.id))) };
   el.innerHTML = head('Collections', 'One collection per era. Each needs an on-chain Metaplex collection on the current network before people can collect from it.', '<button class="btn primary" id="all">Create all missing on-chain</button>') +
     r.collections.map((c) => `<div class="coll glass" data-id="${esc(c.id)}"><div class="cv" data-cv style="${c.cover ? `background-image:url('${esc(c.cover)}')` : ''}"><span>${c.cover ? 'Change cover' : 'Upload cover'}</span></div><div style="display:grid;gap:10px;min-width:0">
       <div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:26px">${esc(c.short || c.name)}</h3><span class="tag ${c.status === 'live' ? 'ok' : c.status === 'paused' ? 'bad' : 'warn'}">${esc(c.status || 'pending')}</span></div>
