@@ -1,7 +1,6 @@
-import { S, on, $, $$, esc, init, short, money, toast, walletModal, toggleLike, ls, signOut } from './core.js';
+import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
 import { home, explore, artwork, collections, collection } from './views.js';
 import { create, profile } from './me.js';
-import { admin } from './admin.js';
 
 const ic = {
   home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
@@ -13,7 +12,7 @@ const ic = {
 const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/collections', 'Eras', ic.cols], ['/create', 'Submit', ic.create], ['/me', 'Profile', ic.me]];
 const routes = [
   [/^\/?$/, home], [/^\/explore$/, explore], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
-  [/^\/create$/, create], [/^\/me(?:\/(\w+))?$/, profile], [/^\/admin(?:\/(\w+))?$/, admin]
+  [/^\/create$/, create], [/^\/me(?:\/(\w+))?$/, profile]
 ];
 
 function chrome() {
@@ -22,7 +21,7 @@ function chrome() {
   const badge = S.unread ? `<span class="badge">${S.unread}</span>` : '';
   $('#hd').innerHTML = `<a class="brand" href="#/"><b>GTA</b><span>MARKET</span></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
-    <div class="acct"><span class="net">Devnet</span>${S.wallet ? `<a class="chipb" href="#/me" title="Your balance">${money(S.balance)}</a><a class="chipb" href="#/me"><i class="dot"></i>${short(S.wallet)}${badge}</a>` : '<button class="btn primary sm" id="cw">Connect wallet</button>'}</div>`;
+    <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet ? `<a class="chipb" href="#/me"><i class="dot"></i>${short(S.wallet)}${badge}</a>` : '<button class="btn primary sm" id="cw">Connect wallet</button>'}</div>`;
   $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
 }
@@ -35,8 +34,8 @@ async function render() {
   const hit = routes.map(([re, fn]) => [re.exec(path), fn]).find(([m]) => m);
   if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
   const fill = (html, mount) => { if (my !== tok) return; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, 0); document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; };
-  if (!hit) return fill(`<div class="empty"><b>Wrong turn</b>That page doesn't exist. <a class="lime" href="#/">Back to start</a></div>`);
-  if (!S.online && !path.startsWith('/admin')) return fill(`<div class="empty"><b>Offline</b>The database is not reachable${S.initError ? ': ' + esc(S.initError) : ''}. <a class="lime" href="">Try again</a></div>`);
+  if (!hit) return fill(`<div class="empty"><b>Wrong turn</b>That page doesn't exist. <a class="accent" href="#/">Back to start</a></div>`);
+  if (!S.online) return fill(`<div class="empty"><b>Offline</b>The server is not reachable${S.initError ? ': ' + esc(S.initError) : ''}. <a class="accent" href="">Try again</a></div>`);
   try { const r = await hit[1]({ args: hit[0].slice(1), q }); if (typeof r === 'string') fill(r); else fill(r.html, r.mount); }
   catch (e) { console.error(e); fill(`<div class="empty"><b>Could not load</b>${esc(e.message)}</div>`); }
 }
@@ -51,7 +50,7 @@ document.addEventListener('click', async (e) => {
     catch (err) { toast(err.message, 'bad'); } finally { delete like.dataset.busy; }
   }
 }, true);
-on('auth', () => { chrome(); go(); }); on('unread', chrome); on('balance', chrome);
+on('auth', () => { chrome(); go(); }); on('unread', chrome);
 window.addEventListener('gta:signout', () => signOut());
 
 (async () => {

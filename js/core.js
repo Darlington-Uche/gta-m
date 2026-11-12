@@ -1,5 +1,6 @@
 /* GTA Market — core: state, API client, wallet, prepare → sign → submit flow, UI helpers. No build step. */
 const CFG = window.GTA_CONFIG || {};
+const API = (CFG.API_URL || '').replace(/\/$/, '');
 export const D = window.GTA_DATA || { art: [], collections: [], eras: {}, eraShort: {} };
 
 /* ---------- storage ---------- */
@@ -11,96 +12,88 @@ export const ls = {
 };
 
 /* ---------- state + tiny event bus ---------- */
-export const S = { online: false, collections: [], wallet: ls.get('walletAddr', null), provider: ls.get('provider', null), balance: null, me: null, adminPw: (() => { try { return sessionStorage.getItem('gta_adm'); } catch (e) { return null; } })(), unread: 0, likes: new Set() };
+export const S = { online: false, meta: null, site: {}, collections: [], token: ls.get('jwt', null), wallet: ls.get('walletAddr', null), provider: ls.get('provider', null), unread: 0, likes: new Set() };
 const bus = {};
 export const on = (ev, fn) => { (bus[ev] = bus[ev] || []).push(fn); };
 export const emit = (ev, d) => (bus[ev] || []).forEach((f) => { try { f(d); } catch (e) { console.error(e); } });
-
 export class ApiError extends Error { constructor(message, code, status) { super(message); this.code = code; this.status = status; } }
 
 /* ---------- formatting ---------- */
 export const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const usd = (n) => (n == null ? '—' : n === 0 ? 'FREE' : '$' + (n >= 100 ? Math.round(n).toLocaleString() : (Math.round(n * 100) / 100).toString()));
+export const sol = (n) => (n == null ? '' : (Math.round(n * 1000) / 1000).toString() + ' SOL');
 export const short = (a) => (a ? a.slice(0, 4) + '…' + a.slice(-4) : '');
 export const ago = (t) => { const s = Math.max(1, (Date.now() - new Date(t).getTime()) / 1000 | 0); return s < 60 ? s + 's ago' : s < 3600 ? (s / 60 | 0) + 'm ago' : s < 86400 ? (s / 3600 | 0) + 'h ago' : (s / 86400 | 0) + 'd ago'; };
-export const thumb = (u, w) => (u && /^https:\/\/raw\.githubusercontent\.com\//.test(u) ? 'https://wsrv.nl/?url=' + encodeURIComponent(u) + '&w=' + (w || 560) + '&we&output=webp&q=78' : u);
 export const $ = (s, r) => (r || document).querySelector(s);
 export const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
-const initials = (s) => String(s || '?').replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '?';
+export const explorer = (sig) => `https://explorer.solana.com/tx/${sig}${S.meta && S.meta.network === 'devnet' ? '?cluster=devnet' : ''}`;
+export const thumb = (u, w) => (u && /^https:\/\/raw\.githubusercontent\.com\//.test(u) ? 'https://wsrv.nl/?url=' + encodeURIComponent(u) + '&w=' + (w || 560) + '&we&output=webp&q=78' : u);
 
-/* ---------- supabase (REST + RPC), no backend in between ---------- */
-const SB = (CFG.SUPABASE_URL || '').replace(/\/$/, ''), KEY = CFG.SUPABASE_KEY || '';
-async function sbFetch(path, { method = 'GET', body, headers = {}, raw } = {}) {
+/* ---------- image placeholders: shown when an artwork has no image yet (or it fails to load) ---------- */
+export function placeholder(title) {
+  const t = String(title || 'GTA').toUpperCase().slice(0, 22);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2d8a"/><stop offset=".55" stop-color="#8a2be2"/><stop offset="1" stop-color="#1b0836"/></linearGradient><radialGradient id="s" cx=".5" cy=".38" r=".5"><stop offset="0" stop-color="#ffc93c"/><stop offset=".5" stop-color="#ff7a1a" stop-opacity=".8"/><stop offset="1" stop-color="#ff2d8a" stop-opacity="0"/></radialGradient></defs><rect width="400" height="500" fill="url(#g)"/><circle cx="200" cy="190" r="150" fill="url(#s)" opacity=".7"/><text x="200" y="300" text-anchor="middle" font-family="Impact,Arial Narrow,sans-serif" font-size="64" fill="#fff" opacity=".92">GTA</text><text x="200" y="345" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3" fill="#fff" opacity=".7">${esc(t)}</text><text x="200" y="470" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" letter-spacing="4" fill="#fff" opacity=".45">ARTWORK COMING SOON</text></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+window.__ph = (img) => { img.onerror = null; img.src = placeholder(img.alt); };
+/** <img> that falls back to the placeholder when src is empty or broken */
+export const imgTag = (src, title, w, cls) => `<img ${cls ? `class="${cls}" ` : ''}loading="lazy" decoding="async" alt="${esc(title)}" src="${esc(src ? thumb(src, w || 560) : placeholder(title))}" onerror="__ph(this)">`;
+
+/* ---------- http ---------- */
+function visitorId() {
+  let v = ls.get('vid', null);
+  if (!v) { const a = new Uint8Array(18); crypto.getRandomValues(a); v = Array.from(a, (b) => b.toString(16).padStart(2, '0')).join(''); ls.set('vid', v); }
+  return v;
+}
+const CACHE_MS = 20000;
+const cGet = (k) => { try { const r = JSON.parse(sessionStorage.getItem('gta_c:' + k)); return r && Date.now() - r.t < CACHE_MS ? r.j : null; } catch (e) { return null; } };
+const cSet = (k, j) => { try { sessionStorage.setItem('gta_c:' + k, JSON.stringify({ t: Date.now(), j })); } catch (e) { cClear(); } };
+export const cClear = () => { try { Object.keys(sessionStorage).filter((k) => k.startsWith('gta_c:')).forEach((k) => sessionStorage.removeItem(k)); } catch (e) { /* ignore */ } };
+export const qs = (o) => { const p = new URLSearchParams(); Object.entries(o || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, v); }); const s = p.toString(); return s ? '?' + s : ''; };
+
+export async function http(method, path, body, opt = {}) {
+  const headers = { 'x-visitor-id': visitorId() };
+  if (S.token && opt.auth !== false) headers.authorization = 'Bearer ' + S.token;
+  let payload;
+  if (body !== undefined && body !== null) { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
+  const cacheable = method === 'GET' && opt.auth === false && /^\/(meta|collections|stats)(\?|$)|^\/items\?/.test(path);
+  if (cacheable) { const c = cGet(path); if (c) return c; }
   let res;
-  try { res = await fetch(SB + path, { method, headers: { apikey: KEY, authorization: 'Bearer ' + KEY, ...(body !== undefined && !raw ? { 'content-type': 'application/json' } : {}), ...headers }, body: raw ? body : body !== undefined ? JSON.stringify(body) : undefined }); }
-  catch (e) { throw new ApiError('Cannot reach the server. Check your connection.', 'network', 0); }
-  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new ApiError(j.message || j.error || 'Request failed (' + res.status + ')', j.code || 'http_' + res.status, res.status); }
-  return res;
-}
-export async function rpc(name, args) { const r = await sbFetch('/rest/v1/rpc/' + name, { method: 'POST', body: args || {} }); const t = await r.text(); return t ? JSON.parse(t) : null; }
-export async function select(table, query, { count } = {}) {
-  const r = await sbFetch('/rest/v1/' + table + (query ? '?' + query : ''), { headers: count ? { prefer: 'count=exact' } : {} });
-  const rows = await r.json(); const cr = r.headers.get('content-range'); return { rows, total: cr && cr.includes('/') ? +cr.split('/')[1] : rows.length };
-}
-export async function upload(file) {
-  const ext = (file.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg'); const path = Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + '.' + ext;
-  await sbFetch('/storage/v1/object/m-art/' + path, { method: 'POST', body: file, raw: true, headers: { 'content-type': file.type, 'x-upsert': 'false' } });
-  return SB + '/storage/v1/object/public/m-art/' + path;
+  try { res = await fetch(API + path, { method, headers, body: payload }); } catch (e) { throw new ApiError('Cannot reach the server. Check your connection.', 'network', 0); }
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.ok === false) {
+    const err = json.error || {};
+    if (res.status === 401 && S.token && opt.auth !== false) signOut(true);
+    throw new ApiError(err.message || 'Request failed (' + res.status + ')', err.code || 'http_' + res.status, res.status);
+  }
+  if (cacheable) cSet(path, json); else if (method !== 'GET') cClear();
+  return json;
 }
 
 /* ---------- item normalisation ---------- */
-export function itemOf(r) {
-  const state = r.owner ? (r.listing_usd != null ? 'listed' : 'minted') : 'mint';
-  return { id: r.id, title: r.title, description: r.description, img: r.image, artist: r.artist, era: r.era, eraLabel: r.era_label, eraShort: (D.eraShort || {})[r.era] || r.era_label || r.era, category: r.category, rarity: r.rarity,
-    tags: r.tags || [], likes: r.likes || 0, owner: r.owner, mintedAt: r.minted_at, hidden: r.hidden, state, free: state === 'mint' && +r.price_usd === 0, priceUsd: state === 'mint' ? +r.price_usd : state === 'listed' ? +r.listing_usd : null, basePrice: +r.price_usd, listing: r.listing_usd != null ? +r.listing_usd : null };
+export function itemOf(it) {
+  const listing = it.listing || null, p = it.primary || {};
+  const state = !it.minted ? 'mint' : listing ? 'listed' : 'minted';
+  return { id: it.id, title: it.title, description: it.description, img: it.image, artist: it.artist || 'GTA Market', era: it.era, eraLabel: it.eraLabel, eraShort: it.eraShort || (D.eraShort || {})[it.era] || it.era,
+    category: it.category, rarity: it.rarity, tags: it.tags || [], likes: it.likes || 0, minted: !!it.minted, owner: it.owner, asset: it.asset, mintedAt: it.mintedAt, collection: it.collection,
+    state, free: state === 'mint' && !!p.free, mintable: !!p.available,
+    priceUsd: state === 'mint' ? p.priceUsd : listing ? listing.priceUsd : null, priceSol: state === 'mint' ? p.priceSol : listing ? listing.priceSol : null, listing, offers: it.offers || { count: 0, topUsd: null } };
 }
-const RAR = { Common: 0, Rare: 5, Epic: 15, Legendary: 40 };
-async function seedIfEmpty() {
-  const seed = (D.art || []).map((a) => ({ id: String(a.id), title: a.title, description: a.description, image: a.img, era: a.era, era_label: a.eraLabel, category: a.category, rarity: a.rarity, tags: a.tags || [], artist: a.artist, price_usd: RAR[a.rarity] ?? 0 }));
-  if (seed.length) await rpc('m_admin_seed', { pw: '', p: seed });
-}
-const enc = encodeURIComponent;
 export async function items(q = {}) {
-  const f = [];
-  for (const k of ['era', 'category', 'rarity']) if (q[k]) f.push(`${k}=eq.${enc(q[k])}`);
-  if (q.q) { const n = q.q.replace(/[(),*]/g, ' ').trim(); if (n) f.push(`or=(title.ilike.*${enc(n)}*,category.ilike.*${enc(n)}*,era_label.ilike.*${enc(n)}*)`); }
-  if (q.status === 'free') f.push('owner=is.null', 'price_usd=eq.0'); else if (q.status === 'mint') f.push('owner=is.null'); else if (q.status === 'minted') f.push('owner=not.is.null'); else if (q.status === 'listed') f.push('listing_usd=not.is.null');
-  if (q.owner) f.push('owner=eq.' + enc(q.owner));
-  const order = { price_low: 'price_usd.asc', price_high: 'price_usd.desc', liked: 'likes.desc,title.asc', recent: 'created_at.desc,title.asc' }[q.sort || 'recent'];
-  const limit = +q.limit || 24, page = +q.page || 1;
-  const { rows, total } = await select('m_items', `select=*&${f.join('&')}&order=${order}&limit=${limit}&offset=${(page - 1) * limit}`, { count: true });
-  return { total, page, limit, items: rows.map(itemOf) };
+  const r = await http('GET', '/items' + qs(q), null, { auth: false });
+  return { total: r.total, page: r.page, limit: r.limit, items: r.items.map(itemOf) };
 }
-export async function item(id) {
-  const { rows } = await select('m_items', `select=*&id=eq.${enc(id)}`);
-  if (!rows[0]) throw new ApiError('Artwork not found', 'not_found', 404);
-  return itemOf(rows[0]);
-}
-export const offersFor = async (id) => (await select('m_offers', `select=*&item_id=eq.${enc(id)}&status=eq.active&order=usd.desc`)).rows;
-export const salesFor = async (id) => (await select('m_sales', `select=*&item_id=eq.${enc(id)}&order=created_at.desc&limit=20`)).rows;
-export const recentSales = async (n = 20) => (await select('m_sales', `select=*,m_items(title,image)&order=created_at.desc&limit=${n}`)).rows;
+export async function item(id) { return itemOf((await http('GET', '/items/' + encodeURIComponent(id), null, { auth: false })).item); }
+export const offersFor = async (id) => (await http('GET', '/items/' + encodeURIComponent(id) + '/offers', null, { auth: false })).offers;
 export async function loadCollections() {
-  const { rows } = await select('m_items', 'select=era,era_label,owner,price_usd,listing_usd,image,likes&limit=2000');
-  const by = {};
-  for (const r of rows) {
-    const c = by[r.era] || (by[r.era] = { id: r.era, era: r.era, label: r.era_label, items: 0, minted: 0, owners: new Set(), floor: Infinity, likes: 0, cover: null });
-    c.items++; c.likes += r.likes || 0; if (r.owner) { c.minted++; c.owners.add(r.owner); } const p = r.listing_usd != null ? +r.listing_usd : r.owner ? null : +r.price_usd; if (p != null && p < c.floor) c.floor = p; c.cover = c.cover || r.image;
-  }
-  const order = Object.keys(D.eras || {});
-  S.collections = Object.values(by).map((c) => {
-    const m = (D.collections || []).find((x) => x.id === c.id);
-    const pick = m && m.cover && !/^data:/.test(m.cover) ? m.cover : c.cover;
-    return { id: c.id, name: (m && m.name) || c.label || c.id, short: (D.eraShort || {})[c.id] || c.id, blurb: (m && m.blurb) || '', cover: pick, items: c.items, minted: c.minted, owners: c.owners.size, floorUsd: c.floor === Infinity ? null : c.floor, likes: c.likes };
-  }).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  const r = await http('GET', '/collections', null, { auth: false });
+  S.collections = r.collections.map((c) => { const m = (D.collections || []).find((x) => x.id === c.id); const fb = m && m.cover && !/^data:/.test(m.cover) ? m.cover : ''; return { ...c, cover: c.cover || fb, banner: c.banner || '' }; });
   return S.collections;
 }
-export async function stats() {
-  const c = await loadCollections();
-  const { rows } = await select('m_sales', 'select=usd,type&limit=5000');
-  return { items: c.reduce((s, x) => s + x.items, 0), minted: c.reduce((s, x) => s + x.minted, 0), volume: rows.reduce((s, r) => s + +r.usd, 0), sales: rows.filter((r) => r.type !== 'mint').length };
-}
+export async function stats() { return (await http('GET', '/stats', null, { auth: false })).stats; }
+export const recentSales = async (n = 12) => (await http('GET', '/activity?limit=' + n, null, { auth: false })).activity;
 
-/* ---------- wallet ---------- */
+/* ---------- wallets ---------- */
 const PROVIDERS = {
   Phantom: () => (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom ? window.phantom.solana : window.solana && window.solana.isPhantom ? window.solana : null),
   Solflare: () => (window.solflare && window.solflare.isSolflare ? window.solflare : null),
@@ -113,59 +106,121 @@ try {
   window.addEventListener('wallet-standard:register-wallet', (e) => { try { e.detail(reg); } catch (_) { /* ignore */ } });
   window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: reg }));
 } catch (_) { /* ignore */ }
-export const walletIcon = (n) => stdIcons[n.toLowerCase()] || `assets/wallets/${n.toLowerCase()}.png`;
-export const detectWallets = () => Object.keys(PROVIDERS).map((name) => ({ name, found: !!PROVIDERS[name](), install: INSTALL[name] }));
+export const walletIcon = (n) => `assets/wallets/${n.toLowerCase()}.png`;
+export const detectWallets = () => Object.keys(PROVIDERS).map((name) => ({ name, found: !!PROVIDERS[name](), install: INSTALL[name], icon: stdIcons[name.toLowerCase()] }));
+const b64ToBytes = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+const bytesToB64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+let web3p;
+const loadWeb3 = () => {
+  if (window.solanaWeb3) return Promise.resolve(window.solanaWeb3);
+  if (!web3p) web3p = new Promise((res, rej) => { const s = document.createElement('script'); s.src = CFG.WEB3_CDN; s.onload = () => res(window.solanaWeb3); s.onerror = () => { web3p = null; rej(new ApiError('Could not load the Solana library.', 'web3', 0)); }; document.head.appendChild(s); });
+  return web3p;
+};
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function b58(bytes) { let n = 0n; for (const b of bytes) n = (n << 8n) | BigInt(b); let o = ''; while (n > 0n) { o = B58[Number(n % 58n)] + o; n /= 58n; } for (const b of bytes) { if (b === 0) o = '1' + o; else break; } return o; }
-export const guestWallet = () => { let g = ls.get('guest', null); if (!g) { g = b58(crypto.getRandomValues(new Uint8Array(32))); ls.set('guest', g); } return g; };
+export function testWallets() {
+  let w = ls.get('testWallets', null);
+  if (!w) { w = ['Alice', 'Bob', 'Carol'].map((n) => ({ name: n, addr: b58(crypto.getRandomValues(new Uint8Array(32))) })); ls.set('testWallets', w); }
+  return w;
+}
+export const isMock = () => !!(S.meta && S.meta.chain === 'mock');
 
+let pollT = null;
+async function authWith(token, wallet, provider) {
+  S.token = token; S.wallet = wallet; S.provider = provider;
+  ls.set('jwt', token); ls.set('walletAddr', wallet); ls.set('provider', provider);
+  await refreshMe();
+  if (!pollT) pollT = setInterval(() => { if (S.token) refreshMe().catch(() => {}); }, 30000);
+  emit('auth', wallet);
+}
+export async function connect(name) {
+  if (!S.online) throw new ApiError('The server is not reachable right now.', 'offline', 0);
+  if (name.startsWith('test:')) {
+    const w = testWallets().find((x) => x.name === name.slice(5));
+    const r = await http('POST', '/dev/login', { wallet: w.addr, fundSol: 5 }, { auth: false });
+    await authWith(r.token, w.addr, name); return w.addr;
+  }
+  const p = PROVIDERS[name] && PROVIDERS[name]();
+  if (!p) { window.open(INSTALL[name], '_blank', 'noopener'); throw new ApiError(name + ' is not installed in this browser.', 'no_wallet', 0); }
+  const conn = await p.connect();
+  const wallet = (conn && conn.publicKey ? conn.publicKey : p.publicKey).toString();
+  const { message, nonce } = await http('POST', '/auth/nonce', { wallet }, { auth: false });
+  let signed; try { signed = await p.signMessage(new TextEncoder().encode(message), 'utf8'); } catch (e) { throw new ApiError('Sign-in cancelled in your wallet.', 'rejected', 0); }
+  const r = await http('POST', '/auth/verify', { wallet, nonce, signature: bytesToB64(signed.signature || signed) }, { auth: false });
+  await authWith(r.token, wallet, name); return wallet;
+}
+export function signOut(silent) {
+  const p = S.provider && PROVIDERS[S.provider] && PROVIDERS[S.provider]();
+  if (p && p.disconnect && !silent) { try { p.disconnect(); } catch (e) { /* ignore */ } }
+  S.token = null; S.wallet = null; S.provider = null; S.unread = 0; S.likes = new Set();
+  ls.del('jwt'); ls.del('walletAddr'); ls.del('provider'); emit('auth', null);
+}
 export async function refreshMe() {
-  if (!S.wallet) return null;
-  const me = await rpc('m_profile', { p_wallet: S.wallet });
-  S.balance = me.balance; S.unread = me.unread || 0; S.me = me;
-  emit('unread', S.unread); emit('balance', S.balance);
+  if (!S.token) return null;
+  const me = await http('GET', '/me');
+  S.unread = me.unread || 0;
+  try { S.likes = new Set((await http('GET', '/likes/mine')).itemIds.map(String)); } catch (e) { /* ignore */ }
+  emit('unread', S.unread);
   return me;
 }
-async function loadLikes() { try { S.likes = new Set((await rpc('m_my_likes', { p_voter: S.wallet || visitorId() })) || []); } catch (e) { /* ignore */ } }
-export async function connect(name) {
-  let wallet;
-  if (name === 'guest') wallet = guestWallet();
-  else {
-    const p = PROVIDERS[name] && PROVIDERS[name]();
-    if (!p) { window.open(INSTALL[name], '_blank', 'noopener'); throw new ApiError(name + ' is not installed in this browser.', 'no_wallet', 0); }
-    const conn = await p.connect();
-    wallet = (conn && conn.publicKey ? conn.publicKey : p.publicKey).toString();
-    try { await p.signMessage(new TextEncoder().encode('Sign in to GTA Market\nWallet: ' + wallet + '\nThis is free and does not send a transaction.'), 'utf8'); }
-    catch (e) { throw new ApiError('Sign-in cancelled in your wallet.', 'rejected', 0); }
+async function signTx(txB64) {
+  if (S.provider && S.provider.startsWith('test:')) return (await http('POST', '/dev/sign', { txB64, wallet: S.wallet }, { auth: false })).signedTx;
+  const p = PROVIDERS[S.provider] && PROVIDERS[S.provider]();
+  if (!p) throw new ApiError('Reconnect your wallet to sign.', 'no_wallet', 0);
+  const w3 = await loadWeb3();
+  const signed = await p.signTransaction(w3.VersionedTransaction.deserialize(b64ToBytes(txB64)));
+  return bytesToB64(signed.serialize());
+}
+
+/* ---------- prepare → sign → submit → confirm ---------- */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const isStale = (e) => e && (e.code === 'tx_expired' || /blockhash|expired/i.test(e.message || ''));
+export async function act(method, path, body, ui) {
+  try { return await actOnce(method, path, body, ui); } catch (e) {
+    if (!isStale(e)) throw e;
+    ui && ui('prepare');
+    try { return await actOnce(method, path, body, ui); } catch (e2) { if (isStale(e2)) throw new ApiError('That took too long to approve and the transaction expired. Please try again and approve quickly.', 'tx_expired', 0); throw e2; }
   }
-  S.wallet = wallet; S.provider = name; ls.set('walletAddr', wallet); ls.set('provider', name);
-  await refreshMe(); await loadLikes(); emit('auth', wallet); return wallet;
 }
-export function signOut() {
-  const p = S.provider && PROVIDERS[S.provider] && PROVIDERS[S.provider]();
-  if (p && p.disconnect) { try { p.disconnect(); } catch (e) { /* ignore */ } }
-  S.wallet = null; S.provider = null; S.unread = 0; S.balance = null; S.me = null; ls.del('walletAddr'); ls.del('provider');
-  loadLikes(); emit('auth', null);
+async function actOnce(method, path, body, ui) {
+  if (!S.token) throw new ApiError('Connect your wallet first.', 'auth', 401);
+  const step = (s, x) => ui && ui(s, x);
+  step('prepare');
+  const prep = await http(method, path, body);
+  if (!prep.txB64) { step('done', prep); return { prep, tx: prep }; } // some actions (cancel offer, decline, unlist) need no signature
+  step('sign', prep);
+  let signedTx;
+  try { signedTx = await signTx(prep.txB64); } catch (e) { if (e instanceof ApiError) throw e; throw new ApiError(/reject|denied|cancel/i.test(e.message || '') ? 'You cancelled the request in your wallet.' : (e.message || 'Wallet could not sign.'), 'rejected', 0); }
+  step('submit', prep);
+  let tx = (await http('POST', '/tx/submit', { ptxId: prep.ptxId, signedTx })).tx;
+  for (let i = 0; i < 50 && tx.status !== 'confirmed'; i++) {
+    step('confirm', tx);
+    if (tx.status === 'failed' || tx.status === 'expired') break;
+    await sleep(1500);
+    tx = (await http('GET', '/tx/' + prep.ptxId)).tx;
+  }
+  if (tx.status !== 'confirmed') throw new ApiError('The transaction did not confirm (' + tx.status + '). Nothing is charged if it never landed — check your wallet and try again.', 'tx_' + tx.status, 0);
+  step('done', tx);
+  refreshMe().catch(() => {});
+  return { prep, tx };
 }
-export function visitorId() {
-  let v = ls.get('vid', null);
-  if (!v) { const a = new Uint8Array(18); crypto.getRandomValues(a); v = Array.from(a, (b) => b.toString(16).padStart(2, '0')).join(''); ls.set('vid', v); }
-  return v;
-}
-export const me = () => S.wallet;
 
 export async function init() {
   try {
-    const first = await select('m_items', 'select=id&limit=1');
-    if (!first.rows.length) await seedIfEmpty();
+    S.meta = await http('GET', '/meta', null, { auth: false });
+    S.site = S.meta.site || {};
     S.online = true;
     await loadCollections();
-    if (S.wallet) await refreshMe().catch(() => { S.wallet = null; });
-    await loadLikes();
-  } catch (e) { console.warn('[GTA] database unreachable:', e.message); S.online = false; S.initError = e.message; }
+    if (S.token) await refreshMe().catch(() => {});
+    else { try { S.likes = new Set((await http('GET', '/likes/mine')).itemIds.map(String)); } catch (e) { /* ignore */ } }
+    if (S.token && !pollT) pollT = setInterval(() => { if (S.token) refreshMe().catch(() => {}); }, 30000);
+  } catch (e) { console.warn('[GTA] API unreachable:', e.message); S.online = false; S.initError = e.message; }
 }
 
-/* ---------- UI: toast, modal, tx dialog, wallet picker ---------- */
+/* ---------- bid window ---------- */
+export function bidWindow() { const w = S.meta && S.meta.bidWindow; return w && w.enabled ? w : null; }
+
+/* ---------- UI: toast, modal, wallet picker, tx dialog, confetti ---------- */
 export function toast(msg, kind) {
   let box = $('#toasts'); if (!box) { box = document.createElement('div'); box.id = 'toasts'; document.body.appendChild(box); }
   const t = document.createElement('div'); t.className = 'toast ' + (kind || ''); t.textContent = msg; box.appendChild(t);
@@ -181,13 +236,11 @@ export function modal(html, setup, cls) {
   document.body.appendChild(m); requestAnimationFrame(() => m.classList.add('in'));
   m.close = close; if (setup) setup(m, close); return m;
 }
-export const needWallet = () => { walletModal(); };
-export const money = (n) => (n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+export const needWallet = () => walletModal();
 export function walletModal() {
-  const list = detectWallets();
-  const rows = list.map((w) => `<button class="wrow" data-w="${w.name}"><img src="${esc(walletIcon(w.name))}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'wfallback',textContent:'${w.name[0]}'}))"><span><b>${w.name}</b><small>${w.found ? 'Detected' : 'Not installed — tap to get it'}</small></span><i class="arr">→</i></button>`).join('');
-  const guest = `<div class="sep">No wallet handy?</div><button class="wrow" data-w="guest"><span class="wfallback">⚡</span><span><b>Instant guest wallet</b><small>Created in this browser · starts with $1,000 play money</small></span><i class="arr">→</i></button>`;
-  modal(`<button class="x" data-x aria-label="Close">✕</button><h2 class="display">CONNECT<br>WALLET</h2><p class="muted">Sign a free message to sign in. No transaction, no real money — everything here is devnet play money.</p><div class="wlist">${rows}${guest}</div>`, (m, close) => {
+  const rows = detectWallets().map((w) => `<button class="wrow" data-w="${w.name}"><img src="${esc(walletIcon(w.name))}" alt="" onerror="${w.icon ? `this.onerror=null;this.src='${esc(w.icon)}'` : `this.replaceWith(Object.assign(document.createElement('span'),{className:'wfallback',textContent:'${w.name[0]}'}))`}"><span><b>${w.name}</b><small>${w.found ? 'Detected' : 'Not installed — tap to get it'}</small></span><i class="arr">→</i></button>`).join('');
+  const tests = isMock() ? `<div class="sep">Test wallets (demo chain)</div>` + testWallets().map((w) => `<button class="wrow" data-w="test:${w.name}"><span class="wfallback">${w.name[0]}</span><span><b>${w.name}</b><small>${short(w.addr)}</small></span><i class="arr">→</i></button>`).join('') : '';
+  modal(`<button class="x" data-x aria-label="Close">✕</button><h2 class="display">Connect<br>wallet</h2><p class="muted">Sign a free message to sign in — no transaction, no cost.</p><div class="wlist">${rows}${tests}</div><p class="fine">${S.meta ? 'Network: <b>' + esc(S.meta.network) + '</b>' + (S.meta.network === 'devnet' ? ' — test SOL only, get some at faucet.solana.com' : '') : ''}</p>`, (m, close) => {
     $('[data-x]', m).onclick = close;
     m.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-w]'); if (!b) return;
@@ -196,32 +249,46 @@ export function walletModal() {
     });
   });
 }
-/** Runs fn() inside a small progress dialog; shows success (with confetti) or the error. */
+const STEPS = [['prepare', 'Prepare'], ['sign', 'Approve in wallet'], ['submit', 'Send'], ['confirm', 'Confirm on-chain']];
+/** Runs fn(ui) inside a progress dialog. Pass ui to act(). Resolves with fn's result; shows the error if it throws. */
 export async function runTx(title, fn, okText) {
-  const m = modal(`<h2 class="display">${esc(title)}</h2><div class="spin"><i></i><span class="txmsg muted">Working…</span></div><div class="txfoot"></div>`, null, 'txd');
-  const msg = $('.txmsg', m), foot = $('.txfoot', m);
+  const m = modal(`<h2 class="display">${esc(title)}</h2><ol class="steps">${STEPS.map(([k, l]) => `<li data-s="${k}"><i></i>${l}</li>`).join('')}</ol><p class="txmsg muted">Starting…</p><div class="txfoot"></div>`, null, 'txd');
+  const msg = $('.txmsg', m), foot = $('.txfoot', m); let idx = -1;
+  const ui = (s) => {
+    const i = STEPS.findIndex(([k]) => k === s);
+    if (s === 'done') { $$('.steps li', m).forEach((li) => { li.className = 'done'; }); return; }
+    if (i >= idx) idx = i;
+    $$('.steps li', m).forEach((li, j) => { li.className = j < idx ? 'done' : j === idx ? 'now' : ''; });
+    msg.textContent = s === 'sign' ? 'Check your wallet and approve the request.' : s === 'confirm' ? 'Waiting for the network…' : 'Working…';
+  };
   try {
-    const r = await fn();
-    $('.spin i', m).className = 'okc'; msg.innerHTML = `<b class="ok">${esc(okText || 'Done')}</b>`;
-    foot.innerHTML = '<button class="btn primary" data-ok>Nice</button>'; $('[data-ok]', m).onclick = m.close; burst(); refreshMe().catch(() => {});
+    const r = await fn(ui);
+    msg.innerHTML = `<b class="ok">${esc(okText || 'Done')}</b>${r && r.tx && r.tx.signature ? ` <a class="txl" target="_blank" rel="noopener" href="${explorer(r.tx.signature)}">View transaction ↗</a>` : ''}`;
+    foot.innerHTML = '<button class="btn primary" data-ok>Nice</button>'; $('[data-ok]', m).onclick = m.close; burst();
     return r;
   } catch (e) {
-    $('.spin i', m).className = 'badc'; msg.innerHTML = `<b class="bad">${esc(e.message)}</b>`;
+    msg.innerHTML = `<b class="bad">${esc(e.message)}</b>`;
     foot.innerHTML = '<button class="btn" data-ok>Close</button>'; $('[data-ok]', m).onclick = m.close; throw e;
   }
 }
 export function burst() {
   const c = document.createElement('div'); c.className = 'burst'; document.body.appendChild(c);
-  const cols = ['#ff2d8a', '#ff7a1a', '#ffc93c', '#19e3d2'];
+  const cols = ['#ff2d8a', '#b13dff', '#ffc93c', '#19e3d2'];
   for (let i = 0; i < 46; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 280; p.style.cssText = `--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d - 80}px;--r:${Math.random() * 720 - 360}deg;background:${cols[i % 4]};left:50%;top:55%;animation-delay:${Math.random() * 80}ms`; c.appendChild(p); }
   setTimeout(() => c.remove(), 1400);
 }
-
-/* ---------- likes ---------- */
 export async function toggleLike(id) {
-  const r = await rpc('m_like', { p_item: String(id), p_voter: S.wallet || visitorId() });
+  const r = await http('POST', '/items/' + encodeURIComponent(id) + '/like', {});
   if (r.liked) S.likes.add(String(id)); else S.likes.delete(String(id));
   return r;
 }
-
-export const initialsOf = initials;
+/** Shrinks an image file to ≤ maxPx and returns { type, data (base64) } so uploads stay small. */
+export function shrinkImage(file, maxPx = 1600, q = 0.86) {
+  return new Promise((res, rej) => {
+    if (file.type === 'image/gif' && file.size < 3.5e6) { const r = new FileReader(); r.onload = () => res({ type: 'image/gif', data: String(r.result).split(',')[1] }); r.onerror = rej; return r.readAsDataURL(file); }
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, maxPx / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res({ type: 'image/jpeg', data: c.toDataURL('image/jpeg', q).split(',')[1] }); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new ApiError('Could not read that image', 'bad_image', 0)); };
+    img.src = url;
+  });
+}
