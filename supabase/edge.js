@@ -1,5 +1,6 @@
 // Entry point when the API runs as a Supabase Edge Function named "gta-api".
 // The function URL is https://<ref>.supabase.co/functions/v1/gta-api/<route>; we strip the function name prefix.
+import './buffer.js';
 import './env.js';
 import express from 'express';
 import { buildApp } from '../src/app.js';
