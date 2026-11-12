@@ -60,9 +60,19 @@ export async function explore({ q: init }) {
       const p = e.target.closest('[data-p]'); if (p) { st.page = +p.dataset.p; load(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     };
     root.onchange = (e) => { const f = e.target.dataset && e.target.dataset.f; if (f) { st[f] = e.target.value; st.page = 1; load(); } };
-    root.oninput = (e) => { if (e.target.id === 'q') { clearTimeout(t); t = setTimeout(() => { st.q = e.target.value.trim(); st.page = 1; load(); }, 280); } };
+    const search = (v) => { clearTimeout(t); t = setTimeout(() => { st.q = v.trim(); st.page = 1; load(); }, 280); };
+    root.oninput = (e) => { if (e.target.id === 'q') { const h = $('#hsq'); if (h) h.value = e.target.value; search(e.target.value); } };
+    // Once the filter bar scrolls away, the search morphs into the header (and back when the bar returns).
+    const hd = $('#hd'), bar = $('.bar', root);
+    const hs = document.createElement('label'); hs.className = 'hsearch'; hs.id = 'hs';
+    hs.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="hsq" type="search" placeholder="Search…" aria-label="Search artworks" value="${esc(st.q)}"><button type="button" class="hsf" aria-label="Filters" title="Filters"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>`;
+    hd.insertBefore(hs, $('.acct', hd));
+    hs.addEventListener('input', (e) => { if (e.target.id === 'hsq') { $('#q', root).value = e.target.value; search(e.target.value); } });
+    $('.hsf', hs).onclick = () => { const y = bar.getBoundingClientRect().top + scrollY - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 64) - 12; scrollTo({ top: Math.max(0, y), behavior: 'smooth' }); };
+    const io = new IntersectionObserver(([en]) => { const away = !en.isIntersecting && en.boundingClientRect.top < 0; document.body.classList.toggle('hs-on', away); if (!away && document.activeElement && document.activeElement.id === 'hsq') $('#q', root).focus({ preventScroll: true }); }, { rootMargin: `-${(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 64)}px 0px 0px 0px` });
+    io.observe(bar);
     load();
-    return () => { root.onclick = root.onchange = root.oninput = null; };
+    return () => { root.onclick = root.onchange = root.oninput = null; io.disconnect(); hs.remove(); document.body.classList.remove('hs-on'); };
   };
   return { html, mount };
 }

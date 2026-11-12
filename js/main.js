@@ -67,14 +67,14 @@ function fitBackdrop() {
 }
 addEventListener('resize', () => { clearTimeout(fitBackdrop.t); fitBackdrop.t = setTimeout(fitBackdrop, 150); });
 
-let tok = 0, cleanup = null;
+let tok = 0, cleanup = null, lastPath = '';
 async function render() {
   const my = ++tok; const hash = location.hash.slice(1) || '/'; const [path, query] = hash.split('?'); const q = Object.fromEntries(new URLSearchParams(query || ''));
   chrome(); backdrop(path);
   const main = $('#main');
   const hit = routes.map(([re, fn]) => [re.exec(path), fn]).find(([m]) => m);
   if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
-  const fill = (html, mount) => { if (my !== tok) return; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, 0); document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; };
+  const fill = (html, mount) => { if (my !== tok) return; const keep = path.startsWith('/me') && lastPath.startsWith('/me'); const y = scrollY; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, keep ? y : 0); lastPath = path; document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; };
   if (!hit) return fill(`<div class="empty"><b>Wrong turn</b>That page doesn't exist. <a class="accent" href="#/">Back to start</a></div>`);
   if (!S.online) return fill(`<div class="empty"><b>Offline</b>The server is not reachable${S.initError ? ': ' + esc(S.initError) : ''}. <a class="accent" href="">Try again</a></div>`);
   try { const r = await hit[1]({ args: hit[0].slice(1), q }); if (typeof r === 'string') fill(r); else fill(r.html, r.mount); }
