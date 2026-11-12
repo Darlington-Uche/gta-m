@@ -1,16 +1,3 @@
-/* Image cache: images show instantly after the first visit and refresh quietly in the background.
-   Pages, scripts and API calls always go to the network, so nothing here can serve stale code or data. */
-const CACHE = 'gta-img-v1';
+// Retires the old service worker from earlier versions of the site: clears its caches and unregisters.
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(
-  caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('gta-img-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
-));
-self.addEventListener('fetch', (e) => {
-  const r = e.request;
-  if (r.method !== 'GET' || r.destination !== 'image') return;
-  e.respondWith(caches.open(CACHE).then(async (cache) => {
-    const hit = await cache.match(r);
-    const net = fetch(r).then((res) => { if (res && (res.ok || res.type === 'opaque')) cache.put(r, res.clone()).catch(() => {}); return res; }).catch(() => hit);
-    return hit || net;
-  }));
-});
+self.addEventListener('activate', (e) => e.waitUntil((async () => { try { for (const k of await caches.keys()) await caches.delete(k); } catch (_) {} await self.registration.unregister(); const cs = await self.clients.matchAll(); cs.forEach((c) => c.navigate(c.url)); })()));

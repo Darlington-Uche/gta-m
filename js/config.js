@@ -1,7 +1,5 @@
-/* ===== GTA Marketplace — frontend config =====
-   API_URL: your deployed backend, e.g. 'https://gta-api.up.railway.app'  (no trailing slash).
-   Leave it empty to run in DEMO mode: browsing works from js/data.js, but minting/offers are disabled. */
+/* GTA Market — frontend config. The marketplace talks straight to Supabase (database + RPC + storage); there is no separate backend. */
 window.GTA_CONFIG = {
-  API_URL: 'https://fqahmitjaxcssrzpemlc.supabase.co/functions/v1/gta-api',
-  WEB3_CDN: 'https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js'
+  SUPABASE_URL: 'https://fqahmitjaxcssrzpemlc.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_E3U3UUeJkWphvBFoOgSPnQ_44s9tKKo'
 };
