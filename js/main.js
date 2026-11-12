@@ -19,7 +19,7 @@ function chrome() {
   const here = (location.hash.slice(1) || '/').split('?')[0];
   const active = (h) => (h === '/' ? here === '/' : here.startsWith(h) || (h === '/collections' && here.startsWith('/collection')));
   const badge = S.unread ? `<span class="badge">${S.unread}</span>` : '';
-  $('#hd').innerHTML = `<a class="brand" href="#/"><b>GTA</b><span>MARKET</span></a>
+  $('#hd').innerHTML = `<a class="brand" href="#/" aria-label="GTA Marketplace"><b>GTA</b><i>Marketplace</i></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
     <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet ? `<a class="chipb" href="#/me"><i class="dot"></i>${short(S.wallet)}${badge}</a>` : '<button class="btn primary sm" id="cw">Connect wallet</button>'}</div>`;
   const an = S.site && S.site.announcement; let bar = $('#ann'); if (an) { if (!bar) { bar = document.createElement('div'); bar.id = 'ann'; document.body.prepend(bar); } bar.textContent = an; } else if (bar) bar.remove();
@@ -27,10 +27,27 @@ function chrome() {
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
 }
 
+/* Full-bleed backdrop per page. Images uploaded in the admin (Site & banners / collection banner) replace the built-in ones. */
+let bdCur = '', bdFlip = 0;
+function backdrop(path) {
+  const site = S.site || {}, b = site.banners || {}; let url = '', cls = '';
+  if (path === '/' || path === '') { url = site.heroImage || 'img/hero.jpg'; cls = 'tall'; }
+  else if (path === '/explore') url = b.explore || 'img/explore.jpg';
+  else if (path === '/collections') url = b.eras || 'img/eras.jpg';
+  else if (path.startsWith('/collection/')) { const c = S.collections.find((x) => x.id === decodeURIComponent(path.split('/')[2])); url = (c && (c.banner || c.cover)) || b.eras || 'img/eras.jpg'; }
+  else if (path === '/create') url = b.create || 'img/submit.jpg';
+  else if (path.startsWith('/me')) url = 'img/crew.jpg';
+  const el = $('#backdrop'); if (!el) return; el.className = url ? 'on ' + cls : '';
+  if (url === bdCur) return; bdCur = url;
+  const layers = $$('i', el); bdFlip ^= 1; const next = layers[bdFlip], prev = layers[bdFlip ^ 1];
+  if (url) next.style.backgroundImage = `url('${url.replace(/'/g, '%27')}')`;
+  next.classList.toggle('on', !!url); prev.classList.remove('on');
+}
+
 let tok = 0, cleanup = null;
 async function render() {
   const my = ++tok; const hash = location.hash.slice(1) || '/'; const [path, query] = hash.split('?'); const q = Object.fromEntries(new URLSearchParams(query || ''));
-  chrome();
+  chrome(); backdrop(path);
   const main = $('#main');
   const hit = routes.map(([re, fn]) => [re.exec(path), fn]).find(([m]) => m);
   if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }

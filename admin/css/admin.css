@@ -47,3 +47,6 @@ code{font-family:ui-monospace,monospace;font-size:12.5px;word-break:break-all;co
 .empty{text-align:center;padding:50px 16px;color:var(--dim)}.empty b{display:block;font:400 26px var(--disp);color:var(--paper);text-transform:uppercase;margin-bottom:6px}
 .prog{height:6px;border-radius:3px;background:var(--glass2);overflow:hidden}.prog i{display:block;height:100%;background:var(--vice);transition:width .2s}
 @media(max-width:860px){.shell{grid-template-columns:1fr}.side{position:fixed;inset:auto 0 0 0;height:auto;flex-direction:row;overflow-x:auto;padding:8px;z-index:50;border-right:0;border-top:1px solid var(--line)}.logo,.side .foot{display:none}.side a.nav{flex:none;flex-direction:column;gap:2px;padding:8px 12px;font-size:10px}.main{padding-bottom:100px}.sub-card,.coll{grid-template-columns:1fr}.sub-card img{width:100%;height:auto;max-height:320px}}
+
+@font-face{font-family:Script;src:url(../fonts/script.woff2) format('woff2');font-display:swap}
+.logo{gap:0;font-size:28px;position:relative;padding-bottom:14px}.logo b{background:none;padding:0;transform:skewX(-9deg);text-shadow:3px 3px 0 rgba(214,61,255,.55)}.logo i{font:400 .9em/1 Script,cursive;font-style:normal;color:#ff5fb0;margin-left:-.14em;transform:translateY(.3em) rotate(-7deg);text-shadow:0 0 14px rgba(255,61,154,.75)}.logo small{position:absolute;left:2px;bottom:-4px}

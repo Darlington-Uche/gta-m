@@ -10,10 +10,7 @@ export const poster = (it) => {
 const skels = (n) => `<div class="grid">${'<div class="skel"></div>'.repeat(n)}</div>`;
 const bg = (u) => (u ? `style="--bi:url('${esc(u)}')"` : '');
 /** Page header: uses the banner uploaded in the admin site when there is one, otherwise a clean gradient header */
-const pageHead = (key, eyebrow, title, sub) => {
-  const b = S.site && S.site.banners && S.site.banners[key];
-  return `<div class="ph ${b ? 'has-banner' : ''}" ${bg(b)}><span class="eyebrow">${eyebrow}</span><h1 class="display">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>`;
-};
+const pageHead = (key, eyebrow, title, sub) => `<div class="ph"><span class="eyebrow">${eyebrow}</span><h1 class="display">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>`;
 const tile = (c) => `<a class="tile" href="#/collection/${esc(c.id)}"><div class="bgi" ${c.cover ? `style="background-image:url('${esc(c.cover)}')"` : ''}></div><div><h3 class="display">${esc(c.short)}</h3><small>${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</small></div></a>`;
 
 /* ================= HOME ================= */
@@ -21,19 +18,17 @@ export async function home() {
   const [pop, fresh, st] = await Promise.all([items({ sort: 'liked', limit: 1 }), items({ sort: 'recent', limit: 8 }), stats().catch(() => ({}))]);
   const f = pop.items[0], site = S.site || {};
   const title = site.heroTitle ? esc(site.heroTitle) : 'Own the<br><span class="grad">streets.</span>';
-  const featImg = site.heroImage || (f && f.img);
-  return `<section class="hero ${site.heroImage ? 'has-img' : ''}"><div class="sun"></div><div class="horizon"></div>
-    <div><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
+  return `<section class="hero"><div class="hero-in"><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
     <h1 class="display">${title}</h1>
     <p class="sub">${esc(site.heroSubtitle || 'Collect, trade and flex original GTA-inspired art from every era. Real NFTs on Solana — connect a wallet and start with the free drops.')}</p>
     <div class="cta"><a class="btn primary lg" href="#/explore">Browse the drops</a><a class="btn lg" href="#/create">Submit your art</a></div></div>
-    ${f ? `<a class="feat" href="#/art/${esc(f.id)}">${imgTag(featImg, f.title, 800)}<div class="cap"><div><small>Most liked</small><b>${esc(f.title)}</b></div><span class="price ${f.state === 'listed' ? 'listed' : f.free ? 'free' : ''}">${f.state === 'minted' ? 'Owned' : usd(f.priceUsd)}</span></div></a>` : ''}</section>
+    ${f ? `<a class="spot glass" href="#/art/${esc(f.id)}"><span class="t">${imgTag(f.img, f.title, 160)}</span><div><small>Most liked</small><b>${esc(f.title)}</b></div><span class="price ${f.state === 'listed' ? 'listed' : f.free ? 'free' : ''}">${f.state === 'minted' ? 'Owned' : usd(f.priceUsd)}</span></a>` : ''}</section>
   <div class="stats">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<div class="stat glass"><b class="grad">${n}</b><small>${l}</small></div>`).join('')}</div>
   <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
   ${fresh.items.length ? `<div class="grid">${fresh.items.map(poster).join('')}</div>` : '<div class="empty"><b>Drops coming soon</b>The first artworks are being uploaded.</div>'}
   <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
   <div class="tiles">${S.collections.map(tile).join('')}</div>
-  <div class="cta-band glass"><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
+  <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
 }
 
 /* ================= EXPLORE ================= */
@@ -131,7 +126,7 @@ export async function collection({ args: [id], q }) {
   id = decodeURIComponent(id);
   const c = S.collections.find((x) => x.id === id); if (!c) throw new Error('Collection not found');
   const r = await items({ era: id, sort: q.sort || 'liked', limit: 60 });
-  return `<div class="cbanner"><div class="bgi" ${c.banner || c.cover ? `style="background-image:url('${esc(c.banner || c.cover)}')"` : ''}></div><span class="eyebrow">Collection</span><h1 class="display">${esc(c.short)}</h1><p class="muted" style="max-width:52ch">${esc(c.blurb || c.name)}</p>
+  return `<div class="cbanner"><span class="eyebrow">Collection</span><h1 class="display">${esc(c.short)}</h1><p class="muted" style="max-width:52ch">${esc(c.blurb || c.name)}</p>
     <div class="cstats">${[[c.items, 'Pieces'], [c.minted, 'Collected'], [c.owners, 'Owners'], [c.floorUsd != null ? usd(c.floorUsd) : '—', 'Floor']].map(([n, l]) => `<div class="glass"><b>${n}</b><small>${l}</small></div>`).join('')}</div></div>
   ${r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing here yet</b>Artworks for this era are coming soon.</div>'}${r.total > 60 ? `<div class="pager"><a class="btn" href="#/explore?era=${esc(id)}">See all ${r.total} →</a></div>` : ''}`;
 }

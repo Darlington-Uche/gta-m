@@ -3,7 +3,7 @@ import { poster } from './views.js';
 
 const gate = (t, d) => `<div class="gate glass"><h2 class="display">${t}</h2><p>${d}</p><button class="btn primary lg" id="gw">Connect wallet</button></div>`;
 const wireGate = (root) => { const b = $('#gw', root); if (b) b.onclick = walletModal; };
-const banner = (key, eyebrow, title, sub) => { const b = S.site && S.site.banners && S.site.banners[key]; return `<div class="ph ${b ? 'has-banner' : ''}" ${b ? `style="--bi:url('${esc(b)}')"` : ''}><span class="eyebrow">${eyebrow}</span><h1 class="display">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>`; };
+const banner = (key, eyebrow, title, sub) => `<div class="ph"><span class="eyebrow">${eyebrow}</span><h1 class="display">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>`;
 
 /* ================= CREATE / SUBMIT ================= */
 export async function create() {

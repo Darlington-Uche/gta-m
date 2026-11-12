@@ -37,13 +37,13 @@ let pending = 0;
 async function render() {
   const app = $('#app');
   if (!TOKEN) {
-    app.innerHTML = `<div class="login"><form class="box glass" id="lf"><div class="logo"><b>GTA</b>MARKET<small>ADMIN</small></div><h1 class="display">Sign <span class="grad">in</span></h1><label class="field">Admin password<input type="password" id="pw" autocomplete="current-password" autofocus></label><button class="btn primary" style="padding:13px">Enter</button><p class="fine">Backend: ${esc(API || 'not configured')}</p></form></div>`;
+    app.innerHTML = `<div class="login"><form class="box glass" id="lf"><div class="logo"><b>GTA</b><i>Marketplace</i><small>ADMIN</small></div><h1 class="display">Sign <span class="grad">in</span></h1><label class="field">Admin password<input type="password" id="pw" autocomplete="current-password" autofocus></label><button class="btn primary" style="padding:13px">Enter</button><p class="fine">Backend: ${esc(API || 'not configured')}</p></form></div>`;
     $('#lf').onsubmit = async (e) => { e.preventDefault(); await busy($('#lf button'), async () => { const r = await api('POST', '/auth/admin-login', { password: $('#pw').value }); TOKEN = r.token; ls.set('gta_admin', TOKEN); render(); }); };
     return;
   }
   const route = (location.hash.slice(2) || 'dash').split('?')[0], view = VIEWS[route] ? route : 'dash';
   try { const [m, p] = await Promise.all([api('GET', '/admin/wallets'), api('GET', '/admin/submissions?status=pending').catch(() => ({ submissions: [] }))]); META = m; pending = p.submissions.length; } catch (e) { if (!TOKEN) return; toast(e.message, true); }
-  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><b>GTA</b><div>MARKET<small>ADMIN</small></div></div>${NAVS.map(([k, l, ic]) => `<a class="nav ${k === view ? 'on' : ''}" href="#/${k}"><svg viewBox="0 0 24 24">${ic}</svg>${l}${k === 'subs' && pending ? `<span class="n">${pending}</span>` : ''}</a>`).join('')}
+  app.innerHTML = `<div class="shell"><aside class="side"><div class="logo"><b>GTA</b><i>Marketplace</i><small>ADMIN</small></div>${NAVS.map(([k, l, ic]) => `<a class="nav ${k === view ? 'on' : ''}" href="#/${k}"><svg viewBox="0 0 24 24">${ic}</svg>${l}${k === 'subs' && pending ? `<span class="n">${pending}</span>` : ''}</a>`).join('')}
     <div class="foot"><span class="net ${META && META.network !== 'devnet' ? 'main' : ''}">${META ? (META.network === 'devnet' ? 'Devnet' : 'Mainnet') + ' · ' + esc(META.chain) : '…'}</span>${CFG.SITE_URL ? `<a class="btn sm" href="${esc(CFG.SITE_URL)}" target="_blank" rel="noopener">View site ↗</a>` : ''}<button class="btn sm" id="lo">Sign out</button></div></aside><main class="main" id="view"><div class="empty">Loading…</div></main></div>`;
   $('#lo').onclick = logout;
   try { await VIEWS[view]($('#view')); } catch (e) { $('#view').innerHTML = `<div class="empty"><b>Could not load</b>${esc(e.message)}</div>`; }

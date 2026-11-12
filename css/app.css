@@ -177,3 +177,53 @@ main { max-width: var(--wrap); margin: 0 auto; padding: 36px 24px 90px; min-heig
 .grad { background: var(--vice); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero h1 .grad { background: var(--sunset); -webkit-background-clip: text; background-clip: text; color: transparent; }
 #ann{background:var(--vice);color:#fff;text-align:center;font-weight:800;font-size:13px;padding:8px 16px;letter-spacing:.02em}
+
+/* ================= v4 — cinematic backdrops, open hero, new logo ================= */
+@font-face { font-family: 'Script'; src: url('../fonts/script.woff2') format('woff2'); font-display: swap; }
+body { position: relative; }
+/* logo lockup: heavy slanted GTA + neon script */
+.brand { gap: 0; align-items: center; font-size: 30px; padding-right: 8px; }
+.brand b { background: none; box-shadow: none; padding: 0; border-radius: 0; color: #fff; font: 400 1em/1 var(--disp); letter-spacing: .01em; transform: skewX(-9deg); text-shadow: 3px 3px 0 rgba(214, 61, 255, .55); }
+.brand i { font: 400 .92em/1 'Script', cursive; font-style: normal; color: #ff5fb0; margin-left: -.14em; transform: translateY(.3em) rotate(-7deg); text-shadow: 0 0 14px rgba(255, 61, 154, .75), 0 0 2px #fff3; letter-spacing: .01em; }
+.brand:hover i { text-shadow: 0 0 22px rgba(255, 61, 154, 1), 0 0 2px #fff6; }
+/* backdrop */
+#backdrop { position: absolute; top: 0; left: 0; right: 0; height: min(64vh, 620px); z-index: -1; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .5s, height .5s var(--ease); }
+#backdrop.on { opacity: 1; } #backdrop.tall { height: min(100vh, 940px); }
+#backdrop i { position: absolute; inset: 0; background-size: cover; background-position: center 28%; opacity: 0; transition: opacity .8s var(--ease); transform: scale(1.04); }
+#backdrop i.on { opacity: 1; animation: drift 22s ease-in-out infinite alternate; } @keyframes drift { to { transform: scale(1.1) translateX(-1%); } }
+#backdrop.shift i { left: 20%; -webkit-mask-image: linear-gradient(90deg, transparent, #000 34%); mask-image: linear-gradient(90deg, transparent, #000 34%); background-position: center 40%; }
+#backdrop::after { content: ''; position: absolute; inset: 0; background:
+  linear-gradient(180deg, rgba(15, 4, 32, .62) 0, rgba(15, 4, 32, .12) 26%, rgba(15, 4, 32, .55) 68%, var(--night) 100%),
+  linear-gradient(90deg, rgba(15, 4, 32, .92) 0, rgba(15, 4, 32, .6) 34%, rgba(15, 4, 32, 0) 72%),
+  linear-gradient(120deg, rgba(255, 61, 154, .2), rgba(138, 77, 255, .26)); }
+.hd { background: rgba(15, 4, 32, .45); border-bottom-color: rgba(255, 243, 232, .08); }
+/* open hero */
+.hero { display: flex; flex-direction: column; justify-content: flex-end; gap: 28px; min-height: min(calc(100vh - var(--nav-h) - 150px), 720px); padding: 0 0 8px; border: 0; border-radius: 0; background: none; overflow: visible; grid-template-columns: none; }
+.hero-in { max-width: 620px; } .hero h1 { font-size: clamp(60px, 9.4vw, 138px); margin: 16px 0 14px; text-shadow: 0 6px 40px rgba(15, 4, 32, .6); } .hero .sub { color: #e6d9f2; text-shadow: 0 1px 12px rgba(15, 4, 32, .8); }
+.spot { align-self: flex-end; display: flex; align-items: center; gap: 14px; padding: 10px 14px 10px 10px; border-radius: 18px; transition: .3s var(--ease); max-width: 100%; margin-top: -92px; }
+.spot:hover { transform: translateY(-4px); border-color: rgba(255, 61, 154, .6); } .spot .t { width: 58px; height: 58px; border-radius: 12px; overflow: hidden; flex: none; background: var(--plum); } .spot .t img { width: 100%; height: 100%; object-fit: cover; }
+.spot small { display: block; color: var(--teal); font-weight: 800; letter-spacing: .14em; font-size: 10px; text-transform: uppercase; } .spot b { font: 400 20px/1.1 var(--disp); text-transform: uppercase; display: block; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats { margin-top: 26px; } .stat { background: rgba(33, 11, 62, .55); }
+/* page headers sit on the backdrop */
+.ph, .ph.has-banner { min-height: min(34vh, 320px); display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 6px; border: 0; border-radius: 0; margin-bottom: 26px; } .ph.has-banner::before, .ph.has-banner::after { display: none; }
+.ph h1 { text-shadow: 0 6px 40px rgba(15, 4, 32, .6); } .ph p { color: #e6d9f2; }
+.cbanner { border: 0; background: none; padding: 0 0 6px; min-height: min(40vh, 380px); border-radius: 0; overflow: visible; } .cbanner::before { display: none; } .cbanner h1 { font-size: clamp(48px, 7vw, 96px); margin: 12px 0 8px; }
+.cstats div { background: rgba(33, 11, 62, .55); }
+/* creators band with artwork */
+.cta-band { position: relative; isolation: isolate; overflow: hidden; border-radius: 28px; border: 1px solid var(--line); min-height: 260px; background: none; }
+.cta-band .bgi { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center 22%; }
+.cta-band::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(15, 4, 32, .92), rgba(15, 4, 32, .45) 55%, rgba(15, 4, 32, .2)), linear-gradient(120deg, rgba(255, 61, 154, .25), rgba(138, 77, 255, .2)); }
+.cta-band h2 { font-size: clamp(36px, 5vw, 64px); max-width: 12ch; }
+/* footer */
+.ft { max-width: var(--wrap); margin: 0 auto; padding: 34px 24px 46px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--line); } .ft p { color: var(--faint); font-size: 12.5px; max-width: 60ch; } .ft .brand { font-size: 26px; }
+main { min-height: 70vh; padding-bottom: 60px; }
+@media (max-width: 760px) {
+  .brand { font-size: 25px; } #backdrop.shift i { left: 0; -webkit-mask-image: none; mask-image: none; background-position: 42% 30%; }
+  #backdrop::after { background: linear-gradient(180deg, rgba(15, 4, 32, .55) 0, rgba(15, 4, 32, .15) 30%, rgba(15, 4, 32, .82) 66%, var(--night) 100%), linear-gradient(120deg, rgba(255, 61, 154, .2), rgba(138, 77, 255, .26)); }
+  .hero { min-height: calc(100vh - var(--nav-h) - 230px); } .spot { align-self: stretch; margin-top: 0; } .spot b { max-width: none; } .ft { padding-bottom: 110px; } .cta-band { min-height: 220px; }
+}
+
+.hero-in { align-self: flex-start; margin: 0; }
+.hero h1 .grad, .ph h1 .grad, .cbanner h1 .grad, .sh h2 .grad { text-shadow: none; }
+#backdrop.tall i { background-position: 60% 35%; }
+@media (max-width: 760px) { #backdrop.tall i { background-position: 62% 30%; } }
