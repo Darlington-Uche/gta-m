@@ -14,7 +14,7 @@ let TOKEN = ls.get('gta_admin'), META = null;
 
 function toast(m, bad) { const t = document.createElement('div'); t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = m; $('#toasts').appendChild(t); setTimeout(() => t.remove(), 3800); }
 async function api(method, path, body) {
-  let r; try { r = await fetch(API + path, { method, headers: { 'content-type': 'application/json', ...(TOKEN ? { authorization: 'Bearer ' + TOKEN } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }); } catch (e) { throw new Error('Cannot reach the backend (' + (API || 'API_URL not set') + ')'); }
+  let r; try { r = await fetch(API + path, { method, cache: 'no-store', headers: { 'content-type': 'application/json', ...(TOKEN ? { authorization: 'Bearer ' + TOKEN } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }); } catch (e) { throw new Error('Cannot reach the backend (' + (API || 'API_URL not set') + ')'); }
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && TOKEN) { logout(); throw new Error('Session expired'); }
   if (!r.ok || j.ok === false) throw new Error((j.error && j.error.message) || 'Request failed (' + r.status + ')');

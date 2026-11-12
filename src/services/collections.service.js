@@ -10,7 +10,7 @@ let cache = { at: 0, data: null };
 export const invalidateCollections = () => { cache = { at: 0, data: null }; };
 
 export async function listCollections() {
-  if (cache.data && now() - cache.at < 3000) return cache.data;
+  if (!globalThis.Deno && cache.data && now() - cache.at < 3000) return cache.data; // no cache on Edge: each request may hit a different instance
   const data = await queryDocs(col('collections'));
   cache = { at: now(), data };
   return data;

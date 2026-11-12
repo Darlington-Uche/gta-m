@@ -59,7 +59,7 @@ export async function http(method, path, body, opt = {}) {
   const cacheable = method === 'GET' && opt.auth === false && /^\/(meta|collections|stats)(\?|$)|^\/items\?/.test(path);
   if (cacheable) { const c = cGet(path); if (c) return c; }
   let res;
-  try { res = await fetch(API + path, { method, headers, body: payload }); } catch (e) { throw new ApiError('Cannot reach the server. Check your connection.', 'network', 0); }
+  try { res = await fetch(API + path, { method, cache: 'no-store', headers, body: payload }); } catch (e) { throw new ApiError('Cannot reach the server. Check your connection.', 'network', 0); }
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false) {
     const err = json.error || {};
