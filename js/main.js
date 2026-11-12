@@ -29,18 +29,24 @@ function chrome() {
 
 /* Full-bleed backdrop per page. Images uploaded in the admin (Site & banners / collection banner) replace the built-in ones. */
 let bdCur = '', bdFlip = 0;
+const BD = { // built-in backdrops: [image, desktop focus, mobile focus]
+  home: ['img/hero.jpg', '60% 35%', '70% 20%'], explore: ['img/explore.jpg', '50% 22%', '72% 20%'], eras: ['img/eras.jpg', '50% 18%', '58% 15%'],
+  create: ['img/submit.jpg', '100% 12%', '88% 10%'], me: ['img/crew.jpg', '50% 16%', '50% 12%']
+};
 function backdrop(path) {
-  const site = S.site || {}, b = site.banners || {}; let url = '', cls = '';
-  if (path === '/' || path === '') { url = site.heroImage || 'img/hero.jpg'; cls = 'tall'; }
-  else if (path === '/explore') url = b.explore || 'img/explore.jpg';
-  else if (path === '/collections') url = b.eras || 'img/eras.jpg';
-  else if (path.startsWith('/collection/')) { const c = S.collections.find((x) => x.id === decodeURIComponent(path.split('/')[2])); url = (c && (c.banner || c.cover)) || b.eras || 'img/eras.jpg'; }
-  else if (path === '/create') url = b.create || 'img/submit.jpg';
-  else if (path.startsWith('/me')) url = 'img/crew.jpg';
-  const el = $('#backdrop'); if (!el) return; el.className = url ? 'on ' + cls : '';
+  const site = S.site || {}, b = site.banners || {}; let key = '', custom = '';
+  if (path === '/' || path === '') { key = 'home'; custom = site.heroImage; }
+  else if (path === '/explore') { key = 'explore'; custom = b.explore; }
+  else if (path === '/collections') { key = 'eras'; custom = b.eras; }
+  else if (path.startsWith('/collection/')) { const c = S.collections.find((x) => x.id === decodeURIComponent(path.split('/')[2])); key = 'eras'; custom = (c && (c.banner || c.cover)) || b.eras; }
+  else if (path === '/create') { key = 'create'; custom = b.create; }
+  else if (path.startsWith('/me')) key = 'me';
+  const el = $('#backdrop'); if (!el) return;
+  const d = BD[key], url = custom || (d ? d[0] : '');
+  el.className = url ? 'on' + (key === 'home' ? ' tall' : '') : '';
   if (url === bdCur) return; bdCur = url;
   const layers = $$('i', el); bdFlip ^= 1; const next = layers[bdFlip], prev = layers[bdFlip ^ 1];
-  if (url) next.style.backgroundImage = `url('${url.replace(/'/g, '%27')}')`;
+  if (url) { next.style.backgroundImage = `url('${url.replace(/'/g, '%27')}')`; next.style.setProperty('--pos', custom || !d ? 'center 25%' : d[1]); next.style.setProperty('--mpos', custom || !d ? 'center 20%' : d[2]); }
   next.classList.toggle('on', !!url); prev.classList.remove('on');
 }
 

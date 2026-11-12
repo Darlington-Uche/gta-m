@@ -11,7 +11,8 @@ const skels = (n) => `<div class="grid">${'<div class="skel"></div>'.repeat(n)}<
 const bg = (u) => (u ? `style="--bi:url('${esc(u)}')"` : '');
 /** Page header: uses the banner uploaded in the admin site when there is one, otherwise a clean gradient header */
 const pageHead = (key, eyebrow, title, sub) => `<div class="ph"><span class="eyebrow">${eyebrow}</span><h1 class="display">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>`;
-const tile = (c) => `<a class="tile" href="#/collection/${esc(c.id)}"><div class="bgi" ${c.cover ? `style="background-image:url('${esc(c.cover)}')"` : ''}></div><div><h3 class="display">${esc(c.short)}</h3><small>${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</small></div></a>`;
+const HUES = [330, 285, 255, 315, 22, 200, 168, 345];
+const tile = (c, i = 0) => `<a class="tile ${c.cover ? '' : 'nocover'}" style="--h:${HUES[i % HUES.length]}" href="#/collection/${esc(c.id)}"><div class="bgi" ${c.cover ? `style="background-image:url('${esc(c.cover)}')"` : ''}></div>${c.cover ? '' : `<span class="ghost display" aria-hidden="true">${esc(c.short)}</span>`}<div><h3 class="display">${esc(c.short)}</h3><small>${c.items} pieces · ${c.minted} collected${c.floorUsd != null ? ' · ' + (c.floorUsd ? 'from ' + usd(c.floorUsd) : 'free picks') : ''}</small></div><span class="go" aria-hidden="true">→</span></a>`;
 
 /* ================= HOME ================= */
 export async function home() {
@@ -27,7 +28,7 @@ export async function home() {
   <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
   ${fresh.items.length ? `<div class="grid">${fresh.items.map(poster).join('')}</div>` : '<div class="empty"><b>Drops coming soon</b>The first artworks are being uploaded.</div>'}
   <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
-  <div class="tiles">${S.collections.map(tile).join('')}</div>
+  <div class="tiles">${S.collections.map((c, i) => tile(c, i)).join('')}</div>
   <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
 }
 
@@ -120,7 +121,7 @@ export async function artwork({ args: [id] }) {
 
 /* ================= COLLECTIONS ================= */
 export async function collections() {
-  return `${pageHead('eras', 'Eras', 'Pick your <span class="grad">decade.</span>', 'Every GTA era is its own collection — floor prices, owners and a full gallery.')}<div class="tiles">${S.collections.map(tile).join('')}</div>`;
+  return `${pageHead('eras', 'Eras', 'Pick your <span class="grad">decade.</span>', 'Every GTA era is its own collection — floor prices, owners and a full gallery.')}<div class="tiles">${S.collections.map((c, i) => tile(c, i)).join('')}</div>`;
 }
 export async function collection({ args: [id], q }) {
   id = decodeURIComponent(id);

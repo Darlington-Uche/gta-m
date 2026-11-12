@@ -227,3 +227,33 @@ main { min-height: 70vh; padding-bottom: 60px; }
 .hero h1 .grad, .ph h1 .grad, .cbanner h1 .grad, .sh h2 .grad { text-shadow: none; }
 #backdrop.tall i { background-position: 60% 35%; }
 @media (max-width: 760px) { #backdrop.tall i { background-position: 62% 30%; } }
+
+/* ================= v5 — images that read on every screen, tile + mobile polish ================= */
+#backdrop i, #backdrop.tall i { background-position: var(--pos, center 25%); }
+#backdrop { height: min(66vh, 640px); }
+#backdrop::after { background:
+  linear-gradient(180deg, rgba(15, 4, 32, .5) 0, rgba(15, 4, 32, .05) 24%, rgba(15, 4, 32, .35) 62%, var(--night) 100%),
+  linear-gradient(90deg, rgba(15, 4, 32, .88) 0, rgba(15, 4, 32, .5) 32%, rgba(15, 4, 32, 0) 66%),
+  linear-gradient(120deg, rgba(255, 61, 154, .16), rgba(138, 77, 255, .2)); }
+.ph { min-height: min(38vh, 360px); }
+/* era tiles: designed even before a cover is uploaded */
+.tile .go { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(15, 4, 32, .5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); font-weight: 800; opacity: 0; transform: translateX(-8px); transition: .3s var(--ease); }
+.tile:hover .go { opacity: 1; transform: none; } .tile:hover .bgi { transform: scale(1.06); }
+.tile.nocover .bgi { background: radial-gradient(120% 90% at 85% 0, hsl(calc(var(--h) + 40) 90% 58% / .55), transparent 60%), linear-gradient(140deg, hsl(var(--h) 78% 36%), hsl(calc(var(--h) - 40) 70% 16%)); }
+.tile .ghost { position: absolute; z-index: -1; right: -6px; top: 2px; font-size: clamp(64px, 9vw, 110px); line-height: .9; color: transparent; -webkit-text-stroke: 1.5px rgba(255, 255, 255, .2); white-space: nowrap; pointer-events: none; }
+.chip.on, .dock a.on { background: var(--vice); color: #fff; border-color: transparent; }
+@media (min-width: 1700px) { :root { --wrap: 1480px; } #backdrop { height: min(68vh, 800px); } #backdrop.tall { height: min(100vh, 1120px); } .hero { min-height: min(calc(100vh - var(--nav-h) - 170px), 860px); } .grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); } }
+@media (max-width: 760px) {
+  #backdrop { height: 62vh; } #backdrop.tall { height: 96vh; }
+  #backdrop i, #backdrop.tall i { background-position: var(--mpos, center 20%); }
+  #backdrop::after { background: linear-gradient(180deg, rgba(15, 4, 32, .35) 0, rgba(15, 4, 32, 0) 22%, rgba(15, 4, 32, .12) 44%, rgba(15, 4, 32, .86) 74%, var(--night) 100%), linear-gradient(120deg, rgba(255, 61, 154, .14), rgba(138, 77, 255, .18)); }
+  .hero { min-height: calc(96vh - var(--nav-h) - 210px); gap: 18px; } .hero h1 { font-size: clamp(56px, 17vw, 84px); margin: 12px 0 10px; } .hero .sub { font-size: 15px; margin-bottom: 18px; }
+  .cta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .cta .btn { padding: 14px 10px; font-size: 14px; }
+  .ph { min-height: calc(62vh - var(--nav-h) - 60px); } .ph h1 { font-size: clamp(46px, 14vw, 70px); } .cbanner { min-height: calc(62vh - var(--nav-h) - 60px); }
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; } .stat { padding: 12px 8px; text-align: center; } .stat b { font-size: 26px; } .stat small { font-size: 8.5px; letter-spacing: .08em; }
+  .tile { aspect-ratio: 16/8; } .tile .go { opacity: 1; transform: none; } .sh { margin: 40px 0 16px; }
+  .cta-band { align-items: flex-end; min-height: 300px; } .cta-band::before { background: linear-gradient(180deg, rgba(15, 4, 32, .15), rgba(15, 4, 32, .9) 70%), linear-gradient(120deg, rgba(255, 61, 154, .2), rgba(138, 77, 255, .18)); } .cta-band .btn { width: 100%; }
+}
+@media (max-width: 760px) {
+  #backdrop.tall { height: 66vh; } .hero { min-height: 0; padding-top: calc(36vh - var(--nav-h)); }
+}
