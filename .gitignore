@@ -5,3 +5,5 @@ serviceAccount*.json
 *.log
 supabase/dist
 supabase/.stubs
+supabase/dist/
+supabase/.stubs/
