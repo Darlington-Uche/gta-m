@@ -311,3 +311,10 @@ main { min-height: 70vh; padding-bottom: 60px; }
 .who { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
 .who .addr { min-width: 0; } .who .addr code { min-width: 0; overflow: hidden; text-overflow: ellipsis; } .who .cp { flex: none; }
 @media (max-width: 420px) { .who { gap: 12px; padding: 16px; } .who #out { font-size: 12px; } }
+/* profile tabs: sliding glass indicator + in-place pane swap */
+.tabs { position: relative; } .tabs .ind { position: absolute; left: 0; top: 5px; bottom: 5px; width: 0; border-radius: 99px; background: var(--vice); box-shadow: 0 8px 22px -8px rgba(255, 61, 154, .75); z-index: 0; pointer-events: none; opacity: 0; }
+.tabs.ready .ind { opacity: 1; transition: transform .5s cubic-bezier(.3, 1.4, .5, 1), width .45s cubic-bezier(.3, 1.4, .5, 1), opacity .2s; }
+.tabs a { position: relative; z-index: 1; } .tabs.ready a.on { background: none; box-shadow: none; }
+#pane { transition: opacity .18s var(--ease), transform .3s var(--ease), filter .25s; }
+#pane.out { opacity: 0; transform: translateY(8px) scale(.99); filter: blur(4px); } #pane.in { opacity: 0; transform: translateY(-6px); transition: none; }
+[data-fc]:not([hidden]) { display: contents; }

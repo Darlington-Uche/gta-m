@@ -81,7 +81,7 @@ export function itemOf(it) {
 }
 export async function items(q = {}) {
   const r = await http('GET', '/items' + qs(q), null, { auth: false });
-  return { total: r.total, page: r.page, limit: r.limit, items: r.items.map(itemOf) };
+  return { total: r.total, page: r.page, limit: r.limit, items: r.items.map(itemOf), facets: r.facets };
 }
 export async function item(id) { return itemOf((await http('GET', '/items/' + encodeURIComponent(id), null, { auth: false })).item); }
 export const offersFor = async (id) => (await http('GET', '/items/' + encodeURIComponent(id) + '/offers', null, { auth: false })).offers;

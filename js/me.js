@@ -1,4 +1,4 @@
-import { S, D, $, esc, usd, sol, short, ago, items, http, cClear, act, runTx, toast, walletModal, refreshMe, emit, imgTag, shrinkImage } from './core.js';
+import { S, D, $, $$, esc, usd, sol, short, ago, items, http, cClear, act, runTx, toast, walletModal, refreshMe, emit, imgTag, shrinkImage } from './core.js';
 import { poster } from './views.js';
 
 const gate = (t, d) => `<div class="gate glass"><h2 class="display">${t}</h2><p>${d}</p><button class="btn primary lg" id="gw">Connect wallet</button></div>`;
@@ -45,11 +45,7 @@ const TABS = [['nfts', 'My NFTs'], ['received', 'Offers in'], ['made', 'Offers o
 const stc = (s) => (s === 'accepted' || s === 'approved' ? 'ok' : s === 'rejected' || s === 'cancelled' || s === 'expired' || s === 'failed' ? 'bad' : 'warn');
 const none = (t, d) => `<div class="empty"><b>${t}</b>${d || ''}</div>`;
 const get = async (p, k) => { try { return (await http('GET', p))[k] || []; } catch (e) { return []; } };
-export async function profile({ args: [tab] }) {
-  tab = TABS.some(([k]) => k === tab) ? tab : 'nfts';
-  const head = banner('', 'Profile', 'Your <span class="grad">stash.</span>');
-  if (!S.wallet) return { html: head + gate('Connect your wallet', 'See what you own, your offers and notifications.'), mount: wireGate };
-  const me = await refreshMe();
+async function tabBody(tab) {
   const link = (id, inner) => `<a href="#/art/${encodeURIComponent(id)}">${inner}</a>`;
   const th = (src, t) => `<span class="t">${imgTag(src, t, 120)}</span>`;
   let body = '', recv = [];
@@ -60,16 +56,38 @@ export async function profile({ args: [tab] }) {
   else if (tab === 'notifications') { const l = await get('/me/notifications', 'notifications'); body = l.length ? l.map((n) => `<div class="rowc"><div><b>${esc(n.title)}</b>${n.read ? '' : '<span class="dotn"></span>'}<small>${esc(n.body || '')} · ${ago(n.createdAt)}</small></div>${n.data && n.data.itemId ? `<a class="btn sm" href="#/art/${encodeURIComponent(n.data.itemId)}">Open</a>` : ''}</div>`).join('') : none('Inbox zero'); }
   else if (tab === 'activity') { const l = await get('/me/activity', 'activity'); body = l.length ? l.map((a) => `<div class="rowc"><div>${a.itemId ? link(a.itemId, `<b>${esc(a.itemTitle || a.type)}</b>`) : `<b>${esc(a.type)}</b>`}<small>${esc(a.type)}${a.role ? ' · ' + esc(a.role) : ''} · ${ago(a.createdAt)}</small></div><b>${a.usd != null ? usd(a.usd) : ''}</b></div>`).join('') : none('No activity yet'); }
   else { const l = await get('/me/submissions', 'submissions'); body = l.length ? l.map((s) => `<div class="rowc"><div class="l">${th(s.media && s.media[0] && s.media[0].url, s.title)}<div><b>${esc(s.title)}</b><small>${esc(s.era || '')} · ${ago(s.createdAt)}${s.reason ? ' · ' + esc(s.reason) : ''}</small></div></div><span class="st ${stc(s.status)}">${esc(s.status)}</span></div>`).join('') : none('No submissions', '<a class="accent" href="#/create">Submit your first piece</a>'); }
+  return { body, recv };
+}
+export async function profile({ args: [tab] }) {
+  tab = TABS.some(([k]) => k === tab) ? tab : 'nfts';
+  const head = banner('', 'Profile', 'Your <span class="grad">stash.</span>');
+  if (!S.wallet) return { html: head + gate('Connect your wallet', 'See what you own, your offers and notifications.'), mount: wireGate };
+  const me = await refreshMe();
+  const first = await tabBody(tab), recv = first.recv, body = first.body;
   const badge = { notifications: me.unread, received: recv.filter((o) => o.status === 'active').length };
   const html = `${head}
   <div class="who glass"><div class="av">${esc(S.wallet.slice(0, 2).toUpperCase())}</div><div style="min-width:0"><div class="muted" style="font-weight:800;letter-spacing:.14em;font-size:11px;text-transform:uppercase">Wallet · ${esc(S.meta.network)}</div><div class="addr"><code>${esc(S.wallet.slice(0, 5) + '…' + S.wallet.slice(-5))}</code><button class="cp" id="cp" aria-label="Copy address" title="Copy address"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div></div><button class="btn sm" id="out">Disconnect</button></div>
-  <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<a href="#/me/${k}" role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</a>`).join('')}</div><div id="pane">${body}</div>`;
+  <div class="tabs" role="tablist"><i class="ind" aria-hidden="true"></i>${TABS.map(([k, l]) => `<a href="#/me/${k}" data-k="${k}" role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</a>`).join('')}</div><div id="pane">${body}</div>`;
   const mount = (root) => {
     $('#out', root).onclick = () => window.dispatchEvent(new Event('gta:signout'));
     $('#cp', root).onclick = (e) => { navigator.clipboard && navigator.clipboard.writeText(S.wallet); const b = e.currentTarget; b.classList.add('ok'); setTimeout(() => b.classList.remove('ok'), 1200); };
-    const on = $('.tabs a.on', root), bar = $('.tabs', root); if (on && bar) bar.scrollLeft = on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2; // keep the open tab in view, without moving the page
+    const bar = $('.tabs', root), pane = $('#pane', root), cache = { [tab]: Promise.resolve(first) };
+    const slide = (a, center) => { const i = $('.ind', bar); i.style.width = a.offsetWidth + 'px'; i.style.transform = `translateX(${a.offsetLeft}px)`; if (center) bar.scrollTo({ left: a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2, behavior: 'smooth' }); };
+    const markRead = (k) => { if (k === 'notifications' && S.unread) http('POST', '/me/notifications/read', {}).then(() => { S.unread = 0; emit('unread', 0); const n = $('a[data-k="notifications"] .n', bar); if (n) n.remove(); const on = $('a.on', bar); if (on) slide(on); }).catch(() => {}); };
+    const load = (k) => (cache[k] = cache[k] || tabBody(k).catch((e) => { delete cache[k]; return { body: none('Could not load', esc(e.message)) }; }));
+    // Tabs swap in place: no page navigation, no scroll jump. Other tabs are fetched in the background so switching is instant.
+    bar.addEventListener('click', async (e) => {
+      const a = e.target.closest('a[data-k]'); if (!a) return; e.preventDefault();
+      const k = a.dataset.k; if (a.classList.contains('on')) return;
+      $$('a[data-k]', bar).forEach((x) => { x.classList.toggle('on', x === a); x.setAttribute('aria-selected', x === a); });
+      slide(a, true); history.replaceState(null, '', '#/me/' + k);
+      pane.classList.add('out'); const [r] = await Promise.all([load(k), new Promise((res) => setTimeout(res, 160))]);
+      if (!a.classList.contains('on')) return; pane.innerHTML = r.body; pane.classList.remove('out'); pane.classList.add('in'); requestAnimationFrame(() => requestAnimationFrame(() => pane.classList.remove('in'))); markRead(k);
+    });
+    requestAnimationFrame(() => { const a = $('a.on', bar); if (a) { bar.classList.add('ready'); slide(a); bar.scrollLeft = a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2; } });
+    setTimeout(() => TABS.forEach(([k]) => load(k)), 600);
     root.onclick = async (e) => { const b = e.target.closest('[data-can]'); if (!b) return; await runTx('Cancelling', (ui) => act('DELETE', `/offers/${b.dataset.can}`, undefined, ui), 'Offer cancelled, SOL refunded').then(() => { cClear(); window.dispatchEvent(new HashChangeEvent('hashchange')); }, () => {}); };
-    if (tab === 'notifications' && me.unread) http('POST', '/me/notifications/read', {}).then(() => { S.unread = 0; emit('unread', 0); }).catch(() => {});
+    if (tab === 'notifications') markRead(tab);
     return () => { root.onclick = null; };
   };
   return { html, mount };

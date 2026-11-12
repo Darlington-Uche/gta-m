@@ -39,17 +39,25 @@ export async function explore({ q: init }) {
   const sel = (k, label, opts) => `<select data-f="${k}" class="input" aria-label="${label}"><option value="">${label}</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${st[k] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const html = `${pageHead('explore', 'Explore', 'Every <span class="grad">piece.</span>')}
   <div class="bar glass"><div class="row"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="input" id="q" type="search" placeholder="Search artworks, characters, eras…" value="${esc(st.q)}"></label>
-    ${sel('category', 'All types', CATS.map((c) => [c, c]))}${sel('rarity', 'Any rarity', RARS.map((c) => [c, c]))}${sel('status', 'Any status', [['free', 'Free to collect'], ['unminted', 'Available'], ['listed', 'For sale'], ['minted', 'Collected']])}
+    <span data-fc="category">${sel('category', 'All types', CATS.map((c) => [c, c]))}</span><span data-fc="rarity">${sel('rarity', 'Any rarity', RARS.map((c) => [c, c]))}</span>${sel('status', 'Any status', [['free', 'Free to collect'], ['unminted', 'Available'], ['listed', 'For sale'], ['minted', 'Collected']])}
     ${sel('sort', 'Sort', [['recent', 'Newest'], ['price_low', 'Price ↑'], ['price_high', 'Price ↓'], ['liked', 'Most liked']]).replace('<option value="">Sort</option>', '')}</div>
     <div class="chips"><button class="chip ${st.era ? '' : 'on'}" data-era="">All eras</button>${S.collections.map((c) => `<button class="chip ${st.era === c.id ? 'on' : ''}" data-era="${esc(c.id)}">${esc(c.short)}</button>`).join('')}</div></div>
   <p class="count" id="count">&nbsp;</p><div id="out">${skels(8)}</div><div class="pager" id="pager"></div>`;
   const mount = (root) => {
-    let seq = 0, t;
+    let seq = 0, t, facetsDone = false;
     const load = async () => {
       const my = ++seq; history.replaceState(null, '', '#/explore?' + new URLSearchParams(Object.entries(st).filter(([k, v]) => v && !(k === 'sort' && v === 'recent') && !(k === 'page' && v === 1))).toString());
       try {
         const r = await items({ ...st, limit: 24 }); if (my !== seq) return;
         $('#count', root).textContent = r.total + (r.total === 1 ? ' artwork' : ' artworks');
+        if (r.facets && !facetsDone) { facetsDone = true; // only offer the types / rarities that exist; hide a filter with a single option
+          [['category', 'All types', CATS], ['rarity', 'Any rarity', RARS]].forEach(([k, label, order]) => {
+            const have = new Set((r.facets[k] || []).map((f) => f.value)), list = order.filter((v) => have.has(v)).concat([...have].filter((v) => !order.includes(v)));
+            const box = $(`[data-fc="${k}"]`, root); if (!box) return;
+            if (list.length <= 1 && !st[k]) { box.hidden = true; return; }
+            box.innerHTML = sel(k, label, list.map((v) => [v, v]));
+          });
+        }
         $('#out', root).innerHTML = r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing here</b>Try different filters.</div>';
         const pages = Math.ceil(r.total / 24);
         $('#pager', root).innerHTML = pages > 1 ? `<button class="btn sm" data-p="${st.page - 1}" ${st.page <= 1 ? 'disabled' : ''}>← Prev</button><span class="muted">Page ${st.page} / ${pages}</span><button class="btn sm" data-p="${+st.page + 1}" ${st.page >= pages ? 'disabled' : ''}>Next →</button>` : '';

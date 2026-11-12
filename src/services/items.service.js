@@ -62,6 +62,8 @@ export async function listItems(q = {}) {
   const cat = await loadCatalog();
   const solUsd = await getSolUsd().catch(() => null);
   let rows = cat.items.filter((i) => !i.hidden);
+  const count = (k) => Object.entries(rows.reduce((m, i) => (i[k] ? ((m[i[k]] = (m[i[k]] || 0) + 1), m) : m), {})).map(([value, n]) => ({ value, n }));
+  const facets = { category: count('category'), rarity: count('rarity'), era: count('era') }; // what actually exists, so the site only offers filters that match something
   const arr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
   if (q.era) rows = rows.filter((i) => arr(q.era).includes(i.era));
   if (q.category) rows = rows.filter((i) => arr(q.category).includes(i.category));
@@ -85,7 +87,7 @@ export async function listItems(q = {}) {
   };
   rows = [...rows].sort(sorters[q.sort || 'recent']);
   const total = rows.length, limit = q.limit || 24, page = q.page || 1;
-  return { total, page, limit, items: rows.slice((page - 1) * limit, page * limit).map((i) => publicItem(i, cat, solUsd)), solUsd };
+  return { total, page, limit, items: rows.slice((page - 1) * limit, page * limit).map((i) => publicItem(i, cat, solUsd)), solUsd, facets };
 }
 
 export async function getPublicItem(id) {
