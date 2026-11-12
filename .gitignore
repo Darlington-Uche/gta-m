@@ -1,0 +1,7 @@
+node_modules
+!.env.example
+uploads
+serviceAccount*.json
+*.log
+supabase/dist
+supabase/.stubs
