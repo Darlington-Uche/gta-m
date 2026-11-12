@@ -61,7 +61,7 @@ class Query {
     // equality filters are pushed into Postgres (jsonb containment); everything else is checked in JS
     const eq = this._filters.filter((f) => f.op === '==' && f.value !== undefined);
     const contain = eq.reduce((acc, f) => mergeDeep(acc, nest(f.field, f.value)), {});
-    const rows = await this._db._q('select id, data, v from gta.docs where col = $1 and data @> $2::jsonb', [this.colName, JSON.stringify(contain)]);
+    const rows = await this._db._q('select id, data, v from gta.docs where col = $1 and data @> $2::text::jsonb', [this.colName, JSON.stringify(contain)]);
     let docs = rows.map((r) => ({ ref: new DocRef(this._db, this.colName, r.id), rec: asRec(r) })).filter((d) => this._match(d.rec.data));
     docs = docs.map((d) => new Snap(d.ref, d.rec));
     if (this._order) {
@@ -122,7 +122,7 @@ export class PgFirestore {
           if (kind === 'create' && cur) throw new Error(`ALREADY_EXISTS: ${path}`);
           next = opts && opts.merge && cur ? applyUpdate(cur.data, strip(data)) : applyUpdate({}, strip(data));
         }
-        await q(`insert into gta.docs (path, col, id, data, v) values ($1, $2, $3, $4::jsonb, 1)
+        await q(`insert into gta.docs (path, col, id, data, v) values ($1, $2, $3, $4::text::jsonb, 1)
                  on conflict (path) do update set data = excluded.data, v = gta.docs.v + 1, updated_at = now()`, [path, colName, id, JSON.stringify(next)]);
       }
       return true;
