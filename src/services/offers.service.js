@@ -4,6 +4,7 @@
 //  * When one offer is accepted, every other offer on that NFT is refunded from the vault.
 import { col, getDoc, now, queryDocs, runTx } from '../lib/db.js';
 import { chain } from './chain/index.js';
+import { getSolUsd } from './priceOracle.js';
 import { bidWindowState, getSettings } from './settings.service.js';
 import { getItemRaw, invalidateCatalog, quoteUsd } from './items.service.js';
 import { createPtx, newPtxId, publicPtx, registerHandler } from './pendingTx.service.js';
@@ -240,4 +241,12 @@ export async function offerHistory(itemId) {
     const end = live ? null : (o.acceptedAt || o.rejectedAt || o.cancelledAt || o.refundedAt || (o.expiresAt && o.expiresAt < now() ? o.expiresAt : null) || (o.activatedAt || o.createdAt) + 3600e3);
     return { usd: o.usdAtPlacement, at: o.activatedAt || o.createdAt, end, status: live ? 'active' : o.status };
   }).sort((a, b) => a.at - b.at).slice(-200);
+}
+
+/** Every trade of an NFT, oldest first: mint, owner-to-owner sales, platform buys (owner sells) and platform resales. */
+export async function tradeHistory(itemId) {
+  const rows = await queryDocs(col('sales').where('itemId', '==', String(itemId)));
+  const solUsd = await getSolUsd().catch(() => null);
+  return rows.map((r) => ({ usd: r.usd ?? (solUsd && r.lamports ? Math.round((r.lamports / 1e9) * solUsd * 100) / 100 : 0), at: r.createdAt, type: r.type, sell: r.type === 'platform_buy' }))
+    .sort((a, b) => a.at - b.at).slice(-200);
 }

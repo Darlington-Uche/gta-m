@@ -414,6 +414,6 @@ main { min-height: 70vh; padding-bottom: 60px; }
 .chart .fl { stroke: var(--teal, #2ee6c8); stroke-width: 1.4; stroke-dasharray: 5 5; opacity: .85; }
 .chart .ln { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.4s cubic-bezier(.3, .7, .2, 1) .2s forwards; } @keyframes draw { to { stroke-dashoffset: 0; } }
 .chart .ar { opacity: 0; animation: fadeUp .9s ease .9s forwards; }
-.chart .pt { fill: #12051f; stroke: #ff3d9a; stroke-width: 2; } .chart .pt.accepted { stroke: var(--teal, #2ee6c8); fill: var(--teal, #2ee6c8); } .chart .pt:last-of-type { fill: #ff3d9a; }
+.chart .pt { fill: #12051f; stroke: #ff3d9a; stroke-width: 2; } .chart .pt.bought { stroke: var(--teal, #2ee6c8); fill: var(--teal, #2ee6c8); } .chart .pt.sold { stroke: #ff3d9a; fill: #ff3d9a; }
 .ch-f { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); font-weight: 700; margin: 2px 0 0 44px; }
 .empty-c p { margin: 4px 0 6px; }

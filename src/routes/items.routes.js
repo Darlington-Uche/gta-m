@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { bad } from '../lib/errors.js';
 import { getItemRaw, getPublicItem, likedBy, likerOf, listItems, toggleLike } from '../services/items.service.js';
-import { offerHistory, offersForItem } from '../services/offers.service.js';
+import { tradeHistory, offersForItem } from '../services/offers.service.js';
 import { prepareMint } from '../services/mint.service.js';
 import { categoryCsv, eraCsv, idParam, page, rarityCsv } from './schemas.js';
 
@@ -17,8 +17,8 @@ export const routes = [
     handler: async (req) => listItems(req.valid.query)
   },
   { method: 'get', path: '/items/:id', auth: 'public', summary: 'One artwork: price, owner, listing, top offer', params: idParam, handler: async (req) => ({ item: await getPublicItem(req.valid.params.id) }) },
-  { method: 'get', path: '/items/:id/history', auth: 'public', summary: 'Offer history for the price chart (usd, time, status) plus the platform floor', params: idParam,
-    handler: async (req) => { const it = await getItemRaw(req.valid.params.id); return { floorUsd: it.floorUsd ?? null, points: await offerHistory(req.valid.params.id) }; } },
+  { method: 'get', path: '/items/:id/history', auth: 'public', summary: 'Trade history for the price chart: every mint, sale and platform buy/sell of this NFT (usd, time, type), plus the floor', params: idParam,
+    handler: async (req) => { const it = await getItemRaw(req.valid.params.id); return { floorUsd: it.floorUsd ?? null, points: await tradeHistory(req.valid.params.id) }; } },
   { method: 'get', path: '/items/:id/offers', auth: 'public', summary: 'Active offers on an artwork, highest first', params: idParam, handler: async (req) => ({ offers: await offersForItem(req.valid.params.id) }) },
   {
     method: 'post', path: '/items/:id/like', auth: 'public', params: idParam,

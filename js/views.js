@@ -215,21 +215,18 @@ export async function collection({ args: [id], q }) {
   ${r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing here yet</b>Artworks for this era are coming soon.</div>'}${r.total > 60 ? `<div class="pager"><a class="btn" href="#/explore?era=${esc(id)}">See all ${r.total} →</a></div>` : ''}`;
 }
 
-/* ================= OFFER CHART =================
-   Trading-style line chart: the best live offer over time, starting at $0. It climbs when a higher offer lands and drops
-   when that offer is cancelled, declined or accepted. Dashed line = platform floor. */
+/* ================= PRICE CHART =================
+   Trading-style line chart of this NFT's real trades (mint, sales, platform buys and resales), starting at $0.
+   Teal dot = bought, pink dot = sold to the platform. Dashed line = platform floor. */
 function offerChart(h, offers) {
-  const pts = (h.points || []).filter((p) => p.usd > 0), floor = h.floorUsd || 0;
-  const head = (right) => `<div class="ch-h"><h3 class="h3">Offer history</h3>${right}</div>`;
-  if (!pts.length) return `<div class="chart empty-c">${head(floor ? `<span class="muted">Floor <b class="accent">${usd(floor)}</b></span>` : '')}<p class="muted">No offers yet. The chart fills in when collectors start bidding${floor ? ' — they all start at the floor' : ''}.</p></div>`;
-  const now = Date.now(), t0 = Math.min(...pts.map((p) => p.at));
-  const best = (t) => pts.reduce((m, p) => (p.at <= t && (p.end == null || p.end > t) ? Math.max(m, p.usd) : m), 0);
-  const evs = [...new Set(pts.flatMap((p) => [p.at, p.end]).filter((t) => t != null && t <= now))].sort((a, b) => a - b);
-  const series = [[t0 - 1, 0]];
-  for (const t of evs) { const before = series[series.length - 1][1]; const v = best(t); if (v === before) continue; if (t > t0) series.push([t - 1, before]); series.push([t, v]); }
-  series.push([now, best(now)]);
+  const tr = (h.points || []).filter((p) => p.at), floor = h.floorUsd || 0;
+  const head = (right) => `<div class="ch-h"><h3 class="h3">Price history</h3>${right}</div>`;
+  if (!tr.length) return `<div class="chart empty-c">${head(floor ? `<span class="muted">Floor <b class="accent">${usd(floor)}</b></span>` : '')}<p class="muted">No trades yet. The line moves each time this piece is bought or sold.</p></div>`;
+  const now = Date.now(), t0 = tr[0].at;
+  const series = [[t0 - 1, 0], ...tr.map((p) => [p.at, p.usd])];
+  const lastTr = tr[tr.length - 1]; series.push([Math.max(now, lastTr.at), lastTr.usd]);
   const W = 340, H = 180, L = 44, R = 14, T = 16, B = 26;
-  const span = Math.max(now - t0, 3600e3), tMin = t0 - span * 0.04, tMax = now + span * 0.03;
+  const span = Math.max(now - t0, 3600e3), tMin = t0 - span * 0.04, tMax = Math.max(now, lastTr.at) + span * 0.04;
   let hi = Math.max(...series.map((q) => q[1]), floor || 0) * 1.12 || 1; { const m = 10 ** Math.floor(Math.log10(hi)), f = hi / m; hi = (f <= 1.5 ? 1.5 : f <= 3 ? 3 : f <= 6 ? 6 : 10) * m; }
   const x = (t) => L + ((t - tMin) / (tMax - tMin)) * (W - L - R), y = (v) => T + (1 - v / hi) * (H - T - B);
   const P = series.map(([t, v]) => [x(t), y(v)]);
@@ -237,16 +234,15 @@ function offerChart(h, offers) {
   const base = y(0).toFixed(1), area = `${d} L${P[P.length - 1][0].toFixed(1)},${base} L${P[0][0].toFixed(1)},${base} Z`;
   const nice = (v) => '$' + (v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ''));
   const ticks = [0, 1 / 3, 2 / 3, 1].map((k) => hi * k);
-  const cur = series[series.length - 1][1], lx = P[P.length - 1][0], ly = P[P.length - 1][1];
-  const up = cur >= (series.length > 1 ? Math.max(...series.map((q) => q[1])) : 0) * 0.999;
-  return `<div class="chart">${head(`<span class="muted">${cur ? 'Top offer <b class="accent">' + usd(cur) + '</b>' : 'No live offers'}</span>`)}
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Offer price history">
+  const dots = tr.map((p) => `<circle cx="${x(p.at).toFixed(1)}" cy="${y(p.usd).toFixed(1)}" r="4" class="pt ${p.sell ? 'sold' : 'bought'}"><title>${p.sell ? 'Sold to platform' : p.type === 'mint' ? 'Minted' : 'Bought'} · ${usd(p.usd)} · ${ago(p.at)}</title></circle>`).join('');
+  const lx = P[P.length - 1][0], ly = P[P.length - 1][1];
+  return `<div class="chart">${head(`<span class="muted">Last trade <b class="accent">${usd(lastTr.usd)}</b></span>`)}
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Price history">
       <defs><linearGradient id="chl" gradientUnits="userSpaceOnUse" x1="${L}" x2="${W - R}" y1="0" y2="0"><stop offset="0" stop-color="#ff3d9a"/><stop offset=".55" stop-color="#d63dff"/><stop offset="1" stop-color="#8a4dff"/></linearGradient><linearGradient id="cha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d63dff" stop-opacity=".34"/><stop offset="1" stop-color="#d63dff" stop-opacity="0"/></linearGradient></defs>
       ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="gl"/><text x="${L - 7}" y="${(y(v) + 4).toFixed(1)}" class="yl" text-anchor="end">${nice(v)}</text>`).join('')}
       ${floor ? `<line x1="${L}" x2="${W - R}" y1="${y(floor).toFixed(1)}" y2="${y(floor).toFixed(1)}" class="fl"/><text x="${W - R}" y="${(y(floor) - 5).toFixed(1)}" class="fll" text-anchor="end">Floor ${nice(floor)}</text>` : ''}
-      <path d="${area}" fill="url(#cha)" class="ar"/><path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" class="ln" pathLength="1"/>
-      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5" class="pt active"/>
-      <text x="${Math.min(lx, W - R).toFixed(1)}" y="${Math.max(T + 4, ly - 10).toFixed(1)}" class="vl" text-anchor="end">${nice(cur)}</text>
+      <path d="${area}" fill="url(#cha)" class="ar"/><path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" class="ln" pathLength="1"/>${dots}
+      <text x="${Math.min(lx, W - R).toFixed(1)}" y="${Math.max(T + 4, ly - 10).toFixed(1)}" class="vl" text-anchor="end">${nice(lastTr.usd)}</text>
     </svg>
     <div class="ch-f"><span>${ago(t0)}</span><span>now</span></div></div>`;
 }
