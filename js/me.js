@@ -29,9 +29,9 @@ export async function create() {
       if (title.length < 2) return toast('Add a title', 'bad'); if (description.length < 10) return toast('Description needs at least 10 characters', 'bad');
       try {
         await runTx('Submitting', async () => {
-          const dataUrl = await shrinkImage(file);
+          const img = await shrinkImage(file);
           const price = $('#p', root).value;
-          await http('POST', '/submissions', { title, description, era: $('#e', root).value, category: $('#c', root).value, tags: $('#g', root).value.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 8), suggestedPriceUsd: price === '' ? undefined : +price, files: [{ type: 'image', data: dataUrl.split(',')[1] }] });
+          await http('POST', '/submissions', { title, description, era: $('#e', root).value, category: $('#c', root).value, tags: $('#g', root).value.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 8), suggestedPriceUsd: price === '' ? undefined : +price, files: [{ type: 'image', data: img.data }] });
         }, 'Submitted! We\'ll review it soon.');
         location.hash = '#/me/submissions';
       } catch (e) { /* shown in dialog */ }
