@@ -417,3 +417,12 @@ main { min-height: 70vh; padding-bottom: 60px; }
 .chart .pt { fill: #12051f; stroke: #ff3d9a; stroke-width: 2; } .chart .pt.bought { stroke: var(--teal, #2ee6c8); fill: var(--teal, #2ee6c8); } .chart .pt.sold { stroke: #ff3d9a; fill: #ff3d9a; }
 .ch-f { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); font-weight: 700; margin: 2px 0 0 44px; }
 .empty-c p { margin: 4px 0 6px; }
+
+/* price chart v2 */
+.chart .chv { font: 700 14px/1.2 var(--body, Manrope, system-ui); margin: 2px 0 6px; min-height: 18px; background: var(--vice, linear-gradient(90deg,#ff3d9a,#8a4dff)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.chart .dt { cursor: pointer; } .chart .dt .hit { fill: transparent; }
+.chart .dt .pt { stroke-width: 2; transition: r .15s, filter .15s; }
+.chart .dt.on .pt { filter: drop-shadow(0 0 6px currentColor); stroke: #fff; }
+.chart .pt.bought { fill: var(--teal, #2ee6c8); stroke: #12051f; } .chart .pt.sold { fill: #ff3d9a; stroke: #12051f; }
+.chart .dt.bought { color: var(--teal, #2ee6c8); } .chart .dt.sold { color: #ff3d9a; }
+.chart .dt.on .pt { stroke: #fff; }

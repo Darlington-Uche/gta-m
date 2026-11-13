@@ -195,6 +195,7 @@ export async function artwork({ args: [id] }) {
       else if (b.dataset.rej) await runTx('Declining', (ui) => act('POST', `/offers/${b.dataset.rej}/reject`, {}, ui), 'Offer declined, bidder refunded').then(reload, () => {});
       else if (b.dataset.can) await runTx('Cancelling', (ui) => act('DELETE', `/offers/${b.dataset.can}`, undefined, ui), 'Offer cancelled, SOL refunded').then(reload, () => {});
     };
+    root.addEventListener('click', (e) => { const g = e.target.closest && e.target.closest('.chart .dt'); if (!g) return; const r = $('#chv', root); if (r) r.textContent = g.dataset.t; root.querySelectorAll('.chart .dt').forEach((n) => n.classList.toggle('on', n === g)); });
     const stg = $('.stage', root), im = $('.main', root);
     if (stg && im && matchMedia('(hover:hover)').matches) { stg.onmousemove = (e) => { const r = stg.getBoundingClientRect(); im.style.transform = `scale(1.03) translate(${((e.clientX - r.left) / r.width - .5) * -14}px,${((e.clientY - r.top) / r.height - .5) * -14}px)`; }; stg.onmouseleave = () => { im.style.transform = ''; }; }
     return () => { root.onclick = null; };
@@ -216,33 +217,39 @@ export async function collection({ args: [id], q }) {
 }
 
 /* ================= PRICE CHART =================
-   Trading-style line chart of this NFT's real trades (mint, sales, platform buys and resales), starting at $0.
-   Teal dot = bought, pink dot = sold to the platform. Dashed line = platform floor. */
-function offerChart(h, offers) {
+   Trade-by-trade line chart of this NFT: every mint, sale, platform buy and resale gets an evenly spaced point (so quick
+   back-to-back trades never pile up), the smooth line starts at $0, tap a point to read it. Teal = bought, pink = sold to
+   the platform, dashed = platform floor. */
+function offerChart(h) {
   const tr = (h.points || []).filter((p) => p.at), floor = h.floorUsd || 0;
   const head = (right) => `<div class="ch-h"><h3 class="h3">Price history</h3>${right}</div>`;
   if (!tr.length) return `<div class="chart empty-c">${head(floor ? `<span class="muted">Floor <b class="accent">${usd(floor)}</b></span>` : '')}<p class="muted">No trades yet. The line moves each time this piece is bought or sold.</p></div>`;
-  const now = Date.now(), t0 = tr[0].at;
-  const series = [[t0 - 1, 0], ...tr.map((p) => [p.at, p.usd])];
-  const lastTr = tr[tr.length - 1]; series.push([Math.max(now, lastTr.at), lastTr.usd]);
-  const W = 340, H = 180, L = 44, R = 14, T = 16, B = 26;
-  const span = Math.max(now - t0, 3600e3), tMin = t0 - span * 0.04, tMax = Math.max(now, lastTr.at) + span * 0.04;
-  let hi = Math.max(...series.map((q) => q[1]), floor || 0) * 1.12 || 1; { const m = 10 ** Math.floor(Math.log10(hi)), f = hi / m; hi = (f <= 1.5 ? 1.5 : f <= 3 ? 3 : f <= 6 ? 6 : 10) * m; }
-  const x = (t) => L + ((t - tMin) / (tMax - tMin)) * (W - L - R), y = (v) => T + (1 - v / hi) * (H - T - B);
-  const P = series.map(([t, v]) => [x(t), y(v)]);
-  const d = P.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
-  const base = y(0).toFixed(1), area = `${d} L${P[P.length - 1][0].toFixed(1)},${base} L${P[0][0].toFixed(1)},${base} Z`;
+  const kind = (p) => (p.sell ? 'Sold to platform' : p.type === 'mint' ? 'Minted' : 'Bought');
+  const W = 340, H = 190, L = 40, R = 16, T = 18, B = 22, n = tr.length;
+  let hi = Math.max(...tr.map((p) => p.usd), floor || 0, 1) * 1.15; { const m = 10 ** Math.floor(Math.log10(hi)), f = hi / m; hi = (f <= 1.5 ? 1.5 : f <= 2 ? 2 : f <= 3 ? 3 : f <= 5 ? 5 : f <= 6 ? 6 : 10) * m; }
+  const x = (i) => L + (n === 0 ? 0 : (i / n)) * (W - L - R), y = (v) => T + (1 - v / hi) * (H - T - B);
+  const pts = [[x(0), y(0)], ...tr.map((p, i) => [x(i + 1), y(p.usd)])];
+  // smooth monotone curve (never overshoots, so it can't dip below $0)
+  const dx = [], sl = [], tg = [];
+  for (let i = 0; i < pts.length - 1; i++) { dx[i] = pts[i + 1][0] - pts[i][0]; sl[i] = (pts[i + 1][1] - pts[i][1]) / dx[i]; }
+  tg[0] = sl[0]; tg[pts.length - 1] = sl[sl.length - 1];
+  for (let i = 1; i < pts.length - 1; i++) tg[i] = sl[i - 1] * sl[i] <= 0 ? 0 : (sl[i - 1] + sl[i]) / 2;
+  for (let i = 0; i < sl.length; i++) { if (sl[i] === 0) { tg[i] = tg[i + 1] = 0; continue; } const a = tg[i] / sl[i], b = tg[i + 1] / sl[i], q = a * a + b * b; if (q > 9) { const k = 3 / Math.sqrt(q); tg[i] = k * a * sl[i]; tg[i + 1] = k * b * sl[i]; } }
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) { const w = dx[i] / 3; d += ` C${(pts[i][0] + w).toFixed(1)},${(pts[i][1] + tg[i] * w).toFixed(1)} ${(pts[i + 1][0] - w).toFixed(1)},${(pts[i + 1][1] - tg[i + 1] * w).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`; }
+  const base = y(0).toFixed(1), last = pts[pts.length - 1], lt = tr[n - 1];
+  const area = `${d} L${last[0].toFixed(1)},${base} L${pts[0][0].toFixed(1)},${base} Z`;
   const nice = (v) => '$' + (v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ''));
-  const ticks = [0, 1 / 3, 2 / 3, 1].map((k) => hi * k);
-  const dots = tr.map((p) => `<circle cx="${x(p.at).toFixed(1)}" cy="${y(p.usd).toFixed(1)}" r="4" class="pt ${p.sell ? 'sold' : 'bought'}"><title>${p.sell ? 'Sold to platform' : p.type === 'mint' ? 'Minted' : 'Bought'} · ${usd(p.usd)} · ${ago(p.at)}</title></circle>`).join('');
-  const lx = P[P.length - 1][0], ly = P[P.length - 1][1];
-  return `<div class="chart">${head(`<span class="muted">Last trade <b class="accent">${usd(lastTr.usd)}</b></span>`)}
+  const ticks = [0, 0.5, 1].map((k) => hi * k);
+  const dots = tr.map((p, i) => `<g class="dt ${p.sell ? 'sold' : 'bought'}${i === n - 1 ? ' on' : ''}" data-t="${esc(kind(p))} · ${esc(usd(p.usd))} · ${esc(ago(p.at))}"><circle cx="${pts[i + 1][0].toFixed(1)}" cy="${pts[i + 1][1].toFixed(1)}" r="14" class="hit"/><circle cx="${pts[i + 1][0].toFixed(1)}" cy="${pts[i + 1][1].toFixed(1)}" r="${i === n - 1 ? 5.5 : 4}" class="pt ${p.sell ? 'sold' : 'bought'}"/></g>`).join('');
+  const readout = `${kind(lt)} · ${usd(lt.usd)} · ${ago(lt.at)}`;
+  return `<div class="chart">${head(`<span class="muted">${n} trade${n > 1 ? 's' : ''}</span>`)}
+    <div class="chv" id="chv">${esc(readout)}</div>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Price history">
-      <defs><linearGradient id="chl" gradientUnits="userSpaceOnUse" x1="${L}" x2="${W - R}" y1="0" y2="0"><stop offset="0" stop-color="#ff3d9a"/><stop offset=".55" stop-color="#d63dff"/><stop offset="1" stop-color="#8a4dff"/></linearGradient><linearGradient id="cha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d63dff" stop-opacity=".34"/><stop offset="1" stop-color="#d63dff" stop-opacity="0"/></linearGradient></defs>
+      <defs><linearGradient id="chl" gradientUnits="userSpaceOnUse" x1="${L}" x2="${W - R}" y1="0" y2="0"><stop offset="0" stop-color="#ff3d9a"/><stop offset=".55" stop-color="#d63dff"/><stop offset="1" stop-color="#8a4dff"/></linearGradient><linearGradient id="cha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d63dff" stop-opacity=".30"/><stop offset="1" stop-color="#d63dff" stop-opacity="0"/></linearGradient></defs>
       ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="gl"/><text x="${L - 7}" y="${(y(v) + 4).toFixed(1)}" class="yl" text-anchor="end">${nice(v)}</text>`).join('')}
-      ${floor ? `<line x1="${L}" x2="${W - R}" y1="${y(floor).toFixed(1)}" y2="${y(floor).toFixed(1)}" class="fl"/><text x="${W - R}" y="${(y(floor) - 5).toFixed(1)}" class="fll" text-anchor="end">Floor ${nice(floor)}</text>` : ''}
-      <path d="${area}" fill="url(#cha)" class="ar"/><path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" class="ln" pathLength="1"/>${dots}
-      <text x="${Math.min(lx, W - R).toFixed(1)}" y="${Math.max(T + 4, ly - 10).toFixed(1)}" class="vl" text-anchor="end">${nice(lastTr.usd)}</text>
+      ${floor ? `<line x1="${L}" x2="${W - R}" y1="${y(floor).toFixed(1)}" y2="${y(floor).toFixed(1)}" class="fl"/><text x="${L + 4}" y="${(y(floor) - 5).toFixed(1)}" class="fll">Floor ${nice(floor)}</text>` : ''}
+      <path d="${area}" fill="url(#cha)" class="ar"/><path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="ln" pathLength="1"/>${dots}
     </svg>
-    <div class="ch-f"><span>${ago(t0)}</span><span>now</span></div></div>`;
+    <div class="ch-f"><span>${esc(ago(tr[0].at))}</span><span>now</span></div></div>`;
 }
