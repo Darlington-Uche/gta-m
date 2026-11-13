@@ -1,4 +1,5 @@
 import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
+import { enhance, burst } from './fx.js';
 import { homeView as home, explore, artwork, collections, collection } from './views.js';
 import { create, profile } from './me.js';
 
@@ -74,7 +75,7 @@ async function render() {
   const main = $('#main');
   const hit = routes.map(([re, fn]) => [re.exec(path), fn]).find(([m]) => m);
   if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
-  const fill = (html, mount) => { if (my !== tok) return; const keep = path.startsWith('/me') && lastPath.startsWith('/me'); const y = scrollY; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, keep ? y : 0); lastPath = path; document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; };
+  const fill = (html, mount) => { if (my !== tok) return; const keep = path.startsWith('/me') && lastPath.startsWith('/me'); const y = scrollY; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, keep ? y : 0); lastPath = path; document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; enhance(main); };
   if (!hit) return fill(`<div class="empty"><b>Wrong turn</b>That page doesn't exist. <a class="accent" href="#/">Back to start</a></div>`);
   if (!S.online) return fill(`<div class="empty"><b>Offline</b>The server is not reachable${S.initError ? ': ' + esc(S.initError) : ''}. <a class="accent" href="">Try again</a></div>`);
   try { const r = await hit[1]({ args: hit[0].slice(1), q }); if (typeof r === 'string') fill(r); else fill(r.html, r.mount); }
@@ -87,6 +88,7 @@ document.addEventListener('click', async (e) => {
   const like = e.target.closest('[data-like]');
   if (like) {
     e.preventDefault(); e.stopPropagation(); if (like.dataset.busy) return; like.dataset.busy = '1';
+    if (!like.classList.contains('on')) burst(like);
     try { const r = await toggleLike(like.dataset.like); $$(`[data-like="${CSS.escape(like.dataset.like)}"]`).forEach((b) => { b.classList.toggle('on', r.liked); const s = $('span', b); if (s) s.textContent = r.likes; }); }
     catch (err) { toast(err.message, 'bad'); } finally { delete like.dataset.busy; }
   }

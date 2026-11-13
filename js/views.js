@@ -24,6 +24,7 @@ export async function home() {
     <p class="sub">${esc(site.heroSubtitle || 'Collect, trade and flex original GTA-inspired art from every era. Real NFTs on Solana — connect a wallet and start with the free drops.')}</p>
     <div class="cta"><a class="btn primary lg" href="#/explore">Browse the drops</a><a class="btn lg" href="#/create">Submit your art</a></div></div>
     ${pop.items.length ? deck(pop.items) : ''}</section>
+  ${fresh.items.length ? `<div class="ticker" aria-hidden="true"><div class="tk-in">${[0, 1].map(() => fresh.items.map((it) => `<a href="#/art/${encodeURIComponent(it.id)}" tabindex="-1"><span class="t">${imgTag(it.img, '', 80)}</span><b>${esc(it.title)}</b><small>${it.state === 'mint' ? (it.free ? 'Free drop' : usd(it.priceUsd)) : 'Collected'}</small></a><i class="dot">✦</i>`).join('')).join('')}</div></div>` : ''}
   <div class="stats">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<div class="stat glass"><b class="grad">${n}</b><small>${l}</small></div>`).join('')}</div>
   <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
   ${fresh.items.length ? `<div class="grid">${fresh.items.map(poster).join('')}</div>` : '<div class="empty"><b>Drops coming soon</b>The first artworks are being uploaded.</div>'}
@@ -57,12 +58,10 @@ function deck(list) {
         </div>
       </div>
     </article>`).join('')}
-    ${list.length > 1 ? `<div class="dk-nav"><button class="dk-b" data-dk="-1" aria-label="Previous">‹</button><span class="dk-dots">${list.map((_, i) => `<i data-d="${i}"></i>`).join('')}</span><button class="dk-b" data-dk="1" aria-label="Next">›</button></div>` : ''}
-    <small class="dk-hint">Tap to flip · swipe for more</small>
   </div>`;
 }
 function mountDeck(el) {
-  const cards = $$('.hcard', el), n = cards.length, dots = $$('.dk-dots i', el);
+  const cards = $$('.hcard', el), n = cards.length, dots = [];
   let top = 0, timer = 0, drag = null, gyro = false;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const layout = () => cards.forEach((c, i) => { const k = (i - top + n) % n; c.style.setProperty('--k', k); c.classList.toggle('top', k === 0); c.setAttribute('aria-hidden', k !== 0); if (k !== 0) c.classList.remove('flip'); dots[i] && dots[i].classList.toggle('on', k === 0); });
