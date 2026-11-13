@@ -301,15 +301,8 @@ const specs = [
   { t: 'Chrome Horizon', era: 'vi', cat: 'Artwork', kind: 'grid', pal: 'grid', seed: 55, stripes: true, stars: true },
   { t: 'Glow Strip', era: 'vi', cat: 'Locations', kind: 'neon', pal: 'grid', seed: 56, neonText: 'VICE', stars: true },
 
-  { t: 'Retro Block Party', era: 'g2', cat: 'Artwork', kind: 'topdown', pal: 'night', seed: 61 },
-  { t: 'Rooftop Run', era: 'g2', cat: 'Artwork', kind: 'topdown', pal: 'smog', seed: 62 },
-  { t: 'Classic Loop', era: 'g2', cat: 'Vehicles', kind: 'topdown', pal: 'dawn', seed: 63 },
 
-  { t: 'Original Streets', era: 'g1', cat: 'Artwork', kind: 'topdown', pal: 'teal', seed: 71 },
-  { t: 'Pixel Intersection', era: 'g1', cat: 'Locations', kind: 'topdown', pal: 'gold', seed: 72 },
 
-  { t: 'Port Authority', era: 'g3', cat: 'Locations', kind: 'bridge', pal: 'night', seed: 81, stars: true },
-  { t: 'Chinatown Alley', era: 'g3', cat: 'Locations', kind: 'neon', pal: 'smog', seed: 82, neonText: 'OPEN' },
 ];
 
 if (specs.length !== 40) throw new Error('Expected 40 specs, got ' + specs.length);

@@ -7,8 +7,8 @@ const artists = [
   ['WestCoastVisuals', 'WV'], ['IllArchive', 'IA'], ['RetroGTA', 'RG'], ['PixelForger', 'PF'], ['NextGenArt', 'NG'],
   ['NeonDrifter', 'ND'], ['SunsetSyndicate', 'SS']
 ];
-const eraNames = { g1: 'GTA 1 (1997)', g2: 'GTA 2 (1999)', g3: 'GTA III (2001)', vice: 'Vice City (2002)', sa: 'San Andreas (2004)', iv: 'GTA IV (2008)', v: 'GTA V (2013)', vi: 'GTA VI (2025)' };
-const eraShort = { g1: 'GTA 1', g2: 'GTA 2', g3: 'GTA III', vice: 'Vice City', sa: 'San Andreas', iv: 'GTA IV', v: 'GTA V', vi: 'GTA VI' };
+const eraNames = { vice: 'Vice City (2002)', sa: 'San Andreas (2004)', iv: 'GTA IV (2008)', v: 'GTA V (2013)', vi: 'GTA VI (2025)' };
+const eraShort = { vice: 'Vice City', sa: 'San Andreas', iv: 'GTA IV', v: 'GTA V', vi: 'GTA VI' };
 const rarities = ['Common', 'Rare', 'Epic', 'Legendary'];
 const desc = {
   Locations: 'A moody, stylised take on a place that lives in every fan\'s memory. Painted in vector with a heavy neon palette.',
@@ -40,9 +40,6 @@ const colDefs = [
   ['sa', 'San Andreas Legends', 'Representing the streets of San Andreas.'],
   ['v', 'GTA V Icons', 'The characters, vehicles and moments that defined a generation.'],
   ['iv', 'GTA IV – Liberty City', 'A darker, grittier side of the American dream.'],
-  ['g3', 'GTA 3 – The Beginning', 'Where a new era of open world started.'],
-  ['g2', 'GTA 2 – Retro Chaos', 'A classic era of crime and mayhem.'],
-  ['g1', 'GTA 1 – The Origin', 'The game that started it all.']
 ];
 const collections = colDefs.map((c, i) => {
   const items = art.filter(a => a.era === c[0]);
