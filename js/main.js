@@ -1,5 +1,5 @@
 import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
-import { home, explore, artwork, collections, collection } from './views.js';
+import { homeView as home, explore, artwork, collections, collection } from './views.js';
 import { create, profile } from './me.js';
 
 const ic = {

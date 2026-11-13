@@ -16,20 +16,81 @@ const tile = (c, i = 0) => `<a class="tile ${c.cover ? '' : 'nocover'}" style="-
 
 /* ================= HOME ================= */
 export async function home() {
-  const [pop, fresh, st] = await Promise.all([items({ sort: 'liked', limit: 1 }), items({ sort: 'recent', limit: 8 }), stats().catch(() => ({}))]);
+  const [pop, fresh, st] = await Promise.all([items({ sort: 'liked', limit: 5 }), items({ sort: 'recent', limit: 8 }), stats().catch(() => ({}))]);
   const f = pop.items[0], site = S.site || {};
   const title = site.heroTitle ? esc(site.heroTitle) : 'Own the<br><span class="grad">streets.</span>';
   return `<section class="hero"><div class="hero-in"><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
     <h1 class="display">${title}</h1>
     <p class="sub">${esc(site.heroSubtitle || 'Collect, trade and flex original GTA-inspired art from every era. Real NFTs on Solana — connect a wallet and start with the free drops.')}</p>
     <div class="cta"><a class="btn primary lg" href="#/explore">Browse the drops</a><a class="btn lg" href="#/create">Submit your art</a></div></div>
-    ${f ? `<a class="spot glass" href="#/art/${esc(f.id)}"><span class="t">${imgTag(f.img, f.title, 160)}</span><div><small>Most liked</small><b>${esc(f.title)}</b></div><span class="price ${f.state === 'listed' ? 'listed' : f.free ? 'free' : ''}">${f.state === 'minted' ? 'Owned' : usd(f.priceUsd)}</span></a>` : ''}</section>
+    ${pop.items.length ? deck(pop.items) : ''}</section>
   <div class="stats">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<div class="stat glass"><b class="grad">${n}</b><small>${l}</small></div>`).join('')}</div>
   <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
   ${fresh.items.length ? `<div class="grid">${fresh.items.map(poster).join('')}</div>` : '<div class="empty"><b>Drops coming soon</b>The first artworks are being uploaded.</div>'}
   <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
   <div class="tiles">${S.collections.map((c, i) => tile(c, i)).join('')}</div>
   <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
+}
+export async function homeView(ctx) { const html = await home(ctx); return { html, mount: (root) => { const d = $('.deck', root); const off = d ? mountDeck(d) : null; const t = tiltCards(root); return () => { off && off(); t(); }; } }; }
+
+/* ================= HALL OF FAME DECK =================
+   The most-liked artworks as a stack of holographic collector cards: they tilt toward your finger / mouse (and with the
+   phone's gyroscope), the foil shifts with the light, tap flips a card to its stats, swipe sends it to the back. */
+const RANK = ['#1 Most liked', '#2', '#3', '#4', '#5'];
+function deck(list) {
+  return `<div class="deck" aria-roledescription="carousel" aria-label="Most liked artworks">
+    ${list.map((it, i) => `<article class="hcard r-${esc((it.rarity || 'common').toLowerCase())}" data-i="${i}" data-id="${esc(it.id)}" tabindex="0" aria-label="${esc(it.title)}">
+      <div class="hc-in">
+        <div class="face front">
+          <div class="art">${imgTag(it.img, it.title, 600)}</div>
+          <i class="foil"></i><i class="glare"></i>
+          <span class="rk">${RANK[i] || '#' + (i + 1)}</span><span class="lk">♥ ${it.likes}</span>
+          <div class="cap"><b class="display">${esc(it.title)}</b><small>${esc(it.eraShort || '')}${it.rarity ? ' · ' + esc(it.rarity) : ''}</small></div>
+        </div>
+        <div class="face back">
+          <i class="foil"></i>
+          <span class="rk">${RANK[i] || '#' + (i + 1)}</span>
+          <b class="display">${esc(it.title)}</b>
+          <dl><dt>Era</dt><dd>${esc(it.eraShort || '—')}</dd><dt>Type</dt><dd>${esc(it.category || '—')}</dd><dt>Rarity</dt><dd>${esc(it.rarity || '—')}</dd><dt>Likes</dt><dd>${it.likes}</dd>
+          <dt>Price</dt><dd>${it.state === 'minted' ? 'Owned' : it.free ? 'Free' : usd(it.priceUsd)}</dd></dl>
+          <a class="btn primary" href="#/art/${encodeURIComponent(it.id)}">${it.state === 'mint' ? (it.free ? 'Claim it' : 'Mint it') : 'View'}</a>
+        </div>
+      </div>
+    </article>`).join('')}
+    ${list.length > 1 ? `<div class="dk-nav"><button class="dk-b" data-dk="-1" aria-label="Previous">‹</button><span class="dk-dots">${list.map((_, i) => `<i data-d="${i}"></i>`).join('')}</span><button class="dk-b" data-dk="1" aria-label="Next">›</button></div>` : ''}
+    <small class="dk-hint">Tap to flip · swipe for more</small>
+  </div>`;
+}
+function mountDeck(el) {
+  const cards = $$('.hcard', el), n = cards.length, dots = $$('.dk-dots i', el);
+  let top = 0, timer = 0, drag = null, gyro = false;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const layout = () => cards.forEach((c, i) => { const k = (i - top + n) % n; c.style.setProperty('--k', k); c.classList.toggle('top', k === 0); c.setAttribute('aria-hidden', k !== 0); if (k !== 0) c.classList.remove('flip'); dots[i] && dots[i].classList.toggle('on', k === 0); });
+  const go = (dir) => { const c = cards[top]; c.classList.remove('flip'); c.classList.add(dir > 0 ? 'fly' : 'flyr'); setTimeout(() => c.classList.remove('fly', 'flyr'), 520); top = (top + dir + n) % n; layout(); arm(); };
+  const arm = () => { clearTimeout(timer); if (!reduce && n > 1) timer = setTimeout(() => { if (!el.matches(':hover') && !cards[top].classList.contains('flip')) go(1); else arm(); }, 6500); };
+  const tilt = (c, x, y) => { c.style.setProperty('--rx', ((0.5 - y) * 22).toFixed(2) + 'deg'); c.style.setProperty('--ry', ((x - 0.5) * 26).toFixed(2) + 'deg'); c.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); c.style.setProperty('--my', (y * 100).toFixed(1) + '%'); c.style.setProperty('--o', 1); };
+  const rest = (c) => { ['--rx', '--ry'].forEach((k) => c.style.setProperty(k, '0deg')); c.style.setProperty('--o', 0); };
+  el.addEventListener('pointermove', (e) => { const c = cards[top], r = c.getBoundingClientRect(); if (drag) { const dx = e.clientX - drag.x; drag.dx = dx; c.style.setProperty('--dx', dx + 'px'); return; } if (e.pointerType === 'mouse') tilt(c, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); });
+  el.addEventListener('pointerleave', () => { if (!gyro) rest(cards[top]); });
+  el.addEventListener('pointerdown', (e) => { if (e.target.closest('a,button')) return; if (!e.target.closest('.hcard.top')) return; drag = { x: e.clientX, dx: 0 }; cards[top].classList.add('drag'); askGyro(); });
+  const end = () => { if (!drag) return; const c = cards[top], dx = drag.dx; drag = null; c.classList.remove('drag'); c.style.setProperty('--dx', '0px'); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); else if (Math.abs(dx) < 6) { c.classList.toggle('flip'); arm(); } };
+  addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  el.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'Enter' || e.key === ' ') { if (e.target.closest('a')) return; e.preventDefault(); cards[top].classList.toggle('flip'); } });
+  el.addEventListener('click', (e) => { const b = e.target.closest('[data-dk]'); if (b) go(+b.dataset.dk); const d = e.target.closest('[data-d]'); if (d) { const want = +d.dataset.d; if (want !== top) { top = want; layout(); arm(); } } });
+  // Phone gyroscope: the top card leans with the device. iOS asks permission on the first touch.
+  const onTilt = (e) => { if (e.beta == null || drag) return; gyro = true; const x = Math.max(0, Math.min(1, 0.5 + (e.gamma || 0) / 50)), y = Math.max(0, Math.min(1, 0.5 + ((e.beta || 0) - 40) / 60)); tilt(cards[top], x, y); };
+  function askGyro() { if (askGyro.done || reduce) return; askGyro.done = true; const D = window.DeviceOrientationEvent; if (D && typeof D.requestPermission === 'function') D.requestPermission().then((s) => s === 'granted' && addEventListener('deviceorientation', onTilt)).catch(() => {}); }
+  if (!reduce && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') addEventListener('deviceorientation', onTilt);
+  layout(); arm(); requestAnimationFrame(() => el.classList.add('ready'));
+  return () => { clearTimeout(timer); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); removeEventListener('deviceorientation', onTilt); };
+}
+/** Light 3-D lean on artwork cards under the mouse (desktop only). */
+function tiltCards(root) {
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
+  const mv = (e) => { const c = e.target.closest('.card'); if (!c) return; const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; c.style.setProperty('--tx', ((x - 0.5) * 8).toFixed(2) + 'deg'); c.style.setProperty('--ty', ((0.5 - y) * 8).toFixed(2) + 'deg'); c.style.setProperty('--gx', x * 100 + '%'); c.style.setProperty('--gy', y * 100 + '%'); c.classList.add('tilting'); };
+  const out = (e) => { const c = e.target.closest('.card'); if (c && !c.contains(e.relatedTarget)) { c.classList.remove('tilting'); c.style.removeProperty('--tx'); c.style.removeProperty('--ty'); } };
+  root.addEventListener('pointermove', mv); root.addEventListener('pointerout', out);
+  return () => { root.removeEventListener('pointermove', mv); root.removeEventListener('pointerout', out); };
 }
 
 /* ================= EXPLORE ================= */
