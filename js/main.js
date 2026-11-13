@@ -34,7 +34,7 @@ const BD = { // built-in backdrops: [image, desktop focus, mobile focus]
   home: ['img/hero.jpg', '60% 35%', '70% 20%'], explore: ['img/explore.jpg', '50% 22%', '72% 20%'], eras: ['img/eras.jpg', '50% 18%', '58% 15%'],
   create: ['img/submit.jpg', '100% 12%', '88% 10%'], me: ['img/crew.jpg', '50% 16%', '50% 12%']
 };
-const BD_SMALL = { me: ['img/me-mobile.jpg', '50% 30%', '50% 26%'] }; // portrait art for phones; the wide one stays for bigger screens
+const BD_SMALL = { me: ['img/me-mobile.jpg', '50% 30%', '50% 26%'], create: ['img/submit-mobile.jpg', '50% 40%', '50% 38%'] }; // portrait art for phones; the wide one stays for bigger screens
 const small = () => matchMedia('(max-width: 760px)').matches;
 function backdrop(path) {
   if (wasSmall === null) wasSmall = small();
