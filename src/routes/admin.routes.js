@@ -42,8 +42,8 @@ export const routes = [
     handler: async (req) => ({ item: await createItem(req.valid.body, req.user.wallet) })
   },
   {
-    method: 'patch', path: '/admin/items/:id', auth: 'admin', summary: 'Edit an artwork / change its mint price (price only applies while unminted)', params: idParam,
-    body: z.object({ title: z.string().min(1).max(60), description: z.string().max(600), image: z.string().url().or(z.literal('')), era, category, rarity, tags, priceUsd, hidden: z.boolean() }).partial(),
+    method: 'patch', path: '/admin/items/:id', auth: 'admin', summary: 'Edit an artwork. priceUsd = mint price (unminted only); floorUsd = platform floor for the secondary market (any time, minted too)', params: idParam,
+    body: z.object({ title: z.string().min(1).max(60), description: z.string().max(600), image: z.string().url().or(z.literal('')), era, category, rarity, tags, priceUsd, floorUsd: z.number().min(0).max(1000000).nullable(), hidden: z.boolean() }).partial(),
     handler: async (req) => ({ item: await updateItem(req.valid.params.id, req.valid.body) })
   },
   {

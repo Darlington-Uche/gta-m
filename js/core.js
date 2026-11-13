@@ -76,7 +76,7 @@ export function itemOf(it) {
   const state = !it.minted ? 'mint' : listing ? 'listed' : 'minted';
   return { id: it.id, title: it.title, description: it.description, img: it.image, artist: it.artist || 'GTA Market', era: it.era, eraLabel: it.eraLabel, eraShort: it.eraShort || (D.eraShort || {})[it.era] || it.era,
     category: it.category, rarity: it.rarity, tags: it.tags || [], likes: it.likes || 0, minted: !!it.minted, owner: it.owner, asset: it.asset, mintedAt: it.mintedAt, collection: it.collection,
-    state, free: state === 'mint' && !!p.free, mintable: !!p.available,
+    floorUsd: it.floorUsd ?? null, state, free: state === 'mint' && !!p.free, mintable: !!p.available,
     priceUsd: state === 'mint' ? p.priceUsd : listing ? listing.priceUsd : null, priceSol: state === 'mint' ? p.priceSol : listing ? listing.priceSol : null, listing, offers: it.offers || { count: 0, topUsd: null } };
 }
 export async function items(q = {}) {
@@ -84,6 +84,7 @@ export async function items(q = {}) {
   return { total: r.total, page: r.page, limit: r.limit, items: r.items.map(itemOf), facets: r.facets };
 }
 export async function item(id) { return itemOf((await http('GET', '/items/' + encodeURIComponent(id), null, { auth: false })).item); }
+export const historyFor = async (id) => (await http('GET', '/items/' + encodeURIComponent(id) + '/history', null, { auth: false }));
 export const offersFor = async (id) => (await http('GET', '/items/' + encodeURIComponent(id) + '/offers', null, { auth: false })).offers;
 export async function loadCollections() {
   const r = await http('GET', '/collections', null, { auth: false });

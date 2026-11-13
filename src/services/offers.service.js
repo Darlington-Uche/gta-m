@@ -37,6 +37,7 @@ export async function prepareOffer({ wallet, itemId, usd }) {
   if (item.hidden) throw notFound('Artwork not found');
   if (item.status !== 'minted' || !item.owner) throw conflict('not_minted', 'This NFT has not been minted yet — mint it at the listed price instead.');
   if (item.owner === wallet) throw bad('own_item', 'You already own this NFT');
+  if (item.floorUsd && usd < item.floorUsd) throw bad('below_floor', `The floor price for this piece is $${item.floorUsd}. Offers must be at least that.`);
 
   const q = await quoteUsd(usd);
   const offerRef = col('offers').doc(), ptxId = newPtxId();
@@ -228,4 +229,11 @@ export async function expireOffers() {
   }
   if (n) invalidateCatalog();
   return n;
+}
+
+/** Offer activity for the price chart: every offer that was really placed (not abandoned payments), oldest first. */
+export async function offerHistory(itemId) {
+  const rows = await queryDocs(col('offers').where('itemId', '==', String(itemId)));
+  return rows.filter((o) => !['pending_payment', 'failed'].includes(o.status)).map((o) => ({ usd: o.usdAtPlacement, at: o.activatedAt || o.createdAt, status: o.status === 'accepting' ? 'active' : o.status }))
+    .sort((a, b) => a.at - b.at).slice(-200);
 }

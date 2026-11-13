@@ -1,4 +1,4 @@
-import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow } from './core.js';
+import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, historyFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow } from './core.js';
 
 const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>';
 export const poster = (it) => {
@@ -150,6 +150,7 @@ const solLine = (n) => (n ? `<span>≈ ${sol(n)}</span>` : '');
 export async function artwork({ args: [id] }) {
   id = decodeURIComponent(id);
   const [it, offers] = await Promise.all([item(id), offersFor(id).catch(() => [])]);
+  const hist = it.minted ? await historyFor(id).catch(() => ({ points: [], floorUsd: it.floorUsd })) : null;
   const cfg = (S.meta && S.meta.settings) || {};
   const mine = S.wallet && it.owner === S.wallet;
   const myOffer = S.wallet && offers.find((o) => o.bidder === S.wallet);
@@ -157,8 +158,8 @@ export async function artwork({ args: [id] }) {
   const canOffer = it.minted && !mine && !myOffer;
   let box;
   if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : 'Collect price'}</span>${solLine(it.priceSol)}</div><div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This era is not open for minting yet.</p>'}`;
-  else if (mine) box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Yours'}</b><span>${it.listing ? 'Your asking price' : 'You own this piece'}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="acts">${it.listing ? '<button class="btn" data-a="relist">Change price</button><button class="btn" data-a="unlist">Take off sale</button>' : '<button class="btn primary lg" data-a="list">List for sale</button>'}</div>`;
-  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy it now' : 'Owned by ' + short(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? '<button class="btn" data-a="offer">Make an offer</button>' : ''}</div>${bw && !bw.open ? '<p class="note">Offers are paused right now. They open again soon.</p>' : ''}`;
+  else if (mine) box = `<div class="pr"><b>${it.floorUsd ? usd(it.floorUsd) : 'Yours'}</b><span>${it.floorUsd ? 'Floor price' : 'You own this piece'}</span></div><p class="note">Sale prices are set by the platform. Collectors make offers and you choose which one to accept.</p>${it.listing ? '<div class="acts"><button class="btn" data-a="unlist">Take off old sale price</button></div>' : ''}`;
+  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy it now' : 'Owned by ' + short(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? '<button class="btn" data-a="offer">Make an offer</button>' : ''}</div>${it.floorUsd ? `<p class="note">Floor price ${usd(it.floorUsd)} · offers start there.</p>` : ''}${bw && !bw.open ? '<p class="note">Offers are paused right now. They open again soon.</p>' : ''}`;
   const offerRows = offers.length ? offers.map((o) => `<div class="rowc"><div><b>${usd(o.usd)}</b> <small style="display:inline">≈ ${sol(o.sol)}</small><small>${short(o.bidder)} · ${ago(o.createdAt)}</small></div><div class="r">${mine ? `<button class="btn primary sm" data-acc="${o.id}">Accept</button><button class="btn sm" data-rej="${o.id}">Decline</button>` : o.bidder === S.wallet ? `<span class="st ok">Your offer</span><button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : '<p class="muted">No offers yet.</p>';
   const html = `<div class="item"><div class="stage glass"><div class="amb" style="background-image:url('${esc(it.img || '')}')"></div>${imgTag(it.img, it.title, 1000, 'main')}</div>
   <div class="panel glass"><div class="crumbs"><a href="#/explore">Explore</a> / <a href="#/collection/${esc(it.era)}">${esc(it.eraShort)}</a></div>
@@ -166,6 +167,7 @@ export async function artwork({ args: [id] }) {
     <div class="tags"><span class="tag rar">${esc(it.rarity)}</span><span class="tag">${esc(it.category || '')}</span>${it.tags.filter((t) => ![it.category, it.rarity, it.eraShort, it.eraLabel].map((x) => String(x || '').toLowerCase()).includes(String(t).toLowerCase())).slice(0, 4).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
     <p class="muted">${esc(it.description)}</p>
     <div class="buybox">${box}${top ? `<span class="muted">Top offer <b class="accent">${usd(top.usd)}</b> · ${offers.length} active</span>` : ''}</div>
+    ${hist ? offerChart(hist, offers) : ''}
     <div class="kv"><div><small>Era</small><b>${esc(it.eraLabel || it.era)}</b></div><div><small>Artist</small><b>${esc(it.artist)}</b></div><div><small>Owner</small><b>${it.owner ? (mine ? 'You' : short(it.owner)) : 'Nobody yet'}</b></div><div><small>Likes</small><b>${it.likes}</b></div>${it.asset ? `<div style="grid-column:1/-1"><small>On-chain asset</small><b><a class="txl" target="_blank" rel="noopener" href="https://explorer.solana.com/address/${esc(it.asset)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}">${short(it.asset)} ↗</a></b></div>` : ''}</div>
     <div><h3 class="h3">Offers</h3><div class="list">${offerRows}</div></div></div></div>`;
   const reload = () => window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -207,4 +209,28 @@ export async function collection({ args: [id], q }) {
   return `<div class="cbanner"><span class="eyebrow">Collection</span><h1 class="display">${esc(c.short)}</h1><p class="muted" style="max-width:52ch">${esc(c.blurb || c.name)}</p>
     <div class="cstats">${[[c.items, 'Pieces'], [c.minted, 'Collected'], [c.owners, 'Owners'], [c.floorUsd != null ? usd(c.floorUsd) : '—', 'Floor']].map(([n, l]) => `<div class="glass"><b>${n}</b><small>${l}</small></div>`).join('')}</div></div>
   ${r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing here yet</b>Artworks for this era are coming soon.</div>'}${r.total > 60 ? `<div class="pager"><a class="btn" href="#/explore?era=${esc(id)}">See all ${r.total} →</a></div>` : ''}`;
+}
+
+/* ================= OFFER CHART =================
+   A smooth line through every offer made on the piece (oldest to newest), a dashed floor line, and the live top offer. */
+function offerChart(h, offers) {
+  const pts = (h.points || []).filter((p) => p.usd > 0), floor = h.floorUsd || 0;
+  if (!pts.length && !floor) return `<div class="chart empty-c"><div class="ch-h"><h3 class="h3">Offer history</h3></div><p class="muted">No offers yet. The line appears when the first offer comes in.</p></div>`;
+  const W = 320, H = 130, pl = 8, pr = 8, pt = 14, pb = 18;
+  const vals = pts.map((p) => p.usd).concat(floor ? [floor] : []); let lo = Math.min(...vals), hi = Math.max(...vals); if (hi === lo) { hi = lo * 1.2 + 1; lo = Math.max(0, lo * 0.8 - 1); } const padv = (hi - lo) * 0.18; lo = Math.max(0, lo - padv); hi += padv;
+  const x = (i) => (pts.length < 2 ? W / 2 : pl + (i / (pts.length - 1)) * (W - pl - pr)), y = (v) => pt + (1 - (v - lo) / (hi - lo)) * (H - pt - pb);
+  const P = pts.map((p, i) => [x(i), y(p.usd)]);
+  let d = ''; P.forEach((q, i) => { if (!i) d = `M${q[0].toFixed(1)},${q[1].toFixed(1)}`; else { const p0 = P[i - 1], cx = (p0[0] + q[0]) / 2; d += ` C${cx.toFixed(1)},${p0[1].toFixed(1)} ${cx.toFixed(1)},${q[1].toFixed(1)} ${q[0].toFixed(1)},${q[1].toFixed(1)}`; } });
+  const area = P.length > 1 ? `${d} L${P[P.length - 1][0].toFixed(1)},${H - pb} L${P[0][0].toFixed(1)},${H - pb} Z` : '';
+  const top = offers[0] ? offers[0].usd : null, last = pts[pts.length - 1];
+  const dots = P.map((q, i) => `<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="${i === P.length - 1 ? 4.5 : 3}" class="pt ${pts[i].status}"><title>${usd(pts[i].usd)} · ${pts[i].status}</title></circle>`).join('');
+  return `<div class="chart"><div class="ch-h"><h3 class="h3">Offer history</h3><span class="muted">${top ? 'Top offer <b class="accent">' + usd(top) + '</b>' : last ? 'Last offer <b>' + usd(last.usd) + '</b>' : ''}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Offer price history">
+      <defs><linearGradient id="chl" x1="0" x2="1"><stop offset="0" stop-color="#ff3d9a"/><stop offset=".55" stop-color="#d63dff"/><stop offset="1" stop-color="#8a4dff"/></linearGradient><linearGradient id="cha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d63dff" stop-opacity=".35"/><stop offset="1" stop-color="#d63dff" stop-opacity="0"/></linearGradient></defs>
+      ${[0.25, 0.5, 0.75].map((k) => `<line x1="${pl}" x2="${W - pr}" y1="${(pt + k * (H - pt - pb)).toFixed(1)}" y2="${(pt + k * (H - pt - pb)).toFixed(1)}" class="gl"/>`).join('')}
+      ${floor ? `<line x1="${pl}" x2="${W - pr}" y1="${y(floor).toFixed(1)}" y2="${y(floor).toFixed(1)}" class="fl"/>` : ''}
+      ${area ? `<path d="${area}" fill="url(#cha)" class="ar"/>` : ''}
+      ${P.length > 1 ? `<path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.6" stroke-linecap="round" class="ln" pathLength="1"/>` : ''}${dots}
+    </svg>
+    <div class="ch-f"><span>${pts.length ? ago(pts[0].at) : ''}</span>${floor ? `<span class="fl-l">Floor ${usd(floor)}</span>` : ''}<span>${pts.length ? 'now' : ''}</span></div></div>`;
 }
