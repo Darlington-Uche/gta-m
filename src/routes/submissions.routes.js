@@ -10,7 +10,9 @@ const multipart = multer({ storage: multer.memoryStorage(), limits: { fileSize: 
 const upload = (req, res, next) => (req.is('multipart/form-data') ? multipart(req, res, next) : next());
 const fromJson = (files) => (Array.isArray(files) ? files : []).slice(0, 5).map((f) => {
   const buffer = Buffer.from(String(f.data || ''), 'base64');
-  return { buffer, size: buffer.length, mimetype: f.type };
+  const b = buffer; // trust the bytes, not the label: JPG / PNG / GIF / WebP / MP4 signatures
+  const sniff = b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : b.slice(0, 3).toString() === 'GIF' ? 'image/gif' : b.slice(0, 4).toString() === 'RIFF' && b.slice(8, 12).toString() === 'WEBP' ? 'image/webp' : b.slice(4, 8).toString() === 'ftyp' ? 'video/mp4' : null;
+  return { buffer, size: buffer.length, mimetype: sniff || (String(f.type).includes('/') ? f.type : 'image/jpeg') };
 });
 const fields = z.object({
   title: z.string().trim().min(2).max(60), description: z.string().trim().min(10).max(600),

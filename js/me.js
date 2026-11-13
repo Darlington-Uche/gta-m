@@ -31,7 +31,7 @@ export async function create() {
         await runTx('Submitting', async () => {
           const img = await shrinkImage(file);
           const price = $('#p', root).value;
-          await http('POST', '/submissions', { title, description, era: $('#e', root).value, category: $('#c', root).value, tags: $('#g', root).value.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 8), suggestedPriceUsd: price === '' ? undefined : +price, files: [{ type: 'image', data: img.data }] });
+          await http('POST', '/submissions', { title, description, era: $('#e', root).value, category: $('#c', root).value, tags: $('#g', root).value.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 8), suggestedPriceUsd: price === '' ? undefined : +price, files: [{ type: img.type, data: img.data }] });
         }, 'Submitted! We\'ll review it soon.');
         location.hash = '#/me/submissions';
       } catch (e) { /* shown in dialog */ }
