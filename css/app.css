@@ -402,3 +402,7 @@ main { min-height: 70vh; padding-bottom: 60px; }
 .tile .bgi { transition: transform 1.2s var(--ease); } .tile:hover .bgi { transform: scale(1.06); }
 .card:active { transform: scale(.98); }
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; filter: none; } .tk-in { animation: none; } }
+/* deck: no rainbow foil; only the face that's showing takes taps */
+.hcard .foil { display: none; }
+.hcard .front { pointer-events: auto; } .hcard.flip .front { pointer-events: none; } .hcard:not(.flip) .back { pointer-events: none; } .hcard.flip .back { pointer-events: auto; z-index: 2; }
+.back { background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 61, 154, .28), transparent 55%), linear-gradient(160deg, #2a0f45, #12051f); }

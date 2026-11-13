@@ -44,17 +44,16 @@ function deck(list) {
       <div class="hc-in">
         <div class="face front">
           <div class="art">${imgTag(it.img, it.title, 600)}</div>
-          <i class="foil"></i><i class="glare"></i>
+          <i class="glare"></i>
           <span class="rk">${RANK[i] || '#' + (i + 1)}</span><span class="lk">♥ ${it.likes}</span>
           <div class="cap"><b class="display">${esc(it.title)}</b><small>${esc(it.eraShort || '')}${it.rarity ? ' · ' + esc(it.rarity) : ''}</small></div>
         </div>
         <div class="face back">
-          <i class="foil"></i>
           <span class="rk">${RANK[i] || '#' + (i + 1)}</span>
           <b class="display">${esc(it.title)}</b>
           <dl><dt>Era</dt><dd>${esc(it.eraShort || '—')}</dd><dt>Type</dt><dd>${esc(it.category || '—')}</dd><dt>Rarity</dt><dd>${esc(it.rarity || '—')}</dd><dt>Likes</dt><dd>${it.likes}</dd>
           <dt>Price</dt><dd>${it.state === 'minted' ? 'Owned' : it.free ? 'Free' : usd(it.priceUsd)}</dd></dl>
-          <a class="btn primary" href="#/art/${encodeURIComponent(it.id)}">${it.state === 'mint' ? (it.free ? 'Claim it' : 'Mint it') : 'View'}</a>
+          <a class="btn primary" href="#/art/${encodeURIComponent(it.id)}">${it.state === 'mint' ? (it.free ? 'Claim free' : 'Mint · ' + usd(it.priceUsd)) : it.state === 'listed' ? 'Buy · ' + usd(it.priceUsd) : 'View'}</a>
         </div>
       </div>
     </article>`).join('')}
@@ -75,7 +74,7 @@ function mountDeck(el) {
   const end = () => { if (!drag) return; const c = cards[top], dx = drag.dx; drag = null; c.classList.remove('drag'); c.style.setProperty('--dx', '0px'); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); else if (Math.abs(dx) < 6) { c.classList.toggle('flip'); arm(); } };
   addEventListener('pointerup', end); addEventListener('pointercancel', end);
   el.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'Enter' || e.key === ' ') { if (e.target.closest('a')) return; e.preventDefault(); cards[top].classList.toggle('flip'); } });
-  el.addEventListener('click', (e) => { const b = e.target.closest('[data-dk]'); if (b) go(+b.dataset.dk); const d = e.target.closest('[data-d]'); if (d) { const want = +d.dataset.d; if (want !== top) { top = want; layout(); arm(); } } });
+  el.addEventListener('click', (e) => { const l = e.target.closest('.back a[href]'); if (l) { e.preventDefault(); location.hash = l.getAttribute('href'); return; } const b = e.target.closest('[data-dk]'); if (b) go(+b.dataset.dk); const d = e.target.closest('[data-d]'); if (d) { const want = +d.dataset.d; if (want !== top) { top = want; layout(); arm(); } } });
   // Phone gyroscope: the top card leans with the device. iOS asks permission on the first touch.
   const onTilt = (e) => { if (e.beta == null || drag) return; gyro = true; const x = Math.max(0, Math.min(1, 0.5 + (e.gamma || 0) / 50)), y = Math.max(0, Math.min(1, 0.5 + ((e.beta || 0) - 40) / 60)); tilt(cards[top], x, y); };
   function askGyro() { if (askGyro.done || reduce) return; askGyro.done = true; const D = window.DeviceOrientationEvent; if (D && typeof D.requestPermission === 'function') D.requestPermission().then((s) => s === 'granted' && addEventListener('deviceorientation', onTilt)).catch(() => {}); }
