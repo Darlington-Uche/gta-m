@@ -65,3 +65,24 @@ export async function salesForWallet(wallet) {
   return all.filter((s) => s.buyer === wallet || s.seller === wallet).sort((a, b) => b.createdAt - a.createdAt)
     .map((s) => ({ ...s, role: s.buyer === wallet ? 'buyer' : 'seller' }));
 }
+
+/** Everything the collection page needs: headline numbers, holders, activity feed and a daily buys-vs-sells series. */
+const BUY = new Set(['mint', 'listing', 'offer', 'platform_sale']), SELL = new Set(['listing', 'offer', 'platform_buy']); // a peer sale is a buy for one wallet and a sell for the other
+export async function collectionDetail(id, days = 30) {
+  const [sum, items, sl, listings, offers] = await Promise.all([collectionsSummary(), queryDocs(col('items')), sales(), queryDocs(col('listings').where('status', '==', 'active')), queryDocs(col('offers').where('status', '==', 'active'))]);
+  const c = sum.find((x) => x.id === id); if (!c) return null;
+  const mine = items.filter((i) => (i.collectionId || i.era) === id && !i.hidden), ids = new Set(mine.map((i) => i.id)), by = new Map(mine.map((i) => [i.id, i]));
+  const listedIds = new Set([...listings.filter((l) => ids.has(l.id)).map((l) => l.id), ...mine.filter((i) => i.platformOwned && i.resaleUsd != null).map((i) => i.id)]);
+  const top = Math.max(0, ...offers.filter((o) => ids.has(o.itemId)).map((o) => o.usdAtPlacement || 0));
+  const hold = new Map(); for (const i of mine) if (i.owner) hold.set(i.owner, (hold.get(i.owner) || 0) + 1);
+  const vault = null;
+  const holders = [...hold.entries()].map(([wallet, n]) => ({ wallet, n })).sort((a, b) => b.n - a.n).slice(0, 25);
+  const mySales = sl.filter((s) => ids.has(s.itemId)).sort((a, b) => b.createdAt - a.createdAt);
+  const activity = mySales.slice(0, 60).map((s) => ({ type: s.type, itemId: s.itemId, title: by.get(s.itemId)?.title, image: by.get(s.itemId)?.image, buyer: s.buyer, seller: s.seller, usd: s.usd || 0, signature: s.signature, at: s.createdAt }));
+  const DAY = 864e5, end = Math.floor(Date.now() / DAY) * DAY + DAY, series = [];
+  for (let d = days - 1; d >= 0; d--) series.push({ t: end - (d + 1) * DAY, buys: 0, buyUsd: 0, sells: 0, sellUsd: 0 });
+  for (const s of mySales) { const k = Math.floor((s.createdAt - (end - days * DAY)) / DAY); if (k < 0 || k >= days) continue; const b = series[k]; if (BUY.has(s.type)) { b.buys++; b.buyUsd += s.usd || 0; } if (SELL.has(s.type)) { b.sells++; b.sellUsd += s.usd || 0; } }
+  series.forEach((b) => { b.buyUsd = roundUsd(b.buyUsd); b.sellUsd = roundUsd(b.sellUsd); });
+  const first = mine.reduce((m, i) => Math.min(m, i.createdAt || Infinity), Infinity);
+  return { ...c, topOfferUsd: top || null, listed: listedIds.size, listedPct: mine.length ? Math.round((listedIds.size / mine.length) * 1000) / 10 : 0, holderCount: hold.size, holders, activity, series, createdAt: Number.isFinite(first) ? first : null, totals: { buys: mySales.filter((s) => BUY.has(s.type)).length, sells: mySales.filter((s) => SELL.has(s.type)).length } };
+}

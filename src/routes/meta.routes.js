@@ -5,8 +5,9 @@ import { getSettings, bidWindowState } from '../services/settings.service.js';
 import { getSolUsd } from '../services/priceOracle.js';
 import { getItemRaw, metadataFor } from '../services/items.service.js';
 import { liveCollections } from '../services/collections.service.js';
-import { collectionsSummary, platformStats, recentActivity } from '../services/stats.service.js';
+import { collectionsSummary, collectionDetail, platformStats, recentActivity } from '../services/stats.service.js';
 import { z } from 'zod';
+import { notFound } from '../lib/errors.js';
 import { page } from './schemas.js';
 
 export const group = 'Meta & public stats';
@@ -28,6 +29,8 @@ export const routes = [
   },
   { method: 'get', path: '/stats', auth: 'public', summary: 'Platform-wide numbers for the home page', handler: async () => ({ stats: await platformStats() }) },
   { method: 'get', path: '/collections', auth: 'public', summary: 'One collection per game era with floor price, volume, owners', handler: async () => ({ collections: await collectionsSummary() }) },
+  { method: 'get', path: '/collections/:id/detail', auth: 'public', params: z.object({ id: z.string().min(1).max(60) }), summary: 'Collection page data: headline stats, top offer, holders, activity and a daily buys-vs-sells series',
+    handler: async (req) => { const d = await collectionDetail(req.valid.params.id, 30); if (!d) throw notFound('Collection not found'); return { collection: d }; } },
   { method: 'get', path: '/activity', auth: 'public', summary: 'Recent sales feed', query: z.object({ limit: page.limit.default(30) }), handler: async (req) => ({ activity: await recentActivity(req.valid.query.limit) }) },
   {
     method: 'get', path: '/metadata/:id.json', auth: 'public', summary: 'Metaplex-standard NFT metadata JSON (this URL is stored on-chain as the NFT uri)',

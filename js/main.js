@@ -1,6 +1,7 @@
 import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
 import { enhance, burst } from './fx.js';
-import { explore, artwork, collections, collection } from './views.js';
+import { explore, artwork, collections } from './views.js';
+import { collection } from './collection.js';
 import { homeView as home } from './home.js';
 import { create, profile } from './me.js';
 
