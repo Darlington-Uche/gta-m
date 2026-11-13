@@ -29,12 +29,15 @@ function chrome() {
 }
 
 /* Full-bleed backdrop per page. Images uploaded in the admin (Site & banners / collection banner) replace the built-in ones. */
-let bdCur = '', bdFlip = 0;
+let bdCur = '', bdFlip = 0, lastBdPath = '', wasSmall = null;
 const BD = { // built-in backdrops: [image, desktop focus, mobile focus]
   home: ['img/hero.jpg', '60% 35%', '70% 20%'], explore: ['img/explore.jpg', '50% 22%', '72% 20%'], eras: ['img/eras.jpg', '50% 18%', '58% 15%'],
   create: ['img/submit.jpg', '100% 12%', '88% 10%'], me: ['img/crew.jpg', '50% 16%', '50% 12%']
 };
+const BD_SMALL = { me: ['img/me-mobile.jpg', '50% 30%', '50% 26%'] }; // portrait art for phones; the wide one stays for bigger screens
+const small = () => matchMedia('(max-width: 760px)').matches;
 function backdrop(path) {
+  if (wasSmall === null) wasSmall = small();
   const site = S.site || {}, b = site.banners || {}; let key = '', custom = '';
   if (path === '/' || path === '') { key = 'home'; custom = site.heroImage; }
   else if (path === '/explore') { key = 'explore'; custom = b.explore; }
@@ -43,7 +46,8 @@ function backdrop(path) {
   else if (path === '/create') { key = 'create'; custom = b.create; }
   else if (path.startsWith('/me')) key = 'me';
   const el = $('#backdrop'); if (!el) return;
-  const d = BD[key], url = custom || (d ? d[0] : '');
+  lastBdPath = path;
+  const d = (small() && BD_SMALL[key]) || BD[key], url = custom || (d ? d[0] : '');
   el.className = url ? 'on' + (key === 'home' ? ' tall' : '') : '';
   if (url === bdCur) return; bdCur = url;
   const layers = $$('i', el); bdFlip ^= 1; const next = layers[bdFlip], prev = layers[bdFlip ^ 1];
@@ -66,7 +70,7 @@ function fitBackdrop() {
     i.classList.toggle('fit', keep < 0.7);
   });
 }
-addEventListener('resize', () => { clearTimeout(fitBackdrop.t); fitBackdrop.t = setTimeout(fitBackdrop, 150); });
+addEventListener('resize', () => { if (wasSmall !== null && wasSmall !== small() && lastBdPath) backdrop(lastBdPath); wasSmall = small(); clearTimeout(fitBackdrop.t); fitBackdrop.t = setTimeout(fitBackdrop, 150); });
 
 let tok = 0, cleanup = null, lastPath = '';
 async function render() {
