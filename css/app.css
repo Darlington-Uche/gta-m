@@ -426,3 +426,7 @@ main { min-height: 70vh; padding-bottom: 60px; }
 .chart .pt.bought { fill: var(--teal, #2ee6c8); stroke: #12051f; } .chart .pt.sold { fill: #ff3d9a; stroke: #12051f; }
 .chart .dt.bought { color: var(--teal, #2ee6c8); } .chart .dt.sold { color: #ff3d9a; }
 .chart .dt.on .pt { stroke: #fff; }
+
+/* gradient text survives the word-split animation */
+.grad .w { background: inherit; -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero h1 .grad .w, .ph h1 .grad .w, .cbanner h1 .grad .w, .sh h2 .grad .w { background: var(--sunset); -webkit-background-clip: text; background-clip: text; color: transparent; }

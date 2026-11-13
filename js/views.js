@@ -16,7 +16,7 @@ const tile = (c, i = 0) => `<a class="tile ${c.cover ? '' : 'nocover'}" style="-
 
 /* ================= HOME ================= */
 export async function home() {
-  const [pop, fresh, st] = await Promise.all([items({ sort: 'liked', limit: 5 }), items({ sort: 'recent', limit: 8 }), stats().catch(() => ({}))]);
+  const [pop, fresh, trading, st] = await Promise.all([items({ sort: 'liked', limit: 5 }), items({ sort: 'recent', status: 'unminted', limit: 8 }), items({ sort: 'offers', status: 'minted', limit: 8 }), stats().catch(() => ({}))]);
   const f = pop.items[0], site = S.site || {};
   const title = site.heroTitle ? esc(site.heroTitle) : 'Own the<br><span class="grad">streets.</span>';
   return `<section class="hero"><div class="hero-in"><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
@@ -26,8 +26,10 @@ export async function home() {
     ${pop.items.length ? deck(pop.items) : ''}</section>
   ${fresh.items.length ? `<div class="ticker" aria-hidden="true"><div class="tk-in">${[0, 1].map(() => fresh.items.map((it) => `<a href="#/art/${encodeURIComponent(it.id)}" tabindex="-1"><span class="t">${imgTag(it.img, '', 80)}</span><b>${esc(it.title)}</b><small>${it.state === 'mint' ? (it.free ? 'Free drop' : usd(it.priceUsd)) : 'Collected'}</small></a><i class="dot">✦</i>`).join('')).join('')}</div></div>` : ''}
   <div class="stats">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<div class="stat glass"><b class="grad">${n}</b><small>${l}</small></div>`).join('')}</div>
-  <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore">See all →</a></div>
+  <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore?status=unminted">See all →</a></div>
   ${fresh.items.length ? `<div class="grid">${fresh.items.map(poster).join('')}</div>` : '<div class="empty"><b>Drops coming soon</b>The first artworks are being uploaded.</div>'}
+  <div class="sh"><h2 class="display">Now <span class="grad">trading</span></h2><a class="more" href="#/explore?status=minted">See all →</a></div>
+  ${trading.items.length ? `<div class="grid">${trading.items.map(poster).join('')}</div>` : '<div class="empty"><b>No trades yet</b>Collected pieces with offers show up here.</div>'}
   <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
   <div class="tiles">${S.collections.map((c, i) => tile(c, i)).join('')}</div>
   <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;

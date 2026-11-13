@@ -77,13 +77,13 @@ export async function listItems(q = {}) {
   if (q.status === 'minted') rows = rows.filter((i) => i.status === 'minted');
   if (q.status === 'listed') rows = rows.filter((i) => cat.listingBy.has(i.id));
   if (q.status === 'free') rows = rows.filter((i) => i.status !== 'minted' && i.priceUsd === 0);
-  const priceOf = (i) => (i.status === 'minted' ? cat.listingBy.get(i.id)?.priceUsd ?? null : i.priceUsd);
+  const priceOf = (i) => (i.platformOwned ? i.resaleUsd ?? i.priceUsd ?? 0 : i.status === 'minted' ? cat.listingBy.get(i.id)?.priceUsd ?? i.floorUsd ?? i.priceUsd ?? 0 : i.priceUsd ?? 0); // what the card shows, so sorting matches
   if (q.minUsd != null) rows = rows.filter((i) => priceOf(i) != null && priceOf(i) >= q.minUsd);
   if (q.maxUsd != null) rows = rows.filter((i) => priceOf(i) != null && priceOf(i) <= q.maxUsd);
   const sorters = {
     recent: (a, b) => b.createdAt - a.createdAt,
-    price_low: (a, b) => (priceOf(a) ?? Infinity) - (priceOf(b) ?? Infinity),
-    price_high: (a, b) => (priceOf(b) ?? -1) - (priceOf(a) ?? -1),
+    price_low: (a, b) => priceOf(a) - priceOf(b) || b.createdAt - a.createdAt,
+    price_high: (a, b) => priceOf(b) - priceOf(a) || b.createdAt - a.createdAt,
     liked: (a, b) => (b.likes || 0) - (a.likes || 0),
     offers: (a, b) => (cat.offersBy.get(b.id)?.length || 0) - (cat.offersBy.get(a.id)?.length || 0)
   };
