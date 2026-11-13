@@ -26,9 +26,9 @@ export async function home() {
     ${pop.items.length ? deck(pop.items) : ''}</section>
   ${fresh.items.length ? `<div class="ticker" aria-hidden="true"><div class="tk-in">${[0, 1].map(() => fresh.items.map((it) => `<a href="#/art/${encodeURIComponent(it.id)}" tabindex="-1"><span class="t">${imgTag(it.img, '', 80)}</span><b>${esc(it.title)}</b><small>${it.state === 'mint' ? (it.free ? 'Free drop' : usd(it.priceUsd)) : 'Collected'}</small></a><i class="dot">✦</i>`).join('')).join('')}</div></div>` : ''}
   <div class="stats">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<div class="stat glass"><b class="grad">${n}</b><small>${l}</small></div>`).join('')}</div>
-  <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/explore?status=unminted">See all →</a></div>
+  <div class="sh"><h2 class="display">Fresh <span class="grad">drops</span></h2><a class="more" href="#/browse?status=unminted">See all →</a></div>
   ${fresh.items.length ? `<div class="grid">${fresh.items.map(poster).join('')}</div>` : '<div class="empty"><b>Drops coming soon</b>The first artworks are being uploaded.</div>'}
-  <div class="sh"><h2 class="display">Now <span class="grad">trading</span></h2><a class="more" href="#/explore?status=minted">See all →</a></div>
+  <div class="sh"><h2 class="display">Now <span class="grad">trading</span></h2><a class="more" href="#/browse?status=minted">See all →</a></div>
   ${trading.items.length ? `<div class="grid">${trading.items.map(poster).join('')}</div>` : '<div class="empty"><b>No trades yet</b>Collected pieces with offers show up here.</div>'}
   <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
   <div class="tiles">${S.collections.map((c, i) => tile(c, i)).join('')}</div>
@@ -98,7 +98,7 @@ const CATS = ['Characters', 'Vehicles', 'Locations', 'Weapons', 'Artwork', 'Misc
 export async function explore({ q: init }) {
   const st = { era: '', category: '', rarity: '', status: '', sort: 'recent', q: '', page: 1, ...init };
   const sel = (k, label, opts) => `<select data-f="${k}" class="input" aria-label="${label}"><option value="">${label}</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${st[k] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
-  const html = `${pageHead('explore', 'Explore', 'Every <span class="grad">piece.</span>')}
+  const html = `${pageHead('explore', 'Browse', 'Every <span class="grad">piece.</span>')}
   <div class="bar glass"><div class="row"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="input" id="q" type="search" placeholder="Search artworks, characters, eras…" value="${esc(st.q)}"></label>
     <span data-fc="category">${sel('category', 'All types', CATS.map((c) => [c, c]))}</span><span data-fc="rarity">${sel('rarity', 'Any rarity', RARS.map((c) => [c, c]))}</span>${sel('status', 'Any status', [['free', 'Free to collect'], ['unminted', 'Available'], ['listed', 'For sale'], ['minted', 'Collected']])}
     ${sel('sort', 'Sort', [['recent', 'Newest'], ['price_low', 'Price ↑'], ['price_high', 'Price ↓'], ['liked', 'Most liked']]).replace('<option value="">Sort</option>', '')}</div>
@@ -107,7 +107,7 @@ export async function explore({ q: init }) {
   const mount = (root) => {
     let seq = 0, t, facetsDone = false;
     const load = async () => {
-      const my = ++seq; history.replaceState(null, '', '#/explore?' + new URLSearchParams(Object.entries(st).filter(([k, v]) => v && !(k === 'sort' && v === 'recent') && !(k === 'page' && v === 1))).toString());
+      const my = ++seq; history.replaceState(null, '', '#/browse?' + new URLSearchParams(Object.entries(st).filter(([k, v]) => v && !(k === 'sort' && v === 'recent') && !(k === 'page' && v === 1))).toString());
       try {
         const r = await items({ ...st, limit: 24 }); if (my !== seq) return;
         $('#count', root).textContent = r.total + (r.total === 1 ? ' artwork' : ' artworks');
@@ -215,7 +215,7 @@ export async function collection({ args: [id], q }) {
   const r = await items({ era: id, sort: q.sort || 'liked', limit: 60 });
   return `<div class="cbanner"><span class="eyebrow">Collection</span><h1 class="display">${esc(c.short)}</h1><p class="muted" style="max-width:52ch">${esc(c.blurb || c.name)}</p>
     <div class="cstats">${[[c.items, 'Pieces'], [c.minted, 'Collected'], [c.owners, 'Owners'], [c.floorUsd != null ? usd(c.floorUsd) : '—', 'Floor']].map(([n, l]) => `<div class="glass"><b>${n}</b><small>${l}</small></div>`).join('')}</div></div>
-  ${r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing here yet</b>Artworks for this era are coming soon.</div>'}${r.total > 60 ? `<div class="pager"><a class="btn" href="#/explore?era=${esc(id)}">See all ${r.total} →</a></div>` : ''}`;
+  ${r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing here yet</b>Artworks for this era are coming soon.</div>'}${r.total > 60 ? `<div class="pager"><a class="btn" href="#/browse?era=${esc(id)}">See all ${r.total} →</a></div>` : ''}`;
 }
 
 /* ================= PRICE CHART =================

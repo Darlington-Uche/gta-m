@@ -91,7 +91,9 @@ if (!reduce) {
 
 // Content that views add later (filters, paging, tab swaps) gets the same entrance.
 let mo = null, moT = 0;
-function watch(root) { if (mo || reduce) return; mo = new MutationObserver(() => { clearTimeout(moT); moT = setTimeout(() => reveal(root), 30); }); mo.observe(root, { childList: true, subtree: true }); }
+function watch(root) { if (mo || reduce) return; mo = new MutationObserver(() => { clearTimeout(moT); moT = setTimeout(() => { easeImgs(root); reveal(root); }, 30); }); mo.observe(root, { childList: true, subtree: true }); }
 /** Run after every page render. */
-export function enhance(root) { headline(root); reveal(root); countUp(root); dockPill(); watch(root); }
+function easeImgs(root) { root.querySelectorAll('img').forEach((im) => { if (im.complete || im.dataset.ez) return; im.dataset.ez = '1'; im.classList.add('ld'); const done = () => im.classList.remove('ld'); im.addEventListener('load', done, { once: true }); im.addEventListener('error', done, { once: true }); setTimeout(done, 4000); }); }
+addEventListener('scroll', () => document.body.classList.toggle('scrolled', scrollY > 24), { passive: true });
+export function enhance(root) { easeImgs(root); headline(root); reveal(root); countUp(root); dockPill(); watch(root); }
 addEventListener('resize', () => dockPill());

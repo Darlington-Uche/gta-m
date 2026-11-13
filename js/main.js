@@ -1,6 +1,6 @@
 import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
 import { enhance, burst } from './fx.js';
-import { artwork, collections } from './views.js';
+import { explore as browse, artwork, collections } from './views.js';
 import { exploreHub as explore } from './explore.js';
 import { collection } from './collection.js';
 import { homeView as home } from './home.js';
@@ -15,13 +15,13 @@ const ic = {
 };
 const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/collections', 'Eras', ic.cols], ['/create', 'Submit', ic.create], ['/me', 'Profile', ic.me]];
 const routes = [
-  [/^\/?$/, home], [/^\/explore$/, explore], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
+  [/^\/?$/, home], [/^\/explore$/, explore], [/^\/browse$/, browse], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
   [/^\/create$/, create], [/^\/me(?:\/(\w+))?$/, profile]
 ];
 
 function chrome() {
   const here = (location.hash.slice(1) || '/').split('?')[0];
-  const active = (h) => (h === '/' ? here === '/' : here.startsWith(h) || (h === '/collections' && here.startsWith('/collection')));
+  const active = (h) => (h === '/' ? here === '/' : here.startsWith(h) || (h === '/explore' && here === '/browse') || (h === '/collections' && here.startsWith('/collection')));
   const badge = S.unread ? `<span class="badge">${S.unread}</span>` : '';
   $('#hd').innerHTML = `<a class="brand" href="#/" aria-label="GTA Marketplace"><b>GTA</b><i>Marketplace</i></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
@@ -45,7 +45,7 @@ function backdrop(path) {
   if (wasSmall === null) wasSmall = small();
   const site = S.site || {}, b = site.banners || {}; let key = '', custom = '';
   if (path === '/' || path === '') { key = 'home'; custom = site.heroImage; }
-  else if (path === '/explore') { key = 'explore'; custom = b.explore; }
+  else if (path === '/explore' || path === '/browse') { key = 'explore'; custom = b.explore; }
   else if (path === '/collections') { key = 'eras'; custom = b.eras; }
   else if (path.startsWith('/collection/')) { const c = S.collections.find((x) => x.id === decodeURIComponent(path.split('/')[2])); key = 'eras'; custom = (c && (c.banner || c.cover)) || b.eras; }
   else if (path === '/create') { key = 'create'; custom = b.create; }

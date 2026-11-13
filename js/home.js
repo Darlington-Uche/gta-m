@@ -52,14 +52,14 @@ export async function homeView() {
   const html = `<section class="hh"><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
       <h1 class="display">${site.heroTitle ? esc(site.heroTitle) : 'Own the <span class="grad">streets.</span>'}</h1>
       <div class="pills">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<span class="hpill glass"><b>${n}</b>${l}</span>`).join('')}</div></section>
-    <section class="hs">${sectionHead(sales.length ? 'Recent Trades' : 'Fresh Drops', '#/explore')}
+    <section class="hs">${sectionHead(sales.length ? 'Recent Trades' : 'Fresh Drops', sales.length ? '#/explore?tab=feed' : '#/browse?status=unminted')}
       ${recent ? `<div class="hrow">${recent}</div>` : '<div class="empty"><b>Nothing here yet</b>The first drops are on their way.</div>'}</section>
-    <section class="hs">${sectionHead('Trending Now', '#/collections')}
+    <section class="hs">${sectionHead('Trending Now', '#/explore')}
       <div class="seg" role="tablist"><button class="on" data-t="cols" role="tab">Collections</button><button data-t="arts" role="tab">Artworks</button></div>
       <div class="trend" id="trend"><div class="tcols" data-p="cols">${trending.map(trendRow).join('')}</div><div class="tcols" data-p="arts" hidden>${pop.slice(0, 6).map(trendArt).join('')}</div></div></section>
     ${featured.length ? `<section class="hs">${sectionHead('Featured Collections', '#/collections')}
       <div class="fcar" id="fcar">${featured.map(featCard).join('')}</div><div class="dots" id="fdots">${featured.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></section>` : ''}
-    ${movers.length ? `<section class="hs">${sectionHead('Top Movers Today', '#/collections')}<div class="hrow mv">${movers.map(moverCard).join('')}</div></section>` : ''}
+    ${movers.length ? `<section class="hs">${sectionHead('Top Movers Today', '#/explore')}<div class="hrow mv">${movers.map(moverCard).join('')}</div></section>` : ''}
     <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got a collection? Launch it.</h2></div><a class="btn primary lg" href="#/create">Submit</a></div>`;
   return {
     html,
