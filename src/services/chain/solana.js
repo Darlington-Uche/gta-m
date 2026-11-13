@@ -172,6 +172,15 @@ export class SolanaChain {
       .add(transfer(u, { asset: this._assetRef(asset, seller), collection: this._collection(collection), newOwner: publicKey(buyer), authority: this.authoritySigner, payer: buyerSigner }));
     return this._finish(b, buyerSigner);
   }
+  /** Collector takes a platform-owned NFT: pays the vault the resale price (if any), the vault (current owner) moves the NFT. */
+  async buildCollectFromPlatformTx({ buyer, asset, lamports, collection }) {
+    const u = this.umi;
+    const buyerSigner = createNoopSigner(publicKey(buyer));
+    let b = transactionBuilder();
+    if (lamports > 0) b = b.add(transferSol(u, { source: buyerSigner, destination: publicKey(this.vaultAddress), amount: umiLamports(lamports) }));
+    b = b.add(transfer(u, { asset: this._assetRef(asset, this.vaultAddress), collection: this._collection(collection), newOwner: publicKey(buyer), authority: this.vaultSigner, payer: buyerSigner }));
+    return this._finish(b, buyerSigner);
+  }
   /** Fully-signed vault -> wallet transfer (refunds, revenue withdrawals). Signature is known BEFORE broadcast. */
   async prepareVaultTransfer({ to, lamports }) {
     const b = transferSol(this.umi, { source: this.vaultSigner, destination: publicKey(to), amount: umiLamports(lamports) });

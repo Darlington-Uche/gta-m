@@ -96,6 +96,10 @@ export class MockChain {
     ];
     return this._tx({ ixs, signers: [buyer, this.vaultAddress], feePayer: buyer, autoSigned: [this.vaultAddress] });
   }
+  async buildCollectFromPlatformTx({ buyer, asset, lamports, collection }) {
+    const ixs = [...(lamports > 0 ? [{ t: 'transfer', from: buyer, to: this.vaultAddress, lamports }] : []), { t: 'assetTransfer', asset, newOwner: buyer, authority: this.vaultAddress, collection }];
+    return this._tx({ ixs, signers: [buyer, this.vaultAddress], feePayer: buyer, autoSigned: [this.vaultAddress] });
+  }
   async prepareVaultTransfer({ to, lamports }) {
     const b = this._tx({ ixs: [{ t: 'transfer', from: this.vaultAddress, to, lamports }], signers: [this.vaultAddress], feePayer: this.vaultAddress, autoSigned: [this.vaultAddress] });
     return { ...b, signature: this.inspectSigned(b.txB64).signature };

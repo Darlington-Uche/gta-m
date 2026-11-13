@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { forbidden } from '../lib/errors.js';
-import { getItemRaw } from '../services/items.service.js';
+import { prepareCollect, prepareSellToPlatform } from '../services/platform.service.js';
 import { cancelOffer, prepareAccept, prepareOffer, rejectOffer } from '../services/offers.service.js';
-import { cancelListing, prepareBuy, prepareList } from '../services/listings.service.js';
+import { cancelListing, prepareBuy } from '../services/listings.service.js';
 import { getPtxFor, submitPtx } from '../services/pendingTx.service.js';
 import { idParam, usd } from './schemas.js';
 
@@ -23,13 +23,19 @@ export const routes = [
   },
   // ---- sale prices are NOT user-set: owners sell by accepting offers; mint prices are set by admins ----
   {
-    method: 'post', path: '/items/:id/listing', auth: 'user', params: idParam,
-    summary: 'PREPARE selling at the platform floor price (the owner cannot choose a price). Owner signs once to let the platform move the NFT when a buyer pays the floor.',
-    handler: async (req) => {
-      const it = await getItemRaw(req.valid.params.id);
-      if (!it.floorUsd) throw forbidden('The platform has not set a floor price for this piece yet. Collectors can still make offers.');
-      return prepareList({ wallet: req.user.wallet, itemId: it.id, priceUsd: it.floorUsd });
-    }
+    method: 'post', path: '/items/:id/sell', auth: 'user', params: idParam,
+    summary: 'PREPARE selling a NFT you own to the platform at its floor price. You receive SOL; the NFT moves to the platform wallet.',
+    handler: async (req) => prepareSellToPlatform({ wallet: req.user.wallet, itemId: req.valid.params.id })
+  },
+  {
+    method: 'post', path: '/items/:id/collect', auth: 'user', params: idParam,
+    summary: 'PREPARE taking a platform-owned NFT at the resale price the admin set (0 = free).',
+    handler: async (req) => prepareCollect({ wallet: req.user.wallet, itemId: req.valid.params.id })
+  },
+  {
+    method: 'post', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }).partial(),
+    summary: 'Disabled: owners cannot list at their own price. Sell to the platform at the floor, or accept an offer.',
+    handler: async () => { throw forbidden('Sale prices are set by the platform. Sell to the platform at the floor price, or accept an offer.'); }
   },
   { method: 'patch', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }), summary: 'Disabled', handler: async () => { throw forbidden('Sale prices are set by the platform.'); } },
   { method: 'delete', path: '/items/:id/listing', auth: 'user', params: idParam, summary: 'Remove an old sale price', handler: async (req) => cancelListing({ wallet: req.user.wallet, itemId: req.valid.params.id }) },

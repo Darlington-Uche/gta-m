@@ -73,10 +73,11 @@ export async function http(method, path, body, opt = {}) {
 /* ---------- item normalisation ---------- */
 export function itemOf(it) {
   const listing = it.listing || null, p = it.primary || {};
-  const state = !it.minted ? 'mint' : listing ? 'listed' : 'minted';
+  const plat = !!it.platformOwned && it.resaleUsd != null;
+  const state = !it.minted || plat ? 'mint' : listing ? 'listed' : 'minted';
   return { id: it.id, title: it.title, description: it.description, img: it.image, artist: it.artist || 'GTA Market', era: it.era, eraLabel: it.eraLabel, eraShort: it.eraShort || (D.eraShort || {})[it.era] || it.era,
     category: it.category, rarity: it.rarity, tags: it.tags || [], likes: it.likes || 0, minted: !!it.minted, owner: it.owner, asset: it.asset, mintedAt: it.mintedAt, collection: it.collection,
-    floorUsd: it.floorUsd ?? null, state, free: state === 'mint' && !!p.free, mintable: !!p.available,
+    floorUsd: it.floorUsd ?? null, platform: plat, platformOwned: !!it.platformOwned, resaleUsd: it.resaleUsd ?? null, state, free: state === 'mint' && !!p.free, mintable: !!p.available,
     priceUsd: state === 'mint' ? p.priceUsd : listing ? listing.priceUsd : null, priceSol: state === 'mint' ? p.priceSol : listing ? listing.priceSol : null, listing, offers: it.offers || { count: 0, topUsd: null } };
 }
 export async function items(q = {}) {

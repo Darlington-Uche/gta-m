@@ -43,7 +43,7 @@ export const routes = [
   },
   {
     method: 'patch', path: '/admin/items/:id', auth: 'admin', summary: 'Edit an artwork. priceUsd = mint price (unminted only); floorUsd = platform floor for the secondary market (any time, minted too)', params: idParam,
-    body: z.object({ title: z.string().min(1).max(60), description: z.string().max(600), image: z.string().url().or(z.literal('')), era, category, rarity, tags, priceUsd, floorUsd: z.number().min(0).max(1000000).nullable(), hidden: z.boolean() }).partial(),
+    body: z.object({ title: z.string().min(1).max(60), description: z.string().max(600), image: z.string().url().or(z.literal('')), era, category, rarity, tags, priceUsd, floorUsd: z.number().min(0).max(1000000).nullable(), resaleUsd: z.number().min(0).max(1000000).nullable(), hidden: z.boolean() }).partial(),
     handler: async (req) => ({ item: await updateItem(req.valid.params.id, req.valid.body) })
   },
   {

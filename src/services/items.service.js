@@ -49,12 +49,13 @@ export function publicItem(it, cat, solUsd) {
     era: it.era, eraLabel: era?.label, eraShort: era?.short, category: it.category, rarity: it.rarity, tags: it.tags || [],
     status: it.status, minted, asset: it.asset || null, owner: it.owner || null, mintedAt: it.mintedAt || null,
     likes: it.likes || 0,
-    floorUsd: it.floorUsd ?? null, // platform-set floor for the secondary market (admin only)
-    primary: minted ? null : { priceUsd: it.priceUsd, priceSol: solOf(it.priceUsd), free: it.priceUsd === 0, available: it.status === 'unminted' && collLive },
+    floorUsd: it.floorUsd ?? null, // platform-set floor: owners can sell to the platform at this price
+    platformOwned: !!it.platformOwned, resaleUsd: it.resaleUsd ?? null,
+    primary: minted && it.platformOwned ? (it.resaleUsd != null ? { priceUsd: it.resaleUsd, priceSol: solOf(it.resaleUsd), free: it.resaleUsd === 0, available: true } : null) : minted ? null : { priceUsd: it.priceUsd, priceSol: solOf(it.priceUsd), free: it.priceUsd === 0, available: it.status === 'unminted' && collLive },
     listing: listing ? { priceUsd: listing.priceUsd, priceSol: solOf(listing.priceUsd), seller: listing.seller } : null,
     offers: { count: offers.length, topUsd: offers[0] ? offers[0].usdAtPlacement : null, topSol: offers[0] ? lamportsToSol(offers[0].lamports) : null },
     // one number the grid can show: what it costs right now (primary price, listing price, or top offer as a hint)
-    displayPriceUsd: minted ? (listing ? listing.priceUsd : null) : it.priceUsd,
+    displayPriceUsd: minted ? (it.platformOwned ? it.resaleUsd ?? null : listing ? listing.priceUsd : null) : it.priceUsd,
     createdAt: it.createdAt
   };
 }
@@ -153,7 +154,7 @@ export async function createItem(f, by) {
 }
 export async function updateItem(id, patch) {
   checkFields(patch, true);
-  const allowed = ['title', 'description', 'image', 'era', 'category', 'rarity', 'tags', 'priceUsd', 'floorUsd', 'hidden'];
+  const allowed = ['title', 'description', 'image', 'era', 'category', 'rarity', 'tags', 'priceUsd', 'floorUsd', 'resaleUsd', 'hidden'];
   const data = Object.fromEntries(Object.entries(patch).filter(([k, v]) => allowed.includes(k) && v !== undefined));
   await runTx(async (tx) => {
     const ref = col('items').doc(String(id));

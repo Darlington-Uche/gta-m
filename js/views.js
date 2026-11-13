@@ -156,15 +156,13 @@ export async function artwork({ args: [id] }) {
   const myOffer = S.wallet && offers.find((o) => o.bidder === S.wallet);
   const top = offers[0], bw = bidWindow();
   const solOfUsd = (u) => { const r = S.meta && S.meta.solUsd; return r ? u / r : null; };
-  const canOffer = it.minted && !mine && !myOffer;
+  const canOffer = it.minted && !mine && !myOffer && !it.platformOwned;
   let box;
-  if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : 'Collect price'}</span>${solLine(it.priceSol)}</div><div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This era is not open for minting yet.</p>'}`;
-  else if (mine) box = it.listing
-    ? `<div class="pr"><b>${usd(it.listing.priceUsd)}</b><span>For sale at the floor price</span>${solLine(it.listing.priceSol)}</div><div class="acts"><button class="btn" data-a="unlist">Take off sale</button></div><p class="note">Anyone can buy it at this price, and you can still accept offers.</p>`
-    : it.floorUsd
-      ? `<div class="pr"><b>${usd(it.floorUsd)}</b><span>Floor price</span>${solLine(solOfUsd(it.floorUsd))}</div><div class="acts"><button class="btn primary lg" data-a="sellfloor">Sell at floor · ${usd(it.floorUsd)}</button></div><p class="note">The platform sets the price. You approve once, then any collector can buy it at the floor. Or wait for a higher offer and accept it.</p>`
+  if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : (it.platform ? 'Price' : 'Collect price')}</span>${solLine(it.priceSol)}</div><div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This era is not open for minting yet.</p>'}`;
+  else if (mine) box = it.floorUsd
+      ? `<div class="pr"><b>${usd(it.floorUsd)}</b><span>Platform floor price</span>${solLine(solOfUsd(it.floorUsd))}</div><div class="acts"><button class="btn primary lg" data-a="sellplat">Sell to platform · ${usd(it.floorUsd)}</button></div><p class="note">The platform buys it from you at the floor. You sign once and receive ${solOfUsd(it.floorUsd) ? '≈ ' + sol(solOfUsd(it.floorUsd)) : 'SOL'} in your wallet right away. You can also wait for a higher offer and accept it.</p>`
       : `<div class="pr"><b>Yours</b><span>You own this piece</span></div><p class="note">No floor price is set for this piece yet. Collectors can make offers and you choose which one to accept.</p>`;
-  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy it now' : 'Owned by ' + short(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? '<button class="btn" data-a="offer">Make an offer</button>' : ''}</div>${it.floorUsd ? `<p class="note">Floor price ${usd(it.floorUsd)} · offers start there.</p>` : ''}${bw && !bw.open ? '<p class="note">Offers are paused right now. They open again soon.</p>' : ''}`;
+  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy it now' : it.platformOwned ? 'Held by the platform' : 'Owned by ' + short(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? '<button class="btn" data-a="offer">Make an offer</button>' : ''}</div>${it.floorUsd ? `<p class="note">Floor price ${usd(it.floorUsd)} · offers start there.</p>` : ''}${bw && !bw.open ? '<p class="note">Offers are paused right now. They open again soon.</p>' : ''}`;
   const offerRows = offers.length ? offers.map((o) => `<div class="rowc"><div><b>${usd(o.usd)}</b> <small style="display:inline">≈ ${sol(o.sol)}</small><small>${short(o.bidder)} · ${ago(o.createdAt)}</small></div><div class="r">${mine ? `<button class="btn primary sm" data-acc="${o.id}">Accept</button><button class="btn sm" data-rej="${o.id}">Decline</button>` : o.bidder === S.wallet ? `<span class="st ok">Your offer</span><button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : '<p class="muted">No offers yet.</p>';
   const html = `<div class="item"><div class="stage glass"><div class="amb" style="background-image:url('${esc(it.img || '')}')"></div>${imgTag(it.img, it.title, 1000, 'main')}</div>
   <div class="panel glass"><div class="crumbs"><a href="#/explore">Explore</a> / <a href="#/collection/${esc(it.era)}">${esc(it.eraShort)}</a></div>
@@ -187,8 +185,8 @@ export async function artwork({ args: [id] }) {
       const b = e.target.closest('button'); if (!b || !(b.dataset.a || b.dataset.acc || b.dataset.rej || b.dataset.can)) return;
       if (!S.wallet) return needWallet();
       const A = b.dataset.a, P = encodeURIComponent(it.id);
-      if (A === 'sellfloor') await runTx('Listing at the floor', (ui) => act('POST', `/items/${P}/listing`, {}, ui), 'Listed at the floor price').then(reload, () => {});
-      else if (A === 'mint') await runTx('Collecting', (ui) => act('POST', `/items/${P}/mint`, {}, ui), 'It\'s yours!').then(reload, () => {});
+      if (A === 'sellplat') await runTx('Selling to the platform', (ui) => act('POST', `/items/${P}/sell`, {}, ui), 'Sold! SOL is in your wallet').then(reload, () => {});
+      else if (A === 'mint') await runTx('Collecting', (ui) => act('POST', `/items/${P}/${it.platform ? 'collect' : 'mint'}`, {}, ui), 'It\'s yours!').then(reload, () => {});
       else if (A === 'buy') await runTx('Buying', (ui) => act('POST', `/items/${P}/buy`, {}, ui), 'Bought!').then(reload, () => {});
       else if (A === 'list' || A === 'relist') priceModal('Set your price', 'Continue', (v) => runTx(A === 'list' ? 'Listing' : 'Updating price', (ui) => act(A === 'list' ? 'POST' : 'PATCH', `/items/${P}/listing`, { priceUsd: v }, ui), 'Listed for sale'), it.listing && it.listing.priceUsd, `Platform fee ${(cfg.saleFeeBps || 250) / 100}% + about $${cfg.acceptFeeUsd ?? 0.3} network fee are taken when it sells.`);
       else if (A === 'unlist') await runTx('Updating', (ui) => act('DELETE', `/items/${P}/listing`, undefined, ui), 'Taken off sale').then(reload, () => {});
@@ -218,32 +216,37 @@ export async function collection({ args: [id], q }) {
 }
 
 /* ================= OFFER CHART =================
-   Step chart of the best offer over time: the line holds at each offer until a new one comes in, with a dashed floor line,
-   dollar labels on the left, and a dot per offer (teal = accepted). */
+   Trading-style line chart: the best live offer over time, starting at $0. It climbs when a higher offer lands and drops
+   when that offer is cancelled, declined or accepted. Dashed line = platform floor. */
 function offerChart(h, offers) {
   const pts = (h.points || []).filter((p) => p.usd > 0), floor = h.floorUsd || 0;
-  if (!pts.length) return `<div class="chart empty-c"><div class="ch-h"><h3 class="h3">Offer history</h3>${floor ? `<span class="muted">Floor <b class="accent">${usd(floor)}</b></span>` : ''}</div><p class="muted">No offers yet. The chart fills in when collectors start bidding${floor ? ' — they all start at the floor' : ''}.</p></div>`;
-  const W = 340, H = 170, L = 44, R = 12, T = 16, B = 26, now = Date.now();
-  const t0 = pts[0].at, span = Math.max(now - t0, 3600e3), tMin = t0 - span * 0.06, tMax = now + span * 0.02;
-  const vals = pts.map((p) => p.usd).concat(floor ? [floor] : []); let lo = Math.min(...vals), hi = Math.max(...vals); if (hi === lo) { lo = lo * 0.7; hi = hi * 1.3 + 1; }
-  const pad = (hi - lo) * 0.15; lo = Math.max(0, lo - pad); hi += pad;
-  const x = (t) => L + ((t - tMin) / (tMax - tMin)) * (W - L - R), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-  // step line (held between offers) with soft corners, ending at "now"
-  const seq = pts.map((p) => [x(p.at), y(p.usd)]); seq.push([x(now), seq[seq.length - 1][1]]);
-  let d = `M${seq[0][0].toFixed(1)},${seq[0][1].toFixed(1)}`;
-  for (let i = 1; i < seq.length; i++) { const a = seq[i - 1], b = seq[i], mx = (a[0] + b[0]) / 2; d += ` L${(b[0] - Math.min(10, (b[0] - a[0]) / 2)).toFixed(1)},${a[1].toFixed(1)} Q${b[0].toFixed(1)},${a[1].toFixed(1)} ${b[0].toFixed(1)},${(a[1] + (b[1] - a[1]) * 0.5).toFixed(1)} T${b[0].toFixed(1)},${b[1].toFixed(1)}`; }
-  const base = (H - B).toFixed(1), area = `${d} L${seq[seq.length - 1][0].toFixed(1)},${base} L${seq[0][0].toFixed(1)},${base} Z`;
-  const ticks = [0, 0.5, 1].map((k) => lo + (hi - lo) * k);
+  const head = (right) => `<div class="ch-h"><h3 class="h3">Offer history</h3>${right}</div>`;
+  if (!pts.length) return `<div class="chart empty-c">${head(floor ? `<span class="muted">Floor <b class="accent">${usd(floor)}</b></span>` : '')}<p class="muted">No offers yet. The chart fills in when collectors start bidding${floor ? ' — they all start at the floor' : ''}.</p></div>`;
+  const now = Date.now(), t0 = Math.min(...pts.map((p) => p.at));
+  const best = (t) => pts.reduce((m, p) => (p.at <= t && (p.end == null || p.end > t) ? Math.max(m, p.usd) : m), 0);
+  const evs = [...new Set(pts.flatMap((p) => [p.at, p.end]).filter((t) => t != null && t <= now))].sort((a, b) => a - b);
+  const series = [[t0 - 1, 0]];
+  for (const t of evs) { const before = series[series.length - 1][1]; const v = best(t); if (v === before) continue; if (t > t0) series.push([t - 1, before]); series.push([t, v]); }
+  series.push([now, best(now)]);
+  const W = 340, H = 180, L = 44, R = 14, T = 16, B = 26;
+  const span = Math.max(now - t0, 3600e3), tMin = t0 - span * 0.04, tMax = now + span * 0.03;
+  let hi = Math.max(...series.map((q) => q[1]), floor || 0) * 1.12 || 1; { const m = 10 ** Math.floor(Math.log10(hi)), f = hi / m; hi = (f <= 1.5 ? 1.5 : f <= 3 ? 3 : f <= 6 ? 6 : 10) * m; }
+  const x = (t) => L + ((t - tMin) / (tMax - tMin)) * (W - L - R), y = (v) => T + (1 - v / hi) * (H - T - B);
+  const P = series.map(([t, v]) => [x(t), y(v)]);
+  const d = P.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
+  const base = y(0).toFixed(1), area = `${d} L${P[P.length - 1][0].toFixed(1)},${base} L${P[0][0].toFixed(1)},${base} Z`;
   const nice = (v) => '$' + (v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ''));
-  const last = pts[pts.length - 1], top = offers[0] ? offers[0].usd : null;
-  const dots = pts.map((p, i) => `<circle cx="${x(p.at).toFixed(1)}" cy="${y(p.usd).toFixed(1)}" r="${i === pts.length - 1 ? 5 : 3.5}" class="pt ${p.status}"><title>${usd(p.usd)} · ${p.status} · ${ago(p.at)}</title></circle>`).join('');
-  const lab = `<text x="${Math.min(W - R, x(last.at) + 8).toFixed(1)}" y="${(y(last.usd) - 9).toFixed(1)}" class="vl" text-anchor="${x(last.at) > W - 70 ? 'end' : 'start'}">${nice(last.usd)}</text>`;
-  return `<div class="chart"><div class="ch-h"><h3 class="h3">Offer history</h3><span class="muted">${top ? 'Top offer <b class="accent">' + usd(top) + '</b>' : 'Last offer <b>' + usd(last.usd) + '</b>'}</span></div>
+  const ticks = [0, 1 / 3, 2 / 3, 1].map((k) => hi * k);
+  const cur = series[series.length - 1][1], lx = P[P.length - 1][0], ly = P[P.length - 1][1];
+  const up = cur >= (series.length > 1 ? Math.max(...series.map((q) => q[1])) : 0) * 0.999;
+  return `<div class="chart">${head(`<span class="muted">${cur ? 'Top offer <b class="accent">' + usd(cur) + '</b>' : 'No live offers'}</span>`)}
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Offer price history">
-      <defs><linearGradient id="chl" gradientUnits="userSpaceOnUse" x1="${L}" x2="${W - R}" y1="0" y2="0"><stop offset="0" stop-color="#ff3d9a"/><stop offset=".55" stop-color="#d63dff"/><stop offset="1" stop-color="#8a4dff"/></linearGradient><linearGradient id="cha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d63dff" stop-opacity=".38"/><stop offset="1" stop-color="#d63dff" stop-opacity="0"/></linearGradient></defs>
+      <defs><linearGradient id="chl" gradientUnits="userSpaceOnUse" x1="${L}" x2="${W - R}" y1="0" y2="0"><stop offset="0" stop-color="#ff3d9a"/><stop offset=".55" stop-color="#d63dff"/><stop offset="1" stop-color="#8a4dff"/></linearGradient><linearGradient id="cha" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d63dff" stop-opacity=".34"/><stop offset="1" stop-color="#d63dff" stop-opacity="0"/></linearGradient></defs>
       ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="gl"/><text x="${L - 7}" y="${(y(v) + 4).toFixed(1)}" class="yl" text-anchor="end">${nice(v)}</text>`).join('')}
       ${floor ? `<line x1="${L}" x2="${W - R}" y1="${y(floor).toFixed(1)}" y2="${y(floor).toFixed(1)}" class="fl"/><text x="${W - R}" y="${(y(floor) - 5).toFixed(1)}" class="fll" text-anchor="end">Floor ${nice(floor)}</text>` : ''}
-      <path d="${area}" fill="url(#cha)" class="ar"/><path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="ln" pathLength="1"/>${dots}${lab}
+      <path d="${area}" fill="url(#cha)" class="ar"/><path d="${d}" fill="none" stroke="url(#chl)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" class="ln" pathLength="1"/>
+      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5" class="pt active"/>
+      <text x="${Math.min(lx, W - R).toFixed(1)}" y="${Math.max(T + 4, ly - 10).toFixed(1)}" class="vl" text-anchor="end">${nice(cur)}</text>
     </svg>
-    <div class="ch-f"><span>${ago(pts[0].at)}</span><span>now</span></div></div>`;
+    <div class="ch-f"><span>${ago(t0)}</span><span>now</span></div></div>`;
 }
