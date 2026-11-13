@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { forbidden } from '../lib/errors.js';
+import { getItemRaw } from '../services/items.service.js';
 import { cancelOffer, prepareAccept, prepareOffer, rejectOffer } from '../services/offers.service.js';
-import { cancelListing, prepareBuy } from '../services/listings.service.js';
+import { cancelListing, prepareBuy, prepareList } from '../services/listings.service.js';
 import { getPtxFor, submitPtx } from '../services/pendingTx.service.js';
 import { idParam, usd } from './schemas.js';
 
@@ -22,9 +23,13 @@ export const routes = [
   },
   // ---- sale prices are NOT user-set: owners sell by accepting offers; mint prices are set by admins ----
   {
-    method: 'post', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }),
-    summary: 'Disabled: owners cannot set their own sale price. Collectors make offers; the owner accepts one.',
-    handler: async () => { throw forbidden('Sale prices are set by the platform. Collectors make offers and you choose which one to accept.'); }
+    method: 'post', path: '/items/:id/listing', auth: 'user', params: idParam,
+    summary: 'PREPARE selling at the platform floor price (the owner cannot choose a price). Owner signs once to let the platform move the NFT when a buyer pays the floor.',
+    handler: async (req) => {
+      const it = await getItemRaw(req.valid.params.id);
+      if (!it.floorUsd) throw forbidden('The platform has not set a floor price for this piece yet. Collectors can still make offers.');
+      return prepareList({ wallet: req.user.wallet, itemId: it.id, priceUsd: it.floorUsd });
+    }
   },
   { method: 'patch', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }), summary: 'Disabled', handler: async () => { throw forbidden('Sale prices are set by the platform.'); } },
   { method: 'delete', path: '/items/:id/listing', auth: 'user', params: idParam, summary: 'Remove an old sale price', handler: async (req) => cancelListing({ wallet: req.user.wallet, itemId: req.valid.params.id }) },

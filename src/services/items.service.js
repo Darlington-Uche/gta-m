@@ -164,6 +164,10 @@ export async function updateItem(id, patch) {
     if (cur.status === 'minted' && 'priceUsd' in data) delete data.priceUsd;
     tx.update(ref, { ...data, updatedAt: now() });
   });
+  if ('floorUsd' in data) { // a piece for sale at the floor follows the floor
+    const l = await getDoc('listings', String(id));
+    if (l && l.status === 'active') await col('listings').doc(String(id)).update(data.floorUsd ? { priceUsd: data.floorUsd, updatedAt: now() } : { status: 'cancelled', cancelledAt: now(), reason: 'floor_removed' });
+  }
   invalidateCatalog();
   return getItemRaw(id);
 }
