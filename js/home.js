@@ -51,7 +51,7 @@ export async function homeView() {
   const recent = sales.length ? sales.map(tradeCard).join('') : fresh.map(dropCard).join('');
   const html = `<section class="hh"><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
       <h1 class="display">${site.heroTitle ? esc(site.heroTitle) : 'Own the <span class="grad">streets.</span>'}</h1>
-      <div class="pills">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<span class="pill glass"><b>${n}</b>${l}</span>`).join('')}</div></section>
+      <div class="pills">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<span class="hpill glass"><b>${n}</b>${l}</span>`).join('')}</div></section>
     <section class="hs">${sectionHead(sales.length ? 'Recent Trades' : 'Fresh Drops', '#/explore')}
       ${recent ? `<div class="hrow">${recent}</div>` : '<div class="empty"><b>Nothing here yet</b>The first drops are on their way.</div>'}</section>
     <section class="hs">${sectionHead('Trending Now', '#/collections')}
