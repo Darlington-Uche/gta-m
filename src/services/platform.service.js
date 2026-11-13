@@ -64,7 +64,7 @@ registerHandler('sell_platform', {
       const itemRef = col('items').doc(d.itemId);
       const [iS, offS, lS] = await Promise.all([tx.get(itemRef), tx.get(col('offers').where('itemId', '==', d.itemId).where('status', '==', 'active')), tx.get(col('listings').doc(d.itemId))]);
       const it = iS.data(); if (!it || it.platformOwned) return; // idempotent
-      tx.update(itemRef, { owner: chain.vaultAddress, platformOwned: true, resaleUsd: null, lock: null, lastOwnerCheck: now(), boughtByPlatformAt: now(), updatedAt: now() });
+      tx.update(itemRef, { owner: chain.vaultAddress, platformOwned: true, resaleUsd: null, floorUsd: null, lock: null, lastOwnerCheck: now(), boughtByPlatformAt: now(), updatedAt: now() });
       if (lS.exists && lS.data().status === 'active') tx.update(col('listings').doc(d.itemId), { status: 'cancelled', cancelledAt: now(), reason: 'sold_to_platform' });
       tx.set(col('sales').doc(`platform_${ptx.id}`), { type: 'platform_buy', itemId: d.itemId, asset: d.asset, buyer: chain.vaultAddress, seller: d.seller, lamports: d.lamports, saleFee: 0, sellerPayout: d.lamports, devFee: 0, usd: d.usd, signature: ptx.signature, createdAt: now() });
       ledgerInTx(tx, { type: 'platform_buy', lamports: -d.lamports, wallet: d.seller, ref: { itemId: d.itemId, signature: ptx.signature }, deltas: { revenue: -d.lamports } });
@@ -107,7 +107,7 @@ registerHandler('collect_platform', {
     await runTx(async (tx) => {
       const itemRef = col('items').doc(d.itemId);
       const it = (await tx.get(itemRef)).data(); if (!it || !it.platformOwned) return; // idempotent
-      tx.update(itemRef, { owner: d.buyer, platformOwned: false, resaleUsd: null, lock: null, lastOwnerCheck: now(), updatedAt: now() });
+      tx.update(itemRef, { owner: d.buyer, platformOwned: false, resaleUsd: null, floorUsd: null, lock: null, lastOwnerCheck: now(), updatedAt: now() });
       tx.set(col('sales').doc(`collect_${ptx.id}`), { type: 'platform_sale', itemId: d.itemId, asset: d.asset, buyer: d.buyer, seller: chain.vaultAddress, lamports: d.lamports, saleFee: d.lamports, sellerPayout: 0, devFee: 0, usd: d.usd, signature: ptx.signature, createdAt: now() });
       if (d.lamports > 0) ledgerInTx(tx, { type: 'platform_sale', lamports: d.lamports, wallet: d.buyer, ref: { itemId: d.itemId, signature: ptx.signature }, deltas: { revenue: d.lamports } });
       const n = makeNotification(d.buyer, 'purchase_completed', 'It\'s yours', `${it.title} is now in your wallet.`, { itemId: d.itemId, signature: ptx.signature }); tx.set(n.ref, n.data);
