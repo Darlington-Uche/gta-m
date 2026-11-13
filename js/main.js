@@ -1,6 +1,7 @@
 import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
 import { enhance, burst } from './fx.js';
-import { homeView as home, explore, artwork, collections, collection } from './views.js';
+import { explore, artwork, collections, collection } from './views.js';
+import { homeView as home } from './home.js';
 import { create, profile } from './me.js';
 
 const ic = {
@@ -22,7 +23,9 @@ function chrome() {
   const badge = S.unread ? `<span class="badge">${S.unread}</span>` : '';
   $('#hd').innerHTML = `<a class="brand" href="#/" aria-label="GTA Marketplace"><b>GTA</b><i>Marketplace</i></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
-    <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet ? `<a class="chipb" href="#/me"><i class="dot"></i>${short(S.wallet)}${badge}</a>` : '<button class="btn primary sm" id="cw">Connect wallet</button>'}</div>`;
+    <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet
+      ? `<a class="me-chip" href="#/me"><i class="avt" style="--h:${[...String(S.wallet||'x')].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)}">${esc((S.username || S.wallet)[0].toUpperCase())}</i><span><b>${esc(S.username ? '@' + S.username : short(S.wallet))}</b><small>My stash</small></span></a>`
+      : '<button class="me-chip" id="cw"><i class="avt ghost"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></i><span><b>Connect</b><small>wallet</small></span></button>'}<a class="bell" href="#/me/notifications" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 20a2 2 0 004 0"/></svg>${S.unread ? '<i class="bdot"></i>' : ''}</a></div>`;
   const an = S.site && S.site.announcement; let bar = $('#ann'); if (an) { if (!bar) { bar = document.createElement('div'); bar.id = 'ann'; document.body.prepend(bar); } bar.textContent = an; } else if (bar) bar.remove();
   $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
