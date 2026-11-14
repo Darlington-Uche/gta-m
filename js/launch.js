@@ -90,7 +90,7 @@ export async function launchWizard({ q = {} } = {}) {
         if (st.draft && (k === 'logo' || k === 'banner')) return toast('Logo and banner are set for this draft');
         try {
           if (k === 'art') {
-            for (const f of [...e.target.files].slice(0, 500 - st.art.length)) { if (!/^image\//.test(f.type)) continue; const img = await shrinkImage(f, 1600, 0.88); st.art.push({ url: `data:${img.type};base64,${img.data}`, img, rarity: 'Common' }); }
+            for (const f of [...e.target.files].slice(0, 20 - st.art.length)) { if (!/^image\//.test(f.type)) continue; const img = await shrinkImage(f, 1600, 0.88); st.art.push({ url: `data:${img.type};base64,${img.data}`, img, rarity: 'Common' }); }
             paintGrid(); grid.lastElementChild && grid.querySelector('.sd-t:last-of-type')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
           } else { const img = await shrinkImage(e.target.files[0], k === 'banner' ? 1800 : 600, 0.88); st[k] = { url: `data:${img.type};base64,${img.data}`, img }; pic($(k === 'banner' ? '#ban' : '#logo', root), st[k]); paintChk(); }
         } catch (x) { toast(x.message, 'bad'); }

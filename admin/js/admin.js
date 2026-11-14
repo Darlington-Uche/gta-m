@@ -202,36 +202,12 @@ VIEWS.settings = async (el) => {
 render();
 
 /* ---------- launchpad: our drops (mint stages) + creator collections to verify ---------- */
-let LPTAB = 'ours';
+let LPTAB = 'approved';
 const toLocal = (t) => { if (!t) return ''; const d = new Date(t); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); };
 const fromLocal = (v) => (v ? new Date(v).getTime() : null);
 const stLine = (x) => `${esc(x.name)} · ${x.kind} · ${usd(x.priceUsd)} · ${x.perWallet}/wallet · ${new Date(x.start).toLocaleString()}${x.end ? ' → ' + new Date(x.end).toLocaleString() : ''}${x.kind === 'allowlist' ? ' · ' + (x.allowlist || []).length + ' wallets' : ''}`;
-function dropEditor(c) {
-  const d = c.drop || {}, st0 = (d.stages || [])[0] || { priceUsd: 0, perWallet: 1, start: Date.now() + 36e5, end: Date.now() + 25 * 36e5 };
-  modal(`<h2 class="display" style="font-size:30px">${esc(c.name || c.id)} mint</h2>
-    <div class="fgrid"><label class="field">On Drops<select id="pub">${opts(['no', 'yes'], d.published ? 'yes' : 'no')}</select></label><label class="field">Items to mint (empty = all)<input id="sup" type="number" min="1" value="${d.supply || ''}"></label></div>
-    <div class="fgrid"><label class="field">Price USD (0 = free)<input id="pr" type="number" min="0" step="0.5" value="${st0.priceUsd}"></label><label class="field">Per wallet<input id="pw" type="number" min="1" max="50" value="${st0.perWallet}"></label></div>
-    <div class="fgrid"><label class="field">Starts<input id="st" type="datetime-local" value="${toLocal(st0.start)}"></label><label class="field">Ends (reveal)<input id="en" type="datetime-local" value="${toLocal(st0.end)}"></label></div>
-    <div class="row" style="margin-top:18px"><button class="btn primary" id="sv">Save</button><button class="btn" id="cx">Cancel</button></div>`, (m, close) => {
-    $('#cx', m).onclick = close;
-    $('#sv', m).onclick = (e) => busy(e.target, async () => {
-      const start = fromLocal($('#st', m).value), end = fromLocal($('#en', m).value);
-      await api('PUT', `/admin/collections/${c.id}/drop`, { published: $('#pub', m).value === 'yes', supply: $('#sup', m).value ? +$('#sup', m).value : null, revealMode: 'date', revealAt: end, preReveal: d.preReveal || null,
-        stages: [{ id: 'mint', name: 'Mint', kind: 'public', priceUsd: +$('#pr', m).value || 0, perWallet: +$('#pw', m).value || 1, start, end }] });
-      toast('Saved'); close(); render();
-    });
-  });
-}
 VIEWS.launchpad = async (el) => {
-  const tabs = `<div class="row" style="margin-bottom:16px">${[['ours', 'Our drops'], ['approved', 'Creator drops'], ['rejected', 'Taken down']].map(([k, l]) => `<button class="btn ${k === LPTAB ? 'primary' : ''}" data-lt="${k}">${l}</button>`).join('')}</div>`;
-  if (LPTAB === 'ours') {
-    const cols = (await api('GET', '/admin/collections')).collections;
-    el.innerHTML = head('Launchpad', 'Mint stages for our collections, and creator collections waiting for verification.') + tabs +
-      (cols.length ? cols.map((c) => `<div class="coll glass" data-id="${esc(c.id)}"><div class="cv" style="${c.cover ? `background-image:url('${esc(c.cover)}')` : ''}"></div><div style="display:grid;gap:8px;min-width:0"><div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:24px">${esc(c.name || c.id)}</h3><span class="tag ${c.drop && c.drop.published ? 'ok' : 'warn'}">${c.drop && c.drop.published ? 'On Drops' : 'Not listed'}</span></div>
-        <div class="fine">${c.drop && c.drop.stages && c.drop.stages.length ? c.drop.stages.map(stLine).join('<br>') : 'No mint stages yet'}</div><div class="row"><button class="btn primary sm" data-edit>Edit mint</button>${c.drop && c.drop.published && c.drop.revealMode !== 'instant' && !c.drop.revealedAt ? '<button class="btn sm" data-reveal>Reveal now</button>' : ''}</div></div></div>`).join('') : '<div class="empty"><b>No collections yet</b>Add them under Collections first.</div>');
-    el.onclick = (e) => { const t = e.target.closest('[data-lt]'); if (t) { LPTAB = t.dataset.lt; return render(); } const b = e.target.closest('[data-edit]'); if (b) dropEditor(cols.find((c) => c.id === b.closest('.coll').dataset.id)); const r = e.target.closest('[data-reveal]'); if (r && confirm('Reveal this drop now?')) busy(r, async () => { const x = await api('POST', `/admin/collections/${r.closest('.coll').dataset.id}/drop/reveal`, {}); toast(`Revealed ${x.revealed} pieces`); render(); }); };
-    return;
-  }
+  const tabs = `<div class="row" style="margin-bottom:16px">${[['approved', 'Live drops'], ['rejected', 'Taken down']].map(([k, l]) => `<button class="btn ${k === LPTAB ? 'primary' : ''}" data-lt="${k}">${l}</button>`).join('')}</div>`;
   const list = (await api('GET', '/admin/launches?status=' + LPTAB)).launches;
   el.innerHTML = head('Launchpad', 'Creator collections. Check it is original GTA-inspired work before you verify it.') + tabs +
     (list.length ? list.map((l) => `<div class="sub-card glass" data-id="${esc(l.id)}"><img src="${esc(l.preReveal || l.logo)}" alt=""><div style="display:grid;gap:8px;align-content:start;min-width:0">

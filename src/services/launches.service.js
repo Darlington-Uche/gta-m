@@ -30,7 +30,7 @@ const checkStages = (stages) => {
 /* ---------- creator launches ----------
    Simple on purpose: a draft (look + art) → publish. One mint phase (price, per-wallet, start, how long).
    Supply = the art you uploaded (at least 10). Everything stays hidden while minting and reveals when it ends or sells out. */
-export const MIN_ART = 10, MAX_ART = 500;
+export const MIN_ART = 10, MAX_ART = 20;
 const phase = (p) => { const start = +p.start || now(), hours = Math.max(1, Math.min(24 * 30, +p.hours || 24));
   return [{ id: 'mint', name: 'Mint', kind: 'public', priceUsd: Math.max(0, +p.priceUsd || 0), start, end: start + hours * 36e5, perWallet: Math.max(1, Math.min(50, +p.perWallet || 1)), allowlist: [] }]; };
 const up = async (f, folder) => { const file = fromB64(f); return file ? (await saveUpload(file, folder)).url : null; };

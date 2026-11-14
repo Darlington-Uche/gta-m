@@ -1,5 +1,5 @@
 // Collection page v2: header + stats like a trading app, tabs swap in place (About · Items · Owned · Holders · Activity · Analytics).
-import { S, $, $$, esc, usd, short, ago, imgTag, items, http, explorer, toast, walletModal, who } from './core.js';
+import { S, $, $$, esc, usd, sol, short, ago, imgTag, items, http, explorer, toast, walletModal, who, modal, act, runTx } from './core.js';
 import { poster } from './views.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
@@ -78,8 +78,8 @@ function mountCollection(root, c, id, start) {
       <dt>Era</dt><dd>${esc(c.short || c.era)}</dd><dt>Supply</dt><dd>${c.items}</dd><dt>Collected</dt><dd>${c.minted}</dd><dt>Network</dt><dd>Solana ${esc(S.meta.network)}</dd><dt>Creator</dt><dd>GTA Marketplace ${tick}</dd>
       ${c.address ? `<dt>Address</dt><dd><a href="https://explorer.solana.com/address/${esc(c.address)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}" target="_blank" rel="noopener">${short(c.address)} ↗</a></dd>` : ''}</dl></div>`;
     else if (tab === 'items') {
-      pane.innerHTML = `<div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="liked">Most liked</option><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;
-      $('#cx-sort', root).value = sort;
+      pane.innerHTML = `<div class="bulkbar"><button class="btn primary" id="cx-bulk">Make offers</button></div><div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="liked">Most liked</option><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;
+      $('#cx-sort', root).value = sort; $('#cx-bulk', root).onclick = () => bulkOffer(c, id);
       if (!list.length) await load(); if (tab !== 'items') return;
       $('#cx-grid', root).innerHTML = gridHtml() + (list.length < total ? '<div class="pager"><button class="btn" id="cx-more">Load more</button></div>' : '');
     } else if (tab === 'owned') {
@@ -105,4 +105,28 @@ function mountCollection(root, c, id, start) {
   $('#cx-share', root).onclick = async () => { const url = location.origin + location.pathname + `#/collection/${encodeURIComponent(id)}`; try { if (navigator.share) await navigator.share({ title: c.name, url }); else { await navigator.clipboard.writeText(url); toast('Link copied'); } } catch (_) { /* cancelled */ } };
   render(); addEventListener('resize', moveInd);
   return () => removeEventListener('resize', moveInd);
+}
+
+/** Offer on several pieces of a collection at once: pick how many and how much each. */
+async function bulkOffer(c, id) {
+  if (!S.wallet) return walletModal();
+  const r = await items({ era: id, status: 'minted', limit: 100 }).catch(() => ({ items: [] }));
+  const pool = r.items.filter((i) => i.owner && i.owner !== S.wallet && !i.platformOwned);
+  if (!pool.length) return toast('Nothing to offer on yet', 'bad');
+  const solUsd = (S.meta && S.meta.solUsd) || 0, min = ((S.meta && S.meta.settings) || {}).minOfferUsd || 1;
+  modal(`<button class="x" data-x>✕</button><h2 class="display">Make offers</h2><div class="bulk-f">
+    <label class="field">Price for each (USD)<input id="bp" class="input big" type="number" min="${min}" step="0.01" placeholder="0.00"></label>
+    <div class="qty"><button type="button" data-d="-1">−</button><b id="bq">1</b><button type="button" data-d="1">+</button></div>
+    <div class="tot"><span>Total</span><b id="bt">$0</b></div><p class="fine" id="bs"></p>
+    <div class="txfoot"><button class="btn primary" data-go>Send offers</button></div></div>`, (m, close) => {
+    let q = 1; const inp = $('#bp', m), upd = () => { const v = +inp.value || 0; $('#bq', m).textContent = q; $('#bt', m).textContent = usd(v * q); $('#bs', m).textContent = (solUsd && v ? `≈ ${sol((v * q) / solUsd)} held safely until the offers end. ` : '') + `${pool.length} available`; };
+    $('[data-x]', m).onclick = close; inp.oninput = upd; upd(); inp.focus();
+    m.addEventListener('click', (e) => { const d = e.target.closest('[data-d]'); if (d) { q = Math.max(1, Math.min(pool.length, q + +d.dataset.d)); upd(); } });
+    $('[data-go]', m).onclick = async () => {
+      const v = +inp.value; if (!(v >= min)) return toast(`Minimum offer is $${min}`, 'bad'); close();
+      let ok = 0;
+      for (const it of pool) { if (ok >= q) break; try { await runTx(`Offer ${ok + 1} of ${q}`, (ui) => act('POST', `/items/${it.id}/offers`, { usd: v }, ui), ok + 1 === q ? 'All offers sent' : ''); ok++; } catch (e) { if (e && e.code === 'offer_exists') continue; break; } }
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    };
+  });
 }
