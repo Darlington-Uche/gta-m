@@ -140,3 +140,13 @@ registerHandler('buy_listing', {
   },
   rollback: (ptx) => unlockOnly(ptx.data.itemId, ptx.id)
 });
+
+/** List several NFTs at one price each: one prepared tx per NFT, returned together so the wallet signs them in one approval. */
+export async function prepareBulkList({ wallet, itemIds, priceUsd }) {
+  const out = [], skipped = [];
+  for (const itemId of [...new Set(itemIds.map(String))].slice(0, 10)) {
+    try { const p = await prepareList({ wallet, itemId, priceUsd }); out.push({ itemId, ptxId: p.ptxId, txB64: p.txB64 }); } catch (e) { skipped.push({ itemId, reason: e.message }); }
+  }
+  if (!out.length) throw conflict('nothing_to_list', skipped[0]?.reason || 'None of these can be listed right now');
+  return { ptxs: out, skipped };
+}

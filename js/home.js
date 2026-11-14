@@ -25,7 +25,7 @@ const trendRow = (c, i) => `<a class="trow glass" href="#/collection/${encodeURI
 
 const trendArt = (it, i) => `<a class="trow glass" href="#/art/${encodeURIComponent(it.id)}">
   <span class="rank">${i + 1}</span><span class="tr-img">${imgTag(it.img, it.title, 120)}</span>
-  <div class="tr-t"><b>${esc(it.title)}</b><small>♥ ${it.likes} <span>${esc(it.eraShort || '')}</span></small></div></a>`;
+  <div class="tr-t"><b>${esc(it.title)}</b><small><span>${esc(it.eraShort || '')}</span></small></div></a>`;
 
 const featCard = (c) => `<a class="fcard" href="#/collection/${encodeURIComponent(c.id)}">
   <span class="f-bg">${imgTag(c.banner || c.cover, c.name, 900)}</span><i class="f-shade"></i>

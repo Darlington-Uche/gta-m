@@ -64,22 +64,23 @@ export async function collection({ args: [id], q }) {
 
 function mountCollection(root, c, id, start) {
   const pane = $('#cx-pane', root), bar = $('.cx-tabs', root), ind = $('.ind', bar);
-  const picked = new Set(); let tab = start, range = 30, metric = 'n', sort = 'liked', term = '', list = [], total = 0;
+  const picked = new Set(); let tab = start, range = 30, metric = 'n', sort = 'recent', term = '', list = [], total = 0;
   const moveInd = () => { const a = $('a.on', bar); if (a && (a.offsetLeft < bar.scrollLeft + 8 || a.offsetLeft + a.offsetWidth > bar.scrollLeft + bar.clientWidth - 8)) bar.scrollTo({ left: Math.max(0, a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2), behavior: 'smooth' }); if (a && ind) { ind.style.width = a.offsetWidth + 'px'; ind.style.transform = `translateX(${a.offsetLeft}px)`; requestAnimationFrame(() => bar.classList.add('ready')); } };
   const holderRow = (h, i) => `<div class="hrow2"><span class="rank">${i + 1}</span><i class="av" style="--h:${hue(h.wallet)}"></i><b>${who(h.wallet)}</b><span class="n">${h.n} item${h.n > 1 ? 's' : ''}</span><em>${c.items ? Math.round((h.n / c.items) * 1000) / 10 : 0}%</em></div>`;
   const actRow = (a) => { const [l, k] = KIND[a.type] || ['Trade', 'sale']; return `<a class="arow" href="#/art/${encodeURIComponent(a.itemId)}"><span class="ai">${imgTag(a.image, a.title || '', 100)}</span><div><b>${esc(a.title || 'Artwork')}</b><small><span class="tag ${k}">${l}</span>${a.type === 'platform_buy' ? who(a.seller) : who(a.buyer)}</small></div><div class="r"><b>${a.usd ? usd(a.usd) : 'FREE'}</b><small>${ago(a.at)}</small></div></a>`; };
-  const canPick = (it) => tab === 'owned' ? it.owner === S.wallet && it.offers && it.offers.count > 0 : tab === 'items' && it.minted && it.owner && it.owner !== S.wallet && !it.platformOwned;
+  const canPick = (it) => tab === 'owned' ? it.owner === S.wallet : tab === 'items' && it.minted && it.owner && it.owner !== S.wallet && !it.platformOwned;
   const cache = new Map(); const remember = (arr) => arr.forEach((i) => cache.set(String(i.id), i));
   const selBar = () => {
     let b = $('#selbar'); const n = picked.size;
     if (!n) { b && b.remove(); return; }
     if (!b) { b = document.createElement('div'); b.id = 'selbar'; b.className = 'selbar glass'; document.body.appendChild(b); }
     const mineTab = tab === 'owned', total = mineTab ? [...picked].reduce((a, k) => a + ((cache.get(k) || {}).offers?.topUsd || 0), 0) : 0;
-    b.innerHTML = `<button class="rbtn" data-clr aria-label="Clear">✕</button><b>${n}</b><span>selected</span><button class="btn" data-all>All</button><button class="btn primary" data-go>${mineTab ? `Sell to offers · ${usd(total)}` : 'Make offer'}</button>`;
+    b.innerHTML = `<button class="rbtn" data-clr aria-label="Clear">✕</button><b>${n}</b><span>selected</span><button class="btn" data-all>All</button>${mineTab ? `<button class="btn" data-list>List</button>${total ? `<button class="btn primary" data-go>Sell · ${usd(total)}</button>` : ''}` : '<button class="btn primary" data-go>Make offer</button>'}`;
     b.onclick = (e) => { const t = e.target.closest('button'); if (!t) return;
       if (t.hasAttribute('data-clr')) { picked.clear(); sync(); }
       else if (t.hasAttribute('data-all')) { $$('.sel', pane).forEach((x) => picked.add(x.dataset.sel)); sync(); }
-      else if (mineTab) sellPicked([...picked].map((k) => cache.get(k)).filter(Boolean), () => { picked.clear(); sync(); render(); });
+      else if (t.hasAttribute('data-list')) listPicked([...picked].map((k) => cache.get(k)).filter(Boolean), () => { picked.clear(); sync(); render(); });
+      else if (mineTab) sellPicked([...picked].map((k) => cache.get(k)).filter((x) => x && x.offers && x.offers.count > 0), () => { picked.clear(); sync(); render(); });
       else bulkOffer([...picked], () => { picked.clear(); sync(); }); };
   };
   const sync = () => { $$('.sel', pane).forEach((x) => x.classList.toggle('on', picked.has(x.dataset.sel))); selBar(); };
@@ -95,7 +96,7 @@ function mountCollection(root, c, id, start) {
       <dt>Era</dt><dd>${esc(c.short || c.era)}</dd><dt>Supply</dt><dd>${c.items}</dd><dt>Collected</dt><dd>${c.minted}</dd><dt>Network</dt><dd>Solana ${esc(S.meta.network)}</dd><dt>Creator</dt><dd>GTA Marketplace ${tick}</dd>
       ${c.address ? `<dt>Address</dt><dd><a href="https://explorer.solana.com/address/${esc(c.address)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}" target="_blank" rel="noopener">${short(c.address)} ↗</a></dd>` : ''}</dl></div>`;
     else if (tab === 'items') {
-      pane.innerHTML = `<div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="liked">Most liked</option><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;
+      pane.innerHTML = `<div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;
       $('#cx-sort', root).value = sort;
       if (!list.length) await load(); if (tab !== 'items') return;
       $('#cx-grid', root).innerHTML = gridHtml() + (list.length < total ? '<div class="pager"><button class="btn" id="cx-more">Load more</button></div>' : '');
@@ -157,3 +158,22 @@ async function sellPicked(its, done) {
   });
 }
 window.addEventListener('hashchange', () => { if (!/^#\/collection\//.test(location.hash)) { const b = document.getElementById('selbar'); if (b) b.remove(); } });
+
+/** List the selected pieces for sale at one price each; the wallet approves up to 10 at once. */
+function listPicked(its, done) {
+  if (!S.wallet) return walletModal();
+  const ids = its.filter((i) => !i.listing).map((i) => i.id), n = ids.length, solUsd = (S.meta && S.meta.solUsd) || 0, cfg = (S.meta && S.meta.settings) || {}, min = cfg.minOfferUsd || 1;
+  if (!n) return toast('These are already listed', 'bad');
+  modal(`<button class="x" data-x>✕</button><h2 class="display">List ${n} NFT${n > 1 ? 's' : ''}</h2><div class="bulk-f">
+    <label class="field">Price for each (USD)<input id="lp" class="input big" type="number" min="${min}" step="0.01" placeholder="0.00"></label>
+    <div class="tot"><span>If all sell</span><b id="lt">$0</b></div><p class="fine" id="ls"></p>
+    <div class="txfoot"><button class="btn primary" data-go>List ${n > 1 ? 'them' : 'it'}</button></div></div>`, (m, close) => {
+    const inp = $('#lp', m), upd = () => { const v = +inp.value || 0; $('#lt', m).textContent = usd(v * n); $('#ls', m).textContent = (solUsd && v ? `≈ ${sol(v / solUsd)} each. ` : '') + 'Your NFTs stay in your wallet until sold. One approval for up to 10.'; };
+    $('[data-x]', m).onclick = close; inp.oninput = upd; upd(); inp.focus();
+    $('[data-go]', m).onclick = async () => {
+      const v = +inp.value; if (!(v >= min)) return toast(`Minimum price is $${min}`, 'bad'); close();
+      for (let i = 0; i < ids.length; i += 10) { try { await runTx('Listing', (ui) => actMany('POST', '/listings/bulk', { itemIds: ids.slice(i, i + 10), priceUsd: v }, ui), 'Listed!'); } catch (_) { break; } }
+      done && done(); window.dispatchEvent(new HashChangeEvent('hashchange'));
+    };
+  });
+}

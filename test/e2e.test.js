@@ -501,3 +501,12 @@ test('bulk: offers on several NFTs are ONE payment / one signature, and the owne
   await run({ status: 200, ptxId: sell.ptxs[0].ptxId, txB64: sell.ptxs[0].txB64 }, W[ownerKey], T[ownerKey]);
   assert.equal((await call('GET', `/items/${first.id}`)).item.owner, top.bidder);
 });
+
+test('bulk: list several of my NFTs at once with one request, then every tx is valid', async () => {
+  const mine = (await call('GET', `/items?owner=${W.D}&limit=50`)).items.filter((i) => i.minted && !i.listing).slice(0, 2);
+  if (mine.length < 1) return; // nothing owned by D in this flow
+  const r = await call('POST', '/listings/bulk', { itemIds: mine.map((i) => i.id), priceUsd: 9 }, T.D);
+  assert.equal(r.status, 200, JSON.stringify(r)); assert.equal(r.ptxs.length, mine.length);
+  for (const p of r.ptxs) await run({ status: 200, ptxId: p.ptxId, txB64: p.txB64 }, W.D, T.D);
+  for (const i of mine) assert.equal((await call('GET', `/items/${i.id}`)).item.listing.priceUsd, 9);
+});

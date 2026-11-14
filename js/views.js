@@ -4,7 +4,7 @@ const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 
 export const poster = (it, sel) => {
   const price = it.state === 'mint' ? `<span class="price ${it.free ? 'free' : ''}">${usd(it.priceUsd)}</span>` : it.state === 'listed' ? `<span class="price listed">${usd(it.priceUsd)}</span>` : `<span class="price own">${it.owner ? who(it.owner) : 'Owned'}</span>`;
   return `<a class="card" href="#/art/${esc(it.id)}"><div class="thumb">${it.img ? imgTag(it.img, it.title, 560, 'fill') : ''}${imgTag(it.img, it.title, 560)}
-  ${sel ? `<button class="sel ${sel.on ? 'on' : ''}" data-sel="${esc(it.id)}" aria-label="Select"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : `<button class="like ${S.likes.has(String(it.id)) ? 'on' : ''}" data-like="${esc(it.id)}" aria-label="Like">${heart}<span>${it.likes}</span></button>`}</div>
+  ${sel ? `<button class="sel ${sel.on ? 'on' : ''}" data-sel="${esc(it.id)}" aria-label="Select"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`  : ''}</div>
   <div class="meta"><div><h3>${esc(it.title)}</h3><p><i class="rb ${esc(it.rarity)}"></i>${esc(it.eraShort)} · ${esc(it.category || '')}</p></div>${price}</div></a>`;
 };
 const skels = (n) => `<div class="grid">${'<div class="skel"></div>'.repeat(n)}</div>`;
@@ -47,7 +47,7 @@ function deck(list) {
         <div class="face front">
           <div class="art">${imgTag(it.img, it.title, 600)}</div>
           <i class="glare"></i>
-          <span class="rk">${RANK[i] || '#' + (i + 1)}</span><span class="lk">♥ ${it.likes}</span>
+          <span class="rk">${RANK[i] || '#' + (i + 1)}</span>
           <div class="cap"><b class="display">${esc(it.title)}</b><small>${esc(it.eraShort || '')}${it.rarity ? ' · ' + esc(it.rarity) : ''}</small></div>
         </div>
         <div class="face back">
