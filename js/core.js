@@ -189,7 +189,7 @@ export function signOut(silent) {
 export async function refreshMe() {
   if (!S.token) return null;
   const me = await http('GET', '/me');
-  S.unread = me.unread || 0;
+  S.unread = me.unread || 0; S.profile = me.profile || null; S.username = me.profile && me.profile.username; S.avatar = me.profile && me.profile.avatar; emit('profile', S.profile);
   try { S.likes = new Set((await http('GET', '/likes/mine')).itemIds.map(String)); } catch (e) { /* ignore */ }
   emit('unread', S.unread);
   return me;

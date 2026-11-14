@@ -15,12 +15,12 @@ function reveal(root) {
 
 /* ---- count-up: stat numbers roll up from zero the first time they're seen ---- */
 function countUp(root) {
-  $$('.stat b', root).forEach((b) => {
+  $$('.stat b, .pf-tot b', root).forEach((b) => {
     const raw = b.textContent.trim(), m = raw.match(/^(\D*)([\d,.]+)(\D*)$/); if (!m) return;
     const to = parseFloat(m[2].replace(/,/g, '')); if (!isFinite(to) || to === 0 || reduce) return;
     b.textContent = m[1] + '0' + m[3];
     const ob = new IntersectionObserver(([e]) => { if (!e.isIntersecting) return; ob.disconnect(); const t0 = performance.now(), d = 1100;
-      const step = (t) => { const k = Math.min(1, (t - t0) / d), v = to * (1 - Math.pow(1 - k, 4)); b.textContent = m[1] + Math.round(v).toLocaleString() + m[3]; if (k < 1) requestAnimationFrame(step); };
+      const step = (t) => { const k = Math.min(1, (t - t0) / d), v = to * (1 - Math.pow(1 - k, 4)), dec = (m[2].split('.')[1] || '').length; b.textContent = m[1] + (dec ? v.toFixed(dec) : Math.round(v).toLocaleString()) + m[3]; if (k < 1) requestAnimationFrame(step); };
       requestAnimationFrame(step); });
     ob.observe(b);
   });

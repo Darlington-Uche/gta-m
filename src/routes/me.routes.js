@@ -6,17 +6,20 @@ import { offersMadeBy, offersReceivedBy } from '../services/offers.service.js';
 import { listNotifications, markRead, unreadCount } from '../services/notifications.service.js';
 import { listSubmissions } from '../services/submissions.service.js';
 import { salesForWallet } from '../services/stats.service.js';
+import { portfolio, publicProfile, updateProfile } from '../services/portfolio.service.js';
 
 export const group = 'My account';
 export const routes = [
   {
     method: 'get', path: '/me', auth: 'user', summary: 'Who am I (+ unread notification count)',
-    handler: async (req) => ({ wallet: req.user.wallet, admin: req.user.admin, profile: await getDoc('users', req.user.wallet), unread: await unreadCount(req.user.wallet) })
+    handler: async (req) => ({ wallet: req.user.wallet, admin: req.user.admin, profile: publicProfile(req.user.wallet, await getDoc('users', req.user.wallet)), unread: await unreadCount(req.user.wallet) })
   },
   {
-    method: 'patch', path: '/me', auth: 'user', summary: 'Update display name / avatar', body: z.object({ username: z.string().trim().min(2).max(24).optional(), avatar: z.string().url().max(500).optional() }),
-    handler: async (req) => { await col('users').doc(req.user.wallet).set(req.valid.body, { merge: true }); return { profile: await getDoc('users', req.user.wallet) }; }
+    method: 'patch', path: '/me', auth: 'user', summary: 'Edit my profile: display name, @username (unique), bio, picture (base64 image) or removeAvatar',
+    body: z.object({ name: z.string().trim().max(32).optional(), username: z.string().trim().max(20).optional(), bio: z.string().trim().max(160).optional(), avatar: z.object({ type: z.string().max(40).optional(), data: z.string().max(3_000_000) }).optional(), removeAvatar: z.boolean().optional() }),
+    handler: async (req) => ({ profile: await updateProfile(req.user.wallet, req.valid.body) })
   },
+  { method: 'get', path: '/me/portfolio', auth: 'user', summary: 'Portfolio: wallet SOL (live) + NFTs valued at collection floor, grouped by collection, with my profile', handler: async (req) => portfolio(req.user.wallet) },
   { method: 'get', path: '/me/nfts', auth: 'user', summary: 'NFTs I own (from the database; fast)', handler: async (req) => ({ items: await itemsOwnedBy(req.user.wallet) }) },
   { method: 'post', path: '/me/nfts/sync', auth: 'user', summary: 'Re-check ownership on-chain (finds NFTs moved/received outside the site) and return what I own', handler: async (req) => ({ items: await syncWallet(req.user.wallet) }) },
   { method: 'get', path: '/me/likes', auth: 'user', summary: 'IDs of artworks I liked', handler: async (req) => ({ itemIds: await likedBy(req.user.wallet) }) },

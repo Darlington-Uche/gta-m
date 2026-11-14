@@ -41,7 +41,7 @@ export async function create() {
 }
 
 /* ================= PROFILE ================= */
-const TABS = [['nfts', 'My NFTs'], ['received', 'Offers in'], ['made', 'Offers out'], ['notifications', 'Inbox'], ['activity', 'Activity'], ['launches', 'Launches'], ['submissions', 'Submissions']];
+const TABS = [['nfts', 'Items'], ['received', 'Offers in'], ['made', 'Offers out'], ['activity', 'Activity'], ['notifications', 'Inbox'], ['launches', 'Launches'], ['submissions', 'Submissions']];
 const stc = (s) => (s === 'accepted' || s === 'approved' ? 'ok' : s === 'rejected' || s === 'cancelled' || s === 'expired' || s === 'failed' ? 'bad' : 'warn');
 const none = (t, d) => `<div class="empty"><b>${t}</b>${d || ''}</div>`;
 const get = async (p, k) => { try { return (await http('GET', p))[k] || []; } catch (e) { return []; } };
@@ -50,7 +50,15 @@ async function tabBody(tab) {
   const th = (src, t) => `<span class="t">${imgTag(src, t, 120)}</span>`;
   let body = '', recv = [];
   recv = tab === 'received' ? await get('/me/offers/received', 'offers') : [];
-  if (tab === 'nfts') { const r = await items({ owner: S.wallet, limit: 100, sort: 'recent' }); body = r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : none('Nothing here yet', 'Collect something from <a class="accent" href="#/browse?status=free">the free drops</a>.'); }
+  if (tab === 'nfts') {
+    const [r, pf] = await Promise.all([items({ owner: S.wallet, limit: 100, sort: 'recent' }), PF]);
+    const by = new Map(r.items.map((i) => [String(i.id), i]));
+    body = pf.groups.length ? `<label class="isearch pf-s"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="pfq" placeholder="Search your items" autocomplete="off"></label>
+      <div class="pfg">${pf.groups.map((g, gi) => { const its = g.items.map((id) => by.get(String(id))).filter(Boolean);
+        return `<div class="pgr${gi === 0 ? ' open' : ''}" data-g="${esc(g.id)}"><button class="pgr-h" type="button"><span class="pgr-lg">${imgTag(g.cover || (its[0] && its[0].img), g.name, 120)}</span><span class="pgr-t"><b>${esc(g.name)}</b><small>${g.count} item${g.count > 1 ? 's' : ''}${g.floorUsd != null ? ' · floor ' + usd(g.floorUsd) : ''}</small></span><span class="pgr-v"><b>${g.valueUsd ? usd(g.valueUsd) : '—'}</b><small>${g.valueUsd && pf.solUsd ? '≈ ' + tinySol(g.valueUsd / pf.solUsd) : ''}</small></span><i class="pgr-ch"></i></button>
+          <div class="pgr-b"><div class="grid">${its.map(poster).join('')}</div></div></div>`; }).join('')}</div>`
+      : `<div class="pf-empty glass"><b>No items yet</b><span>Start with a free drop or browse what's minting now.</span><div class="cta"><a class="btn primary" href="#/drops">See drops</a><a class="btn" href="#/browse?status=free">Free pieces</a></div></div>`;
+  }
   else if (tab === 'received') body = recv.length ? recv.map((o) => `<div class="rowc"><div class="l">${th(o.itemImage, o.itemTitle)}<div>${link(o.itemId, `<b>${esc(o.itemTitle)}</b>`)}<small>${usd(o.usd)} from ${short(o.bidder)} · ${ago(o.createdAt)}</small></div></div><div class="r"><span class="st ${stc(o.status)}">${esc(o.status)}</span>${o.status === 'active' ? `<a class="btn primary sm" href="#/art/${encodeURIComponent(o.itemId)}">Review</a>` : ''}</div></div>`).join('') : none('No offers yet');
   else if (tab === 'made') { const l = await get('/me/offers/made', 'offers'); body = l.length ? l.map((o) => `<div class="rowc"><div class="l">${th(o.itemImage, o.itemTitle)}<div>${link(o.itemId, `<b>${esc(o.itemTitle || o.itemId)}</b>`)}<small>${usd(o.usd)} · ≈ ${sol(o.sol)} · ${ago(o.createdAt)}</small></div></div><div class="r"><span class="st ${stc(o.status)}">${esc(o.status)}</span>${o.status === 'active' ? `<button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : none('You have not made offers'); }
   else if (tab === 'notifications') { const l = await get('/me/notifications', 'notifications'); body = l.length ? l.map((n) => `<div class="rowc"><div><b>${esc(n.title)}</b>${n.read ? '' : '<span class="dotn"></span>'}<small>${esc(n.body || '')} · ${ago(n.createdAt)}</small></div>${n.data && n.data.itemId ? `<a class="btn sm" href="#/art/${encodeURIComponent(n.data.itemId)}">Open</a>` : ''}</div>`).join('') : none('Inbox zero'); }
@@ -61,27 +69,65 @@ async function tabBody(tab) {
   else { const l = await get('/me/submissions', 'submissions'); body = l.length ? l.map((s) => `<div class="rowc"><div class="l">${th(s.media && s.media[0] && s.media[0].url, s.title)}<div><b>${esc(s.title)}</b><small>${esc(s.era || '')} · ${ago(s.createdAt)}${s.reason ? ' · ' + esc(s.reason) : ''}</small></div></div><span class="st ${stc(s.status)}">${esc(s.status)}</span></div>`).join('') : none('No submissions', '<a class="accent" href="#/create">Submit your first piece</a>'); }
   return { body, recv };
 }
+let PF = null; // portfolio for this visit, shared by the header and the Items tab
+const tinySol = (n) => (n == null ? '' : (n >= 10 ? n.toFixed(2) : n >= 0.1 ? n.toFixed(3) : n.toFixed(4)).replace(/\.?0+$/, '') + ' SOL');
+const hueOf = (a) => [...String(a || 'x')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+export const avatarHtml = (p, size = '') => (p && p.avatar ? `<span class="pav ${size}"><img src="${esc(p.avatar)}" alt=""></span>` : `<span class="pav gen ${size}" style="--h:${hueOf(S.wallet)}">${esc(((p && (p.name || p.username)) || S.wallet || '?')[0].toUpperCase())}</span>`);
+function editSheet(p, done) {
+  const m = document.createElement('div'); m.className = 'sheetw'; let pic = null, remove = false;
+  m.innerHTML = `<div class="sheet2 glass" role="dialog" aria-label="Edit profile"><i class="grab"></i><div class="sh-h"><h2>Edit profile</h2><button class="xbtn" data-x aria-label="Close">✕</button></div>
+    <div class="ep-av"><label class="ep-pic">${avatarHtml(p, 'xl')}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden><span class="ep-cam"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span></label>
+      <div><b>Profile picture</b><small>Square works best. JPG, PNG, GIF or WebP.</small>${p.avatar ? '<button class="btn sm" data-rm type="button">Remove photo</button>' : ''}</div></div>
+    <label class="field">Display name<input class="input" id="ep-n" maxlength="32" value="${esc(p.name || '')}" placeholder="What people see"></label>
+    <label class="field">Username<div class="atp"><span>@</span><input class="input" id="ep-u" maxlength="20" value="${esc(p.username || '')}" placeholder="yourname" autocapitalize="off" spellcheck="false"></div><small class="hint" id="ep-uh">3–20 letters, numbers or _</small></label>
+    <label class="field">Bio <span class="opt">optional</span><textarea class="input" id="ep-b" maxlength="160" rows="2" placeholder="A line about you">${esc(p.bio || '')}</textarea></label>
+    <button class="btn primary lg" id="ep-save">Save</button><button class="btn ghost danger-t" id="ep-out" type="button">Sign out</button></div>`;
+  document.body.appendChild(m); requestAnimationFrame(() => m.classList.add('on'));
+  const close = () => { m.classList.remove('on'); setTimeout(() => m.remove(), 280); };
+  m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-x]')) close(); if (e.target.closest('[data-rm]')) { remove = true; pic = null; $('.ep-pic .pav', m).outerHTML = avatarHtml({ ...p, avatar: null }, 'xl'); e.target.remove(); } });
+  $('.ep-pic input', m).onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { pic = await shrinkImage(f, 400, 0.88); remove = false; $('.ep-pic .pav', m).outerHTML = `<span class="pav xl"><img src="data:${pic.type};base64,${pic.data}" alt=""></span>`; } catch (x) { toast(x.message, 'bad'); } };
+  const u = $('#ep-u', m), uh = $('#ep-uh', m);
+  u.oninput = () => { u.value = u.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); const ok = !u.value || /^[a-z0-9_]{3,20}$/.test(u.value); uh.textContent = ok ? (u.value ? 'gta-marketplace.xyz/@' + u.value : '3–20 letters, numbers or _') : 'At least 3 characters'; uh.classList.toggle('bad', !ok); };
+  $('#ep-out', m).onclick = () => { close(); window.dispatchEvent(new Event('gta:signout')); };
+  $('#ep-save', m).onclick = async (e) => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Saving…';
+    try { const r = await http('PATCH', '/me', { name: $('#ep-n', m).value.trim(), username: u.value.trim(), bio: $('#ep-b', m).value.trim(), ...(pic ? { avatar: pic } : {}), ...(remove ? { removeAvatar: true } : {}) });
+      S.profile = r.profile; S.username = r.profile.username; S.avatar = r.profile.avatar; emit('profile', r.profile); toast('Profile saved'); close(); done(r.profile); }
+    catch (x) { toast(x.message, 'bad'); b.disabled = false; b.textContent = 'Save'; }
+  };
+}
 export async function profile({ args: [tab] }) {
   tab = TABS.some(([k]) => k === tab) ? tab : 'nfts';
-  const head = banner('', 'Profile', 'Your <span class="grad">stash.</span>');
-  if (!S.wallet) return { html: head + gate('Connect your wallet', 'See what you own, your offers and notifications.'), mount: wireGate };
-  const me = await refreshMe();
+  if (!S.wallet) return { html: banner('', 'Portfolio', 'Your <span class="grad">stash.</span>') + gate('Connect your wallet', 'See your balance, what you own, your offers and notifications.'), mount: wireGate };
+  PF = http('GET', '/me/portfolio');
+  const [me, pf] = await Promise.all([refreshMe(), PF]); const p = pf.profile || {};
   const first = await tabBody(tab), recv = first.recv, body = first.body;
   const badge = { notifications: me.unread, received: recv.filter((o) => o.status === 'active').length };
-  const html = `${head}
-  <div class="who glass"><div class="av">${esc(S.wallet.slice(0, 2).toUpperCase())}</div><div style="min-width:0"><div class="muted" style="font-weight:800;letter-spacing:.14em;font-size:11px;text-transform:uppercase">Wallet · ${esc(S.meta.network)}</div><div class="addr"><code>${esc(S.wallet.slice(0, 5) + '…' + S.wallet.slice(-5))}</code><button class="cp" id="cp" aria-label="Copy address" title="Copy address"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div></div><button class="btn sm" id="out">Disconnect</button></div>
-  <div class="tabs" role="tablist"><i class="ind" aria-hidden="true"></i>${TABS.map(([k, l]) => `<a href="#/me/${k}" data-k="${k}" role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</a>`).join('')}</div><div id="pane">${body}</div>`;
+  const wPct = pf.totalUsd ? Math.round(((pf.walletUsd || 0) / pf.totalUsd) * 100) : 100;
+  const totalSol = pf.solUsd ? pf.totalUsd / pf.solUsd : pf.sol;
+  const html = `<div class="pf">
+    <div class="pf-id"><button class="pf-avb" id="pf-edit" aria-label="Edit profile">${avatarHtml(p, 'lg')}<i class="pf-pen"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></i></button>
+      <div class="pf-nm"><h1>${esc(p.name || (p.username ? '@' + p.username : short(S.wallet)))}</h1><div class="pf-sub">${p.username ? `<span>@${esc(p.username)}</span>` : '<button class="lnk" id="pf-setu">Set a username</button>'}<button class="pf-addr" id="cp" title="Copy address"><code>${short(S.wallet)}</code><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg></button></div>${p.bio ? `<p class="pf-bio">${esc(p.bio)}</p>` : ''}</div>
+      <button class="rbtn" id="pf-edit2" aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></button></div>
+    <div class="pf-bal glass"><small>Portfolio value · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</small>
+      <div class="pf-tot"><b data-count="${pf.totalUsd}" data-prefix="$">${usd(pf.totalUsd) === 'FREE' ? '$0' : usd(pf.totalUsd)}</b><em>${totalSol != null ? '≈ ' + tinySol(totalSol) : ''}</em></div>
+      <div class="pf-alloc"><i style="width:${wPct}%"></i><i style="width:${100 - wPct}%"></i></div>
+      <div class="pf-leg"><span><i class="w"></i>Wallet <b>${pf.walletUsd != null ? usd(pf.walletUsd) === 'FREE' ? '$0' : usd(pf.walletUsd) : '—'}</b><em>${pf.sol != null ? tinySol(pf.sol) : 'unavailable'}</em></span><span><i class="n"></i>NFTs <b>${pf.nftUsd ? usd(pf.nftUsd) : '$0'}</b><em>${pf.nftCount} item${pf.nftCount === 1 ? '' : 's'}</em></span></div></div>
+    <div class="pf-acts"><button class="pfa" id="pf-recv"><i><svg viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></svg></i>Receive</button><a class="pfa" href="#/drops"><i><svg viewBox="0 0 24 24"><path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/></svg></i>Mint</a><a class="pfa" href="#/explore"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></i>Explore</a><a class="pfa" href="#/create"><i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>Create</a></div>
+    <div class="tabs pf-tabs" role="tablist"><i class="ind" aria-hidden="true"></i>${TABS.map(([k, l]) => `<a href="#/me/${k}" data-k="${k}" role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</a>`).join('')}</div><div id="pane">${body}</div></div>`;
   const mount = (root) => {
-    $('#out', root).onclick = () => window.dispatchEvent(new Event('gta:signout'));
-    $('#cp', root).onclick = (e) => { navigator.clipboard && navigator.clipboard.writeText(S.wallet); const b = e.currentTarget; b.classList.add('ok'); setTimeout(() => b.classList.remove('ok'), 1200); };
+    const edit = () => editSheet(p, () => window.dispatchEvent(new HashChangeEvent('hashchange')));
+    ['#pf-edit', '#pf-edit2', '#pf-setu'].forEach((sel) => { const b = $(sel, root); if (b) b.onclick = edit; });
+    const copy = (msg) => { try { navigator.clipboard.writeText(S.wallet); toast(msg); } catch (_) { toast(S.wallet); } };
+    $('#cp', root).onclick = () => copy('Address copied');
+    $('#pf-recv', root).onclick = () => copy('Address copied. Send SOL or NFTs to it on ' + (S.meta.network === 'devnet' ? 'devnet' : 'mainnet') + '.');
     const bar = $('.tabs', root), pane = $('#pane', root), cache = { [tab]: Promise.resolve(first) };
     const slide = (a, center) => { const i = $('.ind', bar); i.style.width = a.offsetWidth + 'px'; i.style.transform = `translateX(${a.offsetLeft}px)`; if (center) bar.scrollTo({ left: a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2, behavior: 'smooth' }); };
     const markRead = (k) => { if (k === 'notifications' && S.unread) http('POST', '/me/notifications/read', {}).then(() => { S.unread = 0; emit('unread', 0); const n = $('a[data-k="notifications"] .n', bar); if (n) n.remove(); const on = $('a.on', bar); if (on) slide(on); }).catch(() => {}); };
     const load = (k) => (cache[k] = cache[k] || tabBody(k).catch((e) => { delete cache[k]; return { body: none('Could not load', esc(e.message)) }; }));
-    // Tabs swap in place: no page navigation, no scroll jump. Other tabs are fetched in the background so switching is instant.
     bar.addEventListener('click', async (e) => {
       const a = e.target.closest('a[data-k]'); if (!a) return; e.preventDefault();
-      const k = a.dataset.k; if (a.classList.contains('on')) return;
+      const k = a.dataset.k; if (a.classList.contains('on')) return scrollTo({ top: 0, behavior: 'smooth' });
       $$('a[data-k]', bar).forEach((x) => { x.classList.toggle('on', x === a); x.setAttribute('aria-selected', x === a); });
       slide(a, true); history.replaceState(null, '', '#/me/' + k);
       pane.classList.add('out'); const [r] = await Promise.all([load(k), new Promise((res) => setTimeout(res, 160))]);
@@ -89,7 +135,12 @@ export async function profile({ args: [tab] }) {
     });
     requestAnimationFrame(() => { const a = $('a.on', bar); if (a) { bar.classList.add('ready'); slide(a); bar.scrollLeft = a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2; } });
     setTimeout(() => TABS.forEach(([k]) => load(k)), 600);
-    root.onclick = async (e) => { const b = e.target.closest('[data-can]'); if (!b) return; await runTx('Cancelling', (ui) => act('DELETE', `/offers/${b.dataset.can}`, undefined, ui), 'Offer cancelled, SOL refunded').then(() => { cClear(); window.dispatchEvent(new HashChangeEvent('hashchange')); }, () => {}); };
+    pane.addEventListener('input', (e) => { if (e.target.id !== 'pfq') return; const q = e.target.value.trim().toLowerCase();
+      $$('.pgr', pane).forEach((g) => { let any = false; $$('.card', g).forEach((c) => { const hit = !q || c.textContent.toLowerCase().includes(q) || $('.pgr-t b', g).textContent.toLowerCase().includes(q); c.hidden = !hit; any = any || hit; }); g.hidden = !any; if (q && any) g.classList.add('open'); }); });
+    root.onclick = async (e) => {
+      const h = e.target.closest('.pgr-h'); if (h) { h.parentElement.classList.toggle('open'); return; }
+      const b = e.target.closest('[data-can]'); if (!b) return; await runTx('Cancelling', (ui) => act('DELETE', `/offers/${b.dataset.can}`, undefined, ui), 'Offer cancelled, SOL refunded').then(() => { cClear(); window.dispatchEvent(new HashChangeEvent('hashchange')); }, () => {});
+    };
     if (tab === 'notifications') markRead(tab);
     return () => { root.onclick = null; };
   };

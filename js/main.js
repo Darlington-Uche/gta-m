@@ -14,9 +14,10 @@ const ic = {
   cols: '<svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
   create: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg>',
   drops: '<svg viewBox="0 0 24 24"><path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/></svg>',
+  wallet: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M7 6l9-3 1 3"/><circle cx="16.5" cy="14.5" r="1.2"/></svg>',
   me: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
 };
-const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/drops', 'Drops', ic.drops], ['/create', 'Create', ic.create], ['/me', 'Profile', ic.me]];
+const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/drops', 'Drops', ic.drops], ['/create', 'Create', ic.create], ['/me', 'Portfolio', ic.wallet]];
 const routes = [
   [/^\/?$/, home], [/^\/explore$/, explore], [/^\/browse$/, browse], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
   [/^\/drops$/, dropsHub], [/^\/drop\/(.+)$/, dropPage], [/^\/create$/, createHub], [/^\/create\/art$/, createArt], [/^\/create\/collection$/, launchWizard], [/^\/me(?:\/(\w+))?$/, profile]
@@ -29,7 +30,7 @@ function chrome() {
   $('#hd').innerHTML = `<a class="brand" href="#/" aria-label="GTA Marketplace"><b>GTA</b><i>Marketplace</i></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
     <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet
-      ? `<a class="me-chip" href="#/me"><i class="avt" style="--h:${[...String(S.wallet||'x')].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)}">${esc((S.username || S.wallet)[0].toUpperCase())}</i><span><b>${esc(S.username ? '@' + S.username : short(S.wallet))}</b><small>My stash</small></span></a>`
+      ? `<a class="me-chip" href="#/me">${S.avatar ? `<i class="avt"><img src="${esc(S.avatar)}" alt=""></i>` : `<i class="avt" style="--h:${[...String(S.wallet||'x')].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)}">${esc(((S.profile && S.profile.name) || S.username || S.wallet)[0].toUpperCase())}</i>`}<span><b>${esc((S.profile && S.profile.name) || (S.username ? '@' + S.username : short(S.wallet)))}</b><small>Portfolio</small></span></a>`
       : '<button class="me-chip" id="cw"><i class="avt ghost"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></i><span><b>Connect</b><small>wallet</small></span></button>'}<a class="bell" href="#/me/notifications" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 20a2 2 0 004 0"/></svg>${S.unread ? '<i class="bdot"></i>' : ''}</a></div>`;
   const an = S.site && S.site.announcement; let bar = $('#ann'); if (an) { if (!bar) { bar = document.createElement('div'); bar.id = 'ann'; document.body.prepend(bar); } bar.textContent = an; } else if (bar) bar.remove();
   $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
@@ -110,7 +111,7 @@ document.addEventListener('click', async (e) => {
     catch (err) { toast(err.message, 'bad'); } finally { delete like.dataset.busy; }
   }
 }, true);
-on('auth', () => { chrome(); go(); }); on('unread', chrome);
+on('auth', () => { chrome(); go(); }); on('unread', chrome); on('profile', chrome);
 window.addEventListener('gta:signout', () => signOut());
 
 /* Back-to-top: appears once you are a screen down, on every page. */

@@ -38,3 +38,14 @@ test('launchpad flow', async () => {
   const asOther = (await call('GET', `/drops/${id}`, null, other)).drop; assert.equal(asOther.stages[0].eligible, true); assert.equal(asOther.stages[1].eligible, true);
   const asUser = (await call('GET', `/drops/${id}`, null, user)).drop; assert.equal(asUser.stages[0].eligible, false);
 });
+
+test('profile + portfolio', async () => {
+  const a = await login(kp()), b = await login(kp());
+  const p = await call('PATCH', '/me', { name: 'Tommy V', username: 'Tommy_V', bio: 'Vice City OG', avatar: { data: png } }, a);
+  assert.equal(p.status, 200, JSON.stringify(p)); assert.equal(p.profile.username, 'tommy_v'); assert.ok(p.profile.avatar);
+  assert.equal((await call('PATCH', '/me', { username: 'TOMMY_V' }, b)).status, 409);
+  assert.equal((await call('PATCH', '/me', { username: 'x!' }, b)).status, 400);
+  const me = await call('GET', '/me', null, a); assert.equal(me.profile.name, 'Tommy V');
+  const pf = await call('GET', '/me/portfolio', null, a); assert.equal(pf.status, 200, JSON.stringify(pf)); assert.equal(pf.nftCount, 0); assert.equal(typeof pf.totalUsd, 'number'); assert.equal(pf.profile.username, 'tommy_v');
+  assert.equal((await call('PATCH', '/me', { removeAvatar: true }, a)).profile.avatar, null);
+});
