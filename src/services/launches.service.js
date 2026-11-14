@@ -91,6 +91,20 @@ export async function revealLaunch({ id, wallet, admin }) {
   await Promise.all(its.map((i) => col('items').doc(i.id).update({ revealedAt: t })));
   return { revealed: its.length };
 }
+/** When a mint ends, the pieces nobody minted are discarded and the supply becomes what was actually minted. */
+export async function closeEndedMints(limit = 10) {
+  const t = now(), ls = (await queryDocs(col('launches'))).filter((l) => (l.status === 'approved' || l.status === 'live') && !l.closedAt && l.stages?.[0]?.end && t > l.stages[0].end + 120_000).slice(0, limit);
+  let closed = 0;
+  for (const l of ls) {
+    const its = await queryDocs(col('items').where('launchId', '==', l.id));
+    if (its.some((i) => i.status === 'reserved')) continue; // a mint is still settling; try next round
+    const left = its.filter((i) => i.status !== 'minted'), minted = its.length - left.length;
+    await Promise.all(left.map((i) => col('items').doc(i.id).delete()));
+    await col('launches').doc(l.id).update({ supply: minted, minted, closedAt: t, discarded: left.length });
+    closed++;
+  }
+  return { closed };
+}
 export async function revealIfDone(dropId) {
   const l = await getDoc('launches', dropId); if (!l || l.revealedAt) return;
   if ((l.minted || 0) >= (l.supply || Infinity)) await revealLaunch({ id: dropId, admin: true });
