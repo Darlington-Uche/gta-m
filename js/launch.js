@@ -36,7 +36,7 @@ export async function launchWizard({ q = {} } = {}) {
   const me = S.profile || {};
   const html = `<div class="studio">
     <div class="sd-top"><a class="rbtn" href="#/" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
-      <div class="sd-seg"><a class="on" href="#/create">${ic.rocket}Collection</a><a href="#/create/art">${ic.img}One art</a></div></div>
+      </div>
     <label class="sd-ban" id="ban"><input type="file" accept="image/*" hidden data-up="banner"><span class="ph">${ic.img}<b>Banner</b></span></label>
     <div class="sd-id"><label class="sd-logo" id="logo"><input type="file" accept="image/*" hidden data-up="logo"><span class="ph">${ic.cam}</span></label>
       <div class="sd-nm"><input id="nm" maxlength="50" placeholder="Name it" value="${esc(st.name)}" autocomplete="off"><small>by ${esc(me.name || (me.username ? '@' + me.username : short(S.wallet)))}</small></div></div>

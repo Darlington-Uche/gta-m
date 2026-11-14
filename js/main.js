@@ -20,7 +20,7 @@ const ic = {
 const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/drops', 'Drops', ic.drops], ['/create', 'Create', ic.create], ['/me', 'Portfolio', ic.wallet]];
 const routes = [
   [/^\/?$/, home], [/^\/explore$/, explore], [/^\/browse$/, browse], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
-  [/^\/drops$/, dropsHub], [/^\/drop\/(.+)$/, dropPage], [/^\/create$/, createHub], [/^\/create\/art$/, createArt], [/^\/create\/collection$/, launchWizard], [/^\/me(?:\/(\w+))?$/, profile]
+  [/^\/drops$/, dropsHub], [/^\/drop\/(.+)$/, dropPage], [/^\/create$/, createHub], [/^\/create\/art$/, () => { location.replace('#/create'); return { html: '' }; }], [/^\/create\/collection$/, launchWizard], [/^\/me(?:\/(\w+))?$/, profile]
 ];
 
 function chrome() {
