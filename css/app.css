@@ -807,9 +807,9 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 
 /* v17 type: pixel for headings, buttons, tabs, labels and numbers; Manrope for everything you read */
 body { font-weight: 500; -webkit-font-smoothing: antialiased; }
-.display, h1, h2, h3, h4, .brand, .btn, button, .dock a, .tabs a, .eyebrow, .tag, .chips2 span, .hpill b, .cx-stats b, .price, .st, .wn, .rbtn, .sd-seg a, .stat b, .sug button, label.field { font-family: var(--px); }
-.display, h1, h2, h3 { letter-spacing: 0; line-height: 1.1; font-weight: 700; } .brand { font-weight: 700; }
-.btn, button, .tabs a, .dock a { letter-spacing: .02em; }
+.display, h1, h2, .brand, .hpill b, .cx-stats b, .stat b { font-family: var(--px); }
+.display, h1, h2 { letter-spacing: 0; line-height: 1.1; font-weight: 600; } .brand { font-weight: 700; }
+h3, h4, .btn, .tabs a, .dock a, .tag, .st, .price { font-weight: 800; }
 input, select, textarea, p, .fine, .muted, small, .note, .about, dd, dt { font-family: var(--body); }
 input, select, textarea { font-weight: 600; }
 .bulkbar { display: flex; justify-content: flex-end; margin: 0 0 12px; } .bulk-f { display: grid; gap: 14px; } .bulk-f .qty { display: flex; align-items: center; justify-content: center; gap: 18px; } .bulk-f .qty button { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 22px; } .bulk-f .qty b { font-size: 34px; min-width: 56px; text-align: center; } .bulk-f .tot { display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.06); }

@@ -6,7 +6,7 @@ import { col, getDoc, now, queryDocs, runTx } from '../lib/db.js';
 import { chain } from './chain/index.js';
 import { getSolUsd } from './priceOracle.js';
 import { bidWindowState, getSettings } from './settings.service.js';
-import { getItemRaw, invalidateCatalog, quoteUsd } from './items.service.js';
+import { getItemRaw, invalidateCatalog, masked, quoteUsd } from './items.service.js';
 import { createPtx, newPtxId, publicPtx, registerHandler } from './pendingTx.service.js';
 import { ledgerInTx } from './vault.service.js';
 import { queueRefundInTx } from './payouts.service.js';
@@ -253,11 +253,13 @@ export async function offersForItem(itemId) {
 }
 export async function offersMadeBy(wallet) {
   const rows = await queryDocs(col('offers').where('bidder', '==', wallet));
-  return rows.filter((o) => o.status !== 'failed').sort((a, b) => b.createdAt - a.createdAt).map(publicOffer);
+  const list = rows.filter((o) => o.status !== 'failed').sort((a, b) => b.createdAt - a.createdAt);
+  const ids = [...new Set(list.map((o) => String(o.itemId)))], docs = await Promise.all(ids.map((id) => getDoc('items', id))), its = new Map(ids.map((id, n) => [id, docs[n] ? masked({ id, ...docs[n] }) : null]));
+  return list.map((o) => { const i = its.get(String(o.itemId)); return { ...publicOffer(o), itemTitle: i?.title || null, itemImage: i?.image || null }; });
 }
 export async function offersReceivedBy(wallet) {
   const items = await queryDocs(col('items').where('owner', '==', wallet));
-  const lists = await Promise.all(items.map(async (i) => (await activeOffersFor(i.id)).map((o) => ({ ...publicOffer(o), itemTitle: i.title, itemImage: i.image }))));
+  const lists = await Promise.all(items.map(async (i) => (await activeOffersFor(i.id)).map((o) => ({ ...publicOffer(o), itemTitle: masked(i).title, itemImage: masked(i).image }))));
   return lists.flat().sort((a, b) => b.usd - a.usd);
 }
 
