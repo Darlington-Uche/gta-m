@@ -71,7 +71,7 @@ export async function listItems(q = {}) {
   const count = (k) => Object.entries(rows.reduce((m, i) => (i[k] ? ((m[i[k]] = (m[i[k]] || 0) + 1), m) : m), {})).map(([value, n]) => ({ value, n }));
   const facets = { category: count('category'), rarity: count('rarity'), era: count('era') }; // what actually exists, so the site only offers filters that match something
   const arr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
-  if (q.era) rows = rows.filter((i) => arr(q.era).includes(i.era));
+  if (q.era) rows = rows.filter((i) => arr(q.era).includes(i.collectionId || i.era));
   if (q.category) rows = rows.filter((i) => arr(q.category).includes(i.category));
   if (q.rarity) rows = rows.filter((i) => arr(q.rarity).includes(i.rarity));
   if (q.hasOffers === 'true') rows = rows.filter((i) => cat.offersBy.has(i.id));

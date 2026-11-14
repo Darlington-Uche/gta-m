@@ -10,7 +10,7 @@ export const rarity = z.enum(RARITIES);
 export const page = { page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(24) };
 /** comma-separated filter: ?era=vice,sa  (every value must be one of the allowed ones) */
 const csv = (allowed) => z.string().max(200).transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)).refine((a) => a.length && a.every((x) => allowed.includes(x)), { message: `must be a comma-separated list of: ${allowed.join(', ')}` });
-export const eraCsv = csv(Object.keys(ERAS));
+export const eraCsv = z.string().max(200).transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)).refine((a) => a.length > 0, { message: 'must be a comma-separated list of collection ids' }); // a collection id: an old era or a creator launch
 export const categoryCsv = csv(CATEGORIES);
 export const rarityCsv = csv(RARITIES);
 export const tags = z.array(z.string().trim().min(1).max(30)).max(8);
