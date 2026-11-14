@@ -53,8 +53,8 @@ export async function launchWizard({ q = {} } = {}) {
       <div class="mrow"><span class="ml">${ic.tag}</span><div class="seg3" id="pm"><button data-p="0" class="${st.paid ? '' : 'on'}">Free</button><button data-p="1" class="${st.paid ? 'on' : ''}">Paid</button></div>
         <label class="usd ${st.paid ? '' : 'off'}" id="pwrap">$<input id="pr" type="number" min="0.5" step="0.5" value="${st.price || ''}" placeholder="5"><em id="prs"></em></label></div>
       <div class="mrow"><span class="ml">${ic.user}</span><span class="mt">Per wallet</span><div class="qty"><button data-per="-1">−</button><b id="per">${st.per}</b><button data-per="1">+</button></div></div>
-      <div class="mrow"><span class="ml">${ic.clock}</span><div class="chips3" id="sts">${START.map(([k, l]) => `<button data-s="${k}" class="${st.start === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-      <div class="mrow"><span class="ml">${ic.hour}</span><div class="chips3" id="hrs">${LAST.map((h) => `<button data-h="${h}" class="${st.hours === h ? 'on' : ''}">${lastLbl(h)}</button>`).join('')}</div></div>
+      <div class="mrow"><span class="ml">${ic.clock}</span><span class="mt sm">Starts</span><div class="chips3" id="sts">${START.map(([k, l]) => `<button data-s="${k}" class="${st.start === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="mrow"><span class="ml">${ic.hour}</span><span class="mt sm">Lasts</span><div class="chips3" id="hrs">${LAST.map((h) => `<button data-h="${h}" class="${st.hours === h ? 'on' : ''}">${lastLbl(h)}</button>`).join('')}</div></div>
     </div>
     <div class="sd-foot"><div class="chk" id="chk"></div><button class="btn primary lg" id="go">${ic.rocket}<span>Launch</span></button></div></div>`;
   return {

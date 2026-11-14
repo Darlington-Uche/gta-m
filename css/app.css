@@ -803,3 +803,4 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 .lnew { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; padding: 18px; border-radius: 20px; border: 1.5px dashed rgba(255, 255, 255, .22); font-weight: 800; color: #fff; transition: border-color .2s; } .lnew:hover { border-color: var(--pink); } .lnew span { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--vice); font-size: 20px; }
 .sd-id { flex-wrap: wrap; } .sd-nm { flex-basis: 100%; padding: 6px 0 0; }
 .sd-mint, .mrow { min-width: 0; } .mrow { flex-wrap: wrap; } .usd input { width: 54px; } @media (max-width: 440px) { .usd em { display: none; } .seg3 button { padding: 8px 11px; } }
+.mt.sm { flex: 0 0 auto; min-width: 56px; } .mrow .chips3 { margin-left: auto; }
