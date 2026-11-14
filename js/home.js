@@ -1,5 +1,5 @@
 // Home v2: a trading-app style front page. Recent trades, trending, featured collections, top movers.
-import { S, $, $$, esc, usd, short, ago, imgTag, items, stats, recentSales, http } from './core.js';
+import { S, $, $$, esc, usd, short, ago, imgTag, items, stats, recentSales, http, who } from './core.js';
 import { card as dropCardFull, liveCountdowns } from './drops.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
@@ -12,7 +12,7 @@ const sectionHead = (t, more) => `<div class="sh2"><h2>${t}</h2>${more ? `<a hre
 
 const tradeCard = (s) => `<a class="tcard glass" href="#/art/${encodeURIComponent(s.itemId)}">
   <div class="tc-top"><span class="tc-img">${imgTag(s.image, s.title || '', 120)}</span><div><b>${esc(s.title || 'Artwork')}</b><small>${s.type === 'platform_buy' ? 'Sold to the platform' : s.type === 'mint' ? 'Minted' : 'Sale'}</small></div><em>${s.usd ? usd(s.usd) : 'FREE'}</em></div>
-  <div class="tc-bot"><i class="av" style="--h:${hue(s.buyer)}"></i><b>${short(s.buyer || '') || '—'}</b><small>${ago(s.at)}</small></div></a>`;
+  <div class="tc-bot"><i class="av" style="--h:${hue(s.buyer)}"></i><b>${who(s.buyer)}</b><small>${ago(s.at)}</small></div></a>`;
 const hue = (a) => ([...String(a || 'x')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
 
 const dropCard = (it) => `<a class="tcard glass" href="#/art/${encodeURIComponent(it.id)}">

@@ -1,8 +1,7 @@
 import { z } from 'zod';
-import { forbidden } from '../lib/errors.js';
-import { prepareCollect, prepareSellToPlatform } from '../services/platform.service.js';
+import { prepareCollect } from '../services/platform.service.js';
 import { cancelOffer, prepareAccept, prepareOffer, rejectOffer } from '../services/offers.service.js';
-import { cancelListing, prepareBuy } from '../services/listings.service.js';
+import { cancelListing, prepareBuy, prepareList, updateListing } from '../services/listings.service.js';
 import { getPtxFor, submitPtx } from '../services/pendingTx.service.js';
 import { idParam, usd } from './schemas.js';
 
@@ -21,24 +20,19 @@ export const routes = [
     summary: 'PREPARE accepting an offer (owner only). One tx: NFT -> bidder, vault pays owner, owner pays the ~$0.30 fee to the dev wallet. Other offers are refunded after it confirms.',
     handler: async (req) => prepareAccept({ wallet: req.user.wallet, offerId: req.valid.params.id })
   },
-  // ---- sale prices are NOT user-set: owners sell by accepting offers; mint prices are set by admins ----
-  {
-    method: 'post', path: '/items/:id/sell', auth: 'user', params: idParam,
-    summary: 'PREPARE selling a NFT you own to the platform at its floor price. You receive SOL; the NFT moves to the platform wallet.',
-    handler: async (req) => prepareSellToPlatform({ wallet: req.user.wallet, itemId: req.valid.params.id })
-  },
+  // ---- listings: owners set their own price; the collection floor is the cheapest listing ----
   {
     method: 'post', path: '/items/:id/collect', auth: 'user', params: idParam,
     summary: 'PREPARE taking a platform-owned NFT at the resale price the admin set (0 = free).',
     handler: async (req) => prepareCollect({ wallet: req.user.wallet, itemId: req.valid.params.id })
   },
   {
-    method: 'post', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }).partial(),
-    summary: 'Disabled: owners cannot list at their own price. Sell to the platform at the floor, or accept an offer.',
-    handler: async () => { throw forbidden('Sale prices are set by the platform. Sell to the platform at the floor price, or accept an offer.'); }
+    method: 'post', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }),
+    summary: 'PREPARE listing your NFT for sale at your price (USD, charged in SOL at purchase time). You sign once; the NFT stays in your wallet until someone buys.',
+    handler: async (req) => prepareList({ wallet: req.user.wallet, itemId: req.valid.params.id, priceUsd: req.valid.body.priceUsd })
   },
-  { method: 'patch', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }), summary: 'Disabled', handler: async () => { throw forbidden('Sale prices are set by the platform.'); } },
-  { method: 'delete', path: '/items/:id/listing', auth: 'user', params: idParam, summary: 'Remove an old sale price', handler: async (req) => cancelListing({ wallet: req.user.wallet, itemId: req.valid.params.id }) },
+  { method: 'patch', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }), summary: 'Change the price of your listing (no transaction needed)', handler: async (req) => updateListing({ wallet: req.user.wallet, itemId: req.valid.params.id, priceUsd: req.valid.body.priceUsd }) },
+  { method: 'delete', path: '/items/:id/listing', auth: 'user', params: idParam, summary: 'Take your NFT off sale', handler: async (req) => cancelListing({ wallet: req.user.wallet, itemId: req.valid.params.id }) },
   { method: 'post', path: '/items/:id/buy', auth: 'user', params: idParam, summary: 'PREPARE buying a NFT at its owner-set sale price (atomic tx)', handler: async (req) => prepareBuy({ wallet: req.user.wallet, itemId: req.valid.params.id }) },
   // ---- every prepared tx ends here ----
   {

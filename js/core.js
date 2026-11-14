@@ -23,6 +23,18 @@ export const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => 
 export const usd = (n) => (n == null ? '—' : n === 0 ? 'FREE' : '$' + (n >= 100 ? Math.round(n).toLocaleString() : (Math.round(n * 100) / 100).toString()));
 export const sol = (n) => (n == null ? '' : (Math.round(n * 1000) / 1000).toString() + ' SOL');
 export const short = (a) => (a ? a.slice(0, 4) + '…' + a.slice(-4) : '');
+/* Wallet names: <span data-w> tags start as a short address and are swapped for the person's name / @username (or
+   "GTA Marketplace" for the platform wallet) once looked up. Lookups are batched and cached for the session. */
+const NAMES = new Map(); let nameQ = new Set(), nameT = 0;
+export const who = (w, cls = '') => (w ? `<span class="wn ${cls}" data-w="${w}">${nameText(w)}</span>` : '—');
+function nameText(w) { const p = NAMES.get(w); if (w === S.wallet) return 'You'; if (!p) return short(w); return p.name ? esc(p.name) : p.username ? '@' + esc(p.username) : short(w); }
+function paintNames(root = document) { root.querySelectorAll('[data-w]').forEach((el) => { const w = el.dataset.w; if (!w || w.startsWith('test:')) return; if (NAMES.has(w) || w === S.wallet) { if (el.dataset.n === '1') return; el.dataset.n = '1'; el.innerHTML = nameText(w) + (NAMES.get(w) && NAMES.get(w).verified ? '<svg class="vf" viewBox="0 0 24 24"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>' : ''); el.classList.add('named'); } else nameQ.add(w); }); }
+export function hydrateNames(root = document) {
+  paintNames(root); if (!nameQ.size) return; clearTimeout(nameT);
+  nameT = setTimeout(async () => { const ws = [...nameQ].filter((w) => !NAMES.has(w)).slice(0, 100); nameQ = new Set(); if (!ws.length) return;
+    try { const r = await http('GET', '/profiles?w=' + ws.join(','), null, { auth: false }); for (const w of ws) NAMES.set(w, r.profiles[w] || {}); paintNames(document); } catch (_) { ws.forEach((w) => NAMES.set(w, {})); } }, 60);
+}
+export const isPlatform = (w) => !!(S.meta && w && w === S.meta.platformWallet);
 export const ago = (t) => { const s = Math.max(1, (Date.now() - new Date(t).getTime()) / 1000 | 0); return s < 60 ? s + 's ago' : s < 3600 ? (s / 60 | 0) + 'm ago' : s < 86400 ? (s / 3600 | 0) + 'h ago' : (s / 86400 | 0) + 'd ago'; };
 export const $ = (s, r) => (r || document).querySelector(s);
 export const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));

@@ -1,4 +1,4 @@
-import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut } from './core.js';
+import { S, on, $, $$, esc, init, short, toast, walletModal, toggleLike, ls, signOut, hydrateNames } from './core.js';
 import { enhance, burst } from './fx.js';
 import { explore as browse, artwork, collections } from './views.js';
 import { exploreHub as explore } from './explore.js';
@@ -93,7 +93,7 @@ async function render() {
   const main = $('#main');
   const hit = routes.map(([re, fn]) => [re.exec(path), fn]).find(([m]) => m);
   if (cleanup) { try { cleanup(); } catch (e) { /* ignore */ } cleanup = null; }
-  const fill = (html, mount) => { if (my !== tok) return; const keep = path.startsWith('/me') && lastPath.startsWith('/me'); const y = scrollY; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, keep ? y : 0); lastPath = path; document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; enhance(main); };
+  const fill = (html, mount) => { if (my !== tok) return; const keep = path.startsWith('/me') && lastPath.startsWith('/me'); const y = scrollY; main.innerHTML = `<div class="view">${html}</div>`; window.scrollTo(0, keep ? y : 0); lastPath = path; document.title = (document.querySelector('.view h1') ? document.querySelector('.view h1').textContent.trim() + ' — ' : '') + 'GTA Market'; if (mount) cleanup = mount(main) || null; enhance(main); hydrateNames(main); };
   if (!hit) return fill(`<div class="empty"><b>Wrong turn</b>That page doesn't exist. <a class="accent" href="#/">Back to start</a></div>`);
   if (!S.online) return fill(`<div class="empty"><b>Offline</b>The server is not reachable${S.initError ? ': ' + esc(S.initError) : ''}. <a class="accent" href="">Try again</a></div>`);
   try { const r = await hit[1]({ args: hit[0].slice(1), q }); if (typeof r === 'string') fill(r); else fill(r.html, r.mount); }
@@ -113,6 +113,9 @@ document.addEventListener('click', async (e) => {
 }, true);
 on('auth', () => { chrome(); go(); }); on('unread', chrome); on('profile', chrome);
 window.addEventListener('gta:signout', () => signOut());
+
+/* Names for wallet tags that appear later (tabs, live feeds, modals). */
+let nmT = 0; new MutationObserver(() => { clearTimeout(nmT); nmT = setTimeout(() => hydrateNames(document), 80); }).observe(document.body, { childList: true, subtree: true });
 
 /* Back-to-top: appears once you are a screen down, on every page. */
 const topBtn = document.createElement('button'); topBtn.id = 'totop'; topBtn.setAttribute('aria-label', 'Back to top');

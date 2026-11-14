@@ -1,5 +1,5 @@
 // Collection page v2: header + stats like a trading app, tabs swap in place (About · Items · Owned · Holders · Activity · Analytics).
-import { S, $, $$, esc, usd, short, ago, imgTag, items, http, explorer, toast, walletModal } from './core.js';
+import { S, $, $$, esc, usd, short, ago, imgTag, items, http, explorer, toast, walletModal, who } from './core.js';
 import { poster } from './views.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
@@ -47,7 +47,7 @@ export async function collection({ args: [id], q }) {
   const c = (await http('GET', '/collections/' + encodeURIComponent(id) + '/detail', null, { auth: false })).collection;
   const base = (S.collections || []).find((x) => x.id === id) || {};
   c.cover = c.cover || base.cover || ''; c.banner = c.banner || base.banner || '';
-  const first = c.holders[0], two = c.holders.slice(0, 2).map((h) => short(h.wallet));
+  const first = c.holders[0], two = c.holders.slice(0, 2).map((h) => who(h.wallet));
   const date = c.createdAt ? new Date(c.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : null;
   const chg = c.isNew24 ? '<b class="up">New</b>' : c.change24 == null ? '<b>—</b>' : `<b class="${c.change24 >= 0 ? 'up' : 'dn'}">${c.change24 >= 0 ? '▲' : '▼'} ${Math.abs(c.change24)}%</b>`;
   const html = `<div class="cx">
@@ -66,8 +66,8 @@ function mountCollection(root, c, id, start) {
   const pane = $('#cx-pane', root), bar = $('.cx-tabs', root), ind = $('.ind', bar);
   let tab = start, range = 30, metric = 'n', sort = 'liked', term = '', list = [], total = 0;
   const moveInd = () => { const a = $('a.on', bar); if (a && (a.offsetLeft < bar.scrollLeft + 8 || a.offsetLeft + a.offsetWidth > bar.scrollLeft + bar.clientWidth - 8)) bar.scrollTo({ left: Math.max(0, a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2), behavior: 'smooth' }); if (a && ind) { ind.style.width = a.offsetWidth + 'px'; ind.style.transform = `translateX(${a.offsetLeft}px)`; requestAnimationFrame(() => bar.classList.add('ready')); } };
-  const holderRow = (h, i) => `<div class="hrow2"><span class="rank">${i + 1}</span><i class="av" style="--h:${hue(h.wallet)}"></i><b>${short(h.wallet)}</b><span class="n">${h.n} item${h.n > 1 ? 's' : ''}</span><em>${c.items ? Math.round((h.n / c.items) * 1000) / 10 : 0}%</em></div>`;
-  const actRow = (a) => { const [l, k] = KIND[a.type] || ['Trade', 'sale']; return `<a class="arow" href="#/art/${encodeURIComponent(a.itemId)}"><span class="ai">${imgTag(a.image, a.title || '', 100)}</span><div><b>${esc(a.title || 'Artwork')}</b><small><span class="tag ${k}">${l}</span>${a.type === 'platform_buy' ? short(a.seller) : short(a.buyer)}</small></div><div class="r"><b>${a.usd ? usd(a.usd) : 'FREE'}</b><small>${ago(a.at)}</small></div></a>`; };
+  const holderRow = (h, i) => `<div class="hrow2"><span class="rank">${i + 1}</span><i class="av" style="--h:${hue(h.wallet)}"></i><b>${who(h.wallet)}</b><span class="n">${h.n} item${h.n > 1 ? 's' : ''}</span><em>${c.items ? Math.round((h.n / c.items) * 1000) / 10 : 0}%</em></div>`;
+  const actRow = (a) => { const [l, k] = KIND[a.type] || ['Trade', 'sale']; return `<a class="arow" href="#/art/${encodeURIComponent(a.itemId)}"><span class="ai">${imgTag(a.image, a.title || '', 100)}</span><div><b>${esc(a.title || 'Artwork')}</b><small><span class="tag ${k}">${l}</span>${a.type === 'platform_buy' ? who(a.seller) : who(a.buyer)}</small></div><div class="r"><b>${a.usd ? usd(a.usd) : 'FREE'}</b><small>${ago(a.at)}</small></div></a>`; };
   const gridHtml = () => { const f = term ? list.filter((it) => (it.title + ' ' + (it.category || '') + ' ' + (it.rarity || '')).toLowerCase().includes(term)) : list; return f.length ? `<div class="grid">${f.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing found</b>Try a different search.</div>'; };
   async function load(more) {
     const r = await items({ era: id, sort, limit: 60, page: more ? Math.floor(list.length / 60) + 1 : 1 }); list = more ? list.concat(r.items) : r.items; total = r.total;

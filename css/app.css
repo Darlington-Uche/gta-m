@@ -728,3 +728,11 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 .pfc-d { fill: #fff; stroke: rgba(15, 4, 32, .9); stroke-width: 2; filter: drop-shadow(0 0 6px rgba(255, 255, 255, .6)); }
 .pfc-r { display: flex; gap: 6px; margin-top: 8px; padding: 0 6px; } .pfc-r button { border: 0; background: none; color: var(--dim); font: 800 13px var(--body, Manrope), sans-serif; padding: 7px 14px; border-radius: 99px; cursor: pointer; transition: .2s; } .pfc-r button.on { background: rgba(255, 255, 255, .1); color: #fff; }
 @media (prefers-reduced-motion: reduce) { .pfc-l { animation: none; stroke-dashoffset: 0; } }
+/* v15: market boxes */
+.bx-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 10px; color: var(--dim); font-weight: 700; font-size: 13px; } .bx-meta b { color: #fff; }
+.btn.ok-t { color: #29e07f; border-color: rgba(41, 224, 127, .4); margin-top: 8px; width: 100%; }
+.input.big { font-size: 26px; font-weight: 800; padding: 14px 16px; }
+.sug { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; } .sug button { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--line); background: rgba(255, 255, 255, .05); color: #fff; font: 800 12.5px var(--body, Manrope), sans-serif; cursor: pointer; } .sug button:hover { border-color: var(--pink); }
+.brk { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); margin-bottom: 10px; } .brk div { display: flex; justify-content: space-between; font-weight: 700; color: var(--dim); font-size: 14px; } .brk b { color: #fff; } .brk em { font-style: normal; color: var(--dim); font-weight: 600; font-size: 12px; }
+.brk .tot { padding-top: 8px; border-top: 1px solid var(--line); } .brk .tot span { color: #fff; } .brk .tot b { font-size: 18px; color: #29e07f; } .warn-t { color: #ffd24d; font-size: 13px; font-weight: 700; }
+.wn .vf { width: 13px; height: 13px; margin-left: 3px; }

@@ -1,6 +1,6 @@
 // Explore: two fixed tabs. Collections (market list: SOL + USD floor, 24h change) and Feed (live buys and sells).
 // The tab bar stays pinned under the header; panes swap in place with a directional slide, and you can swipe between them.
-import { S, $, $$, esc, usd, short, ago, imgTag, http, recentSales } from './core.js';
+import { S, $, $$, esc, usd, short, ago, imgTag, http, recentSales, who as whoTag } from './core.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const hue = (a) => ([...String(a || 'x')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
@@ -32,7 +32,7 @@ const inFeed = (a, f) => f === 'all' || f === side(a) || (f === 'sold' && (a.typ
 const keyOf = (a) => a.signature || a.itemId + ':' + a.at;
 function feedCard(a, i, fresh) {
   const who = a.type === 'platform_buy' ? a.seller : a.buyer;
-  const line = a.type === 'listing' || a.type === 'offer' ? `<b>${short(a.buyer)}</b> bought from <b>${short(a.seller)}</b>` : `<b>${short(who)}</b> ${VERB[a.type] || 'traded'}`;
+  const line = a.type === 'listing' || a.type === 'offer' ? `<b>${whoTag(a.buyer)}</b> bought from <b>${whoTag(a.seller)}</b>` : `<b>${whoTag(who)}</b> ${VERB[a.type] || 'traded'}`;
   return `<article class="fcd ${side(a)}${fresh ? ' fresh' : ''}" style="--i:${Math.min(i, 6)}"><div class="fc-h"><span class="av" style="--h:${hue(who)}"></span><div><p>${line}<span class="tm">· ${ago(a.at)}</span></p><a class="fti" href="#/art/${encodeURIComponent(a.itemId)}">${esc(a.title || 'Artwork')}</a></div><span class="sd ${side(a)}">${side(a)}</span></div>
     <a class="fc-img" href="#/art/${encodeURIComponent(a.itemId)}">${imgTag(a.image, a.title || '', 700)}</a>
     <div class="fc-f"><b>${a.usd ? usd(a.usd) : 'FREE'}</b><small>${a.usd ? solTxt(solOf(a.usd)) : 'free mint'}</small>${a.signature ? `<a class="txl" href="https://explorer.solana.com/tx/${esc(a.signature)}${S.meta && S.meta.network === 'devnet' ? '?cluster=devnet' : ''}" target="_blank" rel="noopener">View tx ↗</a>` : ''}</div></article>`;

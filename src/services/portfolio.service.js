@@ -10,14 +10,14 @@ import { bad, conflict } from '../lib/errors.js';
 const r2 = (n) => Math.round(n * 100) / 100;
 export async function portfolio(wallet) {
   const [lamports, solUsd, nfts, cols, profile, mySales] = await Promise.all([chain.getBalance(wallet).catch(() => null), getSolUsd().catch(() => null), itemsOwnedBy(wallet), collectionsSummary(), getDoc('users', wallet), salesForWallet(wallet).catch(() => [])]);
-  const paid = new Map(); for (const x of mySales) if (x.role === 'buyer' && !paid.has(x.itemId)) paid.set(x.itemId, x.usd || 0); // newest purchase first = what I paid for the copy I hold
+  const paid = new Map(); for (const x of mySales) if (x.role === 'buyer' && !paid.has(x.itemId)) paid.set(x.itemId, x.usd || 0.1); // a free mint counts as $0.10 so the % still means something // newest purchase first = what I paid for the copy I hold
   const sol = lamports == null ? null : lamports / 1e9, walletUsd = sol != null && solUsd ? r2(sol * solUsd) : null;
   const byCol = new Map();
   for (const it of nfts) {
     const id = it.collectionId || it.era, c = cols.find((x) => x.id === id) || {};
-    const value = it.floorUsd ?? c.floorUsd ?? it.lastSaleUsd ?? 0;
+    const value = c.floorUsd ?? it.lastSaleUsd ?? 0;
     const g = byCol.get(id) || { id, name: c.name || it.eraLabel || id, cover: c.cover || c.banner || '', floorUsd: c.floorUsd ?? null, count: 0, valueUsd: 0, costUsd: 0, items: [] };
-    g.count++; g.valueUsd = r2(g.valueUsd + (value || 0)); g.costUsd = r2(g.costUsd + (paid.get(String(it.id)) ?? paid.get(it.id) ?? 0)); g.items.push(it.id); byCol.set(id, g);
+    g.count++; g.valueUsd = r2(g.valueUsd + (value || 0)); g.costUsd = r2(g.costUsd + (paid.get(String(it.id)) ?? paid.get(it.id) ?? 0.1)); g.items.push(it.id); byCol.set(id, g);
   }
   for (const g of byCol.values()) { g.pnlUsd = r2(g.valueUsd - g.costUsd); g.pnlPct = g.costUsd > 0 ? Math.round((g.pnlUsd / g.costUsd) * 1000) / 10 : null; }
   const groups = [...byCol.values()].sort((a, b) => b.valueUsd - a.valueUsd || b.count - a.count);

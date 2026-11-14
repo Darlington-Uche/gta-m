@@ -39,7 +39,6 @@ export async function prepareOffer({ wallet, itemId, usd }) {
   if (item.status !== 'minted' || !item.owner) throw conflict('not_minted', 'This NFT has not been minted yet — mint it at the listed price instead.');
   if (item.owner === wallet) throw bad('own_item', 'You already own this NFT');
   if (item.platformOwned) throw conflict('platform_owned', 'The platform owns this piece. Collect it at its listed price instead of making an offer.');
-  if (item.floorUsd && usd < item.floorUsd) throw bad('below_floor', `The floor price for this piece is $${item.floorUsd}. Offers must be at least that.`);
 
   const q = await quoteUsd(usd);
   const offerRef = col('offers').doc(), ptxId = newPtxId();

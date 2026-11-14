@@ -1,4 +1,4 @@
-import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, historyFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow } from './core.js';
+import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, historyFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow, who, http } from './core.js';
 
 const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>';
 export const poster = (it) => {
@@ -159,21 +159,29 @@ export async function artwork({ args: [id] }) {
   const top = offers[0], bw = bidWindow();
   const solOfUsd = (u) => { const r = S.meta && S.meta.solUsd; return r ? u / r : null; };
   const canOffer = it.minted && !mine && !myOffer && !it.platformOwned;
+  const cols = await http('GET', '/collections', null, { auth: false }).then((r) => r.collections).catch(() => []);
+  const cstat = cols.find((c) => c.id === (it.collectionId || it.era)) || {}, floor = cstat.floorUsd ?? null;
+  const fee = (cfg.saleFeeBps || 250) / 10000, netFee = cfg.acceptFeeUsd ?? 0.3;
+  const youGet = (p) => Math.max(0, p - p * fee - netFee);
+  const fl = floor != null ? `<span>Collection floor <b>${usd(floor)}</b></span>` : '<span>No listings yet in this collection</span>';
   let box;
-  if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : (it.platform ? 'Price' : 'Collect price')}</span>${solLine(it.priceSol)}</div><div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This era is not open for minting yet.</p>'}`;
-  else if (mine) box = it.floorUsd
-      ? `<div class="pr"><b>${usd(it.floorUsd)}</b><span>Platform floor price</span>${solLine(solOfUsd(it.floorUsd))}</div><div class="acts"><button class="btn primary lg" data-a="sellplat">Sell to platform · ${usd(it.floorUsd)}</button></div><p class="note">The platform buys it from you at the floor. You sign once and receive ${solOfUsd(it.floorUsd) ? '≈ ' + sol(solOfUsd(it.floorUsd)) : 'SOL'} in your wallet right away. You can also wait for a higher offer and accept it.</p>`
-      : `<div class="pr"><b>Yours</b><span>You own this piece</span></div><p class="note">No floor price is set for this piece yet. Collectors can make offers and you choose which one to accept.</p>`;
-  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy it now' : it.platformOwned ? 'Held by the platform' : 'Owned by ' + short(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? '<button class="btn" data-a="offer">Make an offer</button>' : ''}</div>${it.floorUsd ? `<p class="note">Floor price ${usd(it.floorUsd)} · offers start there.</p>` : ''}${bw && !bw.open ? '<p class="note">Offers are paused right now. They open again soon.</p>' : ''}`;
-  const offerRows = offers.length ? offers.map((o) => `<div class="rowc"><div><b>${usd(o.usd)}</b> <small style="display:inline">≈ ${sol(o.sol)}</small><small>${short(o.bidder)} · ${ago(o.createdAt)}</small></div><div class="r">${mine ? `<button class="btn primary sm" data-acc="${o.id}">Accept</button><button class="btn sm" data-rej="${o.id}">Decline</button>` : o.bidder === S.wallet ? `<span class="st ok">Your offer</span><button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : '<p class="muted">No offers yet.</p>';
+  if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : (it.platform ? 'Price' : 'Mint price')}</span>${solLine(it.priceSol)}</div><div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This collection is not open for minting yet.</p>'}`;
+  else if (mine && it.listing) box = `<div class="pr"><b>${usd(it.listing.priceUsd)}</b><span>Listed for sale</span>${solLine(it.listing.priceSol)}</div>
+      <div class="bx-meta">${fl}<span>You receive about <b>${usd(youGet(it.listing.priceUsd))}</b></span></div>
+      <div class="acts"><button class="btn primary lg" data-a="relist">Edit price</button><button class="btn" data-a="unlist">Cancel listing</button></div>${top ? `<button class="btn ok-t" data-acc="${top.id}">Accept top offer · ${usd(top.usd)}</button>` : ''}`;
+  else if (mine) box = `<div class="pr"><b>Not listed</b><span>You own this piece</span></div><div class="bx-meta">${fl}${top ? `<span>Top offer <b>${usd(top.usd)}</b></span>` : ''}</div>
+      <div class="acts"><button class="btn primary lg" data-a="list">List for sale</button>${top ? `<button class="btn" data-acc="${top.id}">Accept ${usd(top.usd)}</button>` : ''}</div>`;
+  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy now · sold by ' + who(it.listing.seller || it.owner) : 'Owned by ' + who(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="bx-meta">${fl}${top ? `<span>Top offer <b>${usd(top.usd)}</b></span>` : ''}</div>
+      <div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? `<button class="btn ${it.listing ? '' : 'primary lg'}" data-a="offer">Make an offer</button>` : ''}${myOffer ? '<span class="st ok">Your offer is in</span>' : ''}</div>${bw && !bw.open ? '<p class="note">Offers are paused right now.</p>' : ''}`;
+  const offerRows = offers.length ? offers.map((o) => `<div class="rowc"><div><b>${usd(o.usd)}</b> <small style="display:inline">≈ ${sol(o.sol)}</small><small>${who(o.bidder)} · ${ago(o.createdAt)}</small></div><div class="r">${mine ? `<button class="btn primary sm" data-acc="${o.id}">Accept</button><button class="btn sm" data-rej="${o.id}">Decline</button>` : o.bidder === S.wallet ? `<span class="st ok">Your offer</span><button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : '<p class="muted">No offers yet.</p>';
   const html = `<div class="item"><div class="stage glass"><div class="amb" style="background-image:url('${esc(it.img || '')}')"></div>${imgTag(it.img, it.title, 1000, 'main')}</div>
   <div class="panel glass"><div class="crumbs"><a href="#/explore">Explore</a> / <a href="#/collection/${esc(it.era)}">${esc(it.eraShort)}</a></div>
     <h1 class="display">${esc(it.title)}</h1>
     <div class="tags"><span class="tag rar">${esc(it.rarity)}</span><span class="tag">${esc(it.category || '')}</span>${it.tags.filter((t) => ![it.category, it.rarity, it.eraShort, it.eraLabel].map((x) => String(x || '').toLowerCase()).includes(String(t).toLowerCase())).slice(0, 4).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
     <p class="muted">${esc(it.description)}</p>
-    <div class="buybox">${box}${top ? `<span class="muted">Top offer <b class="accent">${usd(top.usd)}</b> · ${offers.length} active</span>` : ''}</div>
+    <div class="buybox">${box}</div>
     ${hist ? offerChart(hist, offers) : ''}
-    <div class="kv"><div><small>Era</small><b>${esc(it.eraLabel || it.era)}</b></div><div><small>Artist</small><b>${esc(it.artist)}</b></div><div><small>Owner</small><b>${it.owner ? (mine ? 'You' : short(it.owner)) : 'Nobody yet'}</b></div><div><small>Likes</small><b>${it.likes}</b></div>${it.asset ? `<div style="grid-column:1/-1"><small>On-chain asset</small><b><a class="txl" target="_blank" rel="noopener" href="https://explorer.solana.com/address/${esc(it.asset)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}">${short(it.asset)} ↗</a></b></div>` : ''}</div>
+    <div class="kv"><div><small>Era</small><b>${esc(it.eraLabel || it.era)}</b></div><div><small>Artist</small><b>${esc(it.artist)}</b></div><div><small>Owner</small><b>${it.owner ? who(it.owner) : 'Nobody yet'}</b></div><div><small>Likes</small><b>${it.likes}</b></div>${it.asset ? `<div style="grid-column:1/-1"><small>On-chain asset</small><b><a class="txl" target="_blank" rel="noopener" href="https://explorer.solana.com/address/${esc(it.asset)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}">${short(it.asset)} ↗</a></b></div>` : ''}</div>
     <div><h3 class="h3">Offers</h3><div class="list">${offerRows}</div></div></div></div>`;
   const reload = () => window.dispatchEvent(new HashChangeEvent('hashchange'));
   const solUsd = (S.meta && S.meta.solUsd) || 0;
@@ -182,15 +190,24 @@ export async function artwork({ args: [id] }) {
     const upd = () => { $('#ph', m).textContent = (solUsd && +inp.value ? `≈ ${sol(+inp.value / solUsd)} at the current price. ` : '') + (hint || ''); }; inp.oninput = upd; upd();
     $('[data-go]', m).onclick = async () => { const v = +inp.value; close(); await cb(v).then(reload, () => {}); };
   });
+  const listModal = (A, P) => modal(`<button class="x" data-x>✕</button><h2 class="display">${A === 'list' ? 'List for sale' : 'Edit price'}</h2>
+      <label class="field">Price (USD)<input id="pv" class="input big" type="number" min="${cfg.minOfferUsd ?? 1}" step="0.01" value="${it.listing ? it.listing.priceUsd : floor ?? ''}" placeholder="0.00"></label>
+      <div class="sug">${floor != null ? `<button type="button" data-v="${floor}">Floor ${usd(floor)}</button>` : ''}${top ? `<button type="button" data-v="${top.usd}">Top offer ${usd(top.usd)}</button>` : ''}${floor != null ? `<button type="button" data-v="${Math.round(floor * 110) / 100}">Floor +10%</button>` : ''}</div>
+      <div class="brk" id="brk"></div><p class="fine">${A === 'list' ? 'You sign once. The NFT stays in your wallet until someone buys it; cancel any time.' : 'Price changes are instant, no signature needed.'}</p><div class="txfoot"><button class="btn primary" data-go>${A === 'list' ? 'List it' : 'Save price'}</button></div>`, (m, close) => {
+    $('[data-x]', m).onclick = close; const inp = $('#pv', m); inp.focus(); inp.select && inp.select();
+    const upd = () => { const v = +inp.value || 0; $('#brk', m).innerHTML = `<div><span>Price</span><b>${usd(v)}${solUsd && v ? ` <em>≈ ${sol(v / solUsd)}</em>` : ''}</b></div><div><span>Platform fee ${(fee * 100).toFixed(1).replace(/\.0$/, '')}%</span><b>−${usd(v * fee)}</b></div><div><span>Network fee</span><b>−$${(+netFee).toFixed(2)}</b></div><div class="tot"><span>You receive</span><b>${usd(youGet(v))}</b></div>${floor != null && v && v < floor ? `<p class="warn-t">That's below the floor (${usd(floor)}). It will likely sell fast.</p>` : ''}`; };
+    inp.oninput = upd; upd(); m.addEventListener('click', (e) => { const g = e.target.closest('[data-v]'); if (g) { inp.value = g.dataset.v; upd(); } });
+    $('[data-go]', m).onclick = async () => { const v = +inp.value; if (!(v >= (cfg.minOfferUsd ?? 1))) return toast(`Minimum price is $${cfg.minOfferUsd ?? 1}`, 'bad'); close();
+      await runTx(A === 'list' ? 'Listing' : 'Updating price', (ui) => act(A === 'list' ? 'POST' : 'PATCH', `/items/${P}/listing`, { priceUsd: v }, ui), A === 'list' ? 'Listed for sale' : 'Price updated').then(reload, () => {}); };
+  });
   const mount = (root) => {
     root.onclick = async (e) => {
       const b = e.target.closest('button'); if (!b || !(b.dataset.a || b.dataset.acc || b.dataset.rej || b.dataset.can)) return;
       if (!S.wallet) return needWallet();
       const A = b.dataset.a, P = encodeURIComponent(it.id);
-      if (A === 'sellplat') await runTx('Selling to the platform', (ui) => act('POST', `/items/${P}/sell`, {}, ui), 'Sold! SOL is in your wallet').then(reload, () => {});
-      else if (A === 'mint') await runTx('Collecting', (ui) => act('POST', `/items/${P}/${it.platform ? 'collect' : 'mint'}`, {}, ui), 'It\'s yours!').then(reload, () => {});
+      if (A === 'mint') await runTx('Collecting', (ui) => act('POST', `/items/${P}/${it.platform ? 'collect' : 'mint'}`, {}, ui), 'It\'s yours!').then(reload, () => {});
       else if (A === 'buy') await runTx('Buying', (ui) => act('POST', `/items/${P}/buy`, {}, ui), 'Bought!').then(reload, () => {});
-      else if (A === 'list' || A === 'relist') priceModal('Set your price', 'Continue', (v) => runTx(A === 'list' ? 'Listing' : 'Updating price', (ui) => act(A === 'list' ? 'POST' : 'PATCH', `/items/${P}/listing`, { priceUsd: v }, ui), 'Listed for sale'), it.listing && it.listing.priceUsd, `Platform fee ${(cfg.saleFeeBps || 250) / 100}% + about $${cfg.acceptFeeUsd ?? 0.3} network fee are taken when it sells.`);
+      else if (A === 'list' || A === 'relist') listModal(A, P);
       else if (A === 'unlist') await runTx('Updating', (ui) => act('DELETE', `/items/${P}/listing`, undefined, ui), 'Taken off sale').then(reload, () => {});
       else if (A === 'offer') priceModal('Make an offer', 'Send offer', (v) => runTx('Sending offer', (ui) => act('POST', `/items/${P}/offers`, { usd: v }, ui), 'Offer sent — your SOL is held safely until it ends'), top ? top.usd : '', `Minimum $${cfg.minOfferUsd ?? 1}. Charged in SOL; refunded if declined, cancelled or expired.`);
       else if (b.dataset.acc) await runTx('Accepting offer', (ui) => act('POST', `/offers/${b.dataset.acc}/accept`, {}, ui), 'Sold!').then(reload, () => {});

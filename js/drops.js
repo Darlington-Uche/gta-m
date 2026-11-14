@@ -1,5 +1,5 @@
 // Launchpad pages. Drops hub (Minting now / Upcoming / Past) and a drop page with its mint stages, mint panel and reveal.
-import { S, $, $$, esc, usd, short, imgTag, http, toast, walletModal } from './core.js';
+import { S, $, $$, esc, usd, short, imgTag, http, toast, walletModal, who } from './core.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const solOf = (u) => { const r = S.meta && S.meta.solUsd; return r && u != null ? u / r : null; };
@@ -37,21 +37,21 @@ function timer(d) {
   return '<span class="dtm">Mint closed</span>';
 }
 const bar = (d) => `<div class="dprog"><div class="dpb"><i style="width:${pct(d)}%"></i></div><span><b>${d.minted.toLocaleString()}</b> / ${d.supply ? d.supply.toLocaleString() : '∞'} minted</span><span>${pct(d)}%</span></div>`;
-const by = (d) => (d.kind === 'platform' ? 'GTA Marketplace' : short(d.creator));
+const by = (d) => (d.kind === 'platform' || d.creatorName ? 'GTA Marketplace' : who(d.creator));
 
 export function card(d, i) {
   const s = lead(d);
   return `<a class="dcard" style="--i:${i}" href="#/drop/${encodeURIComponent(d.id)}">
     <span class="dc-ban">${imgTag(d.banner || d.logo, d.name, 700)}${chip(d)}</span>
     <div class="dc-in"><span class="dc-logo">${imgTag(d.logo, d.name, 140)}</span>
-      <b class="dc-nm">${esc(d.name)}${d.verified ? tick : ''}</b><small class="dc-by">by ${esc(by(d))}</small>
+      <b class="dc-nm">${esc(d.name)}${d.verified ? tick : ''}</b><small class="dc-by">by ${by(d)}</small>
       <div class="dc-row"><span><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></span><span><small>Max supply</small><b>${d.supply ? d.supply.toLocaleString() : '—'}</b></span>${timer(d)}</div>
       ${bar(d)}</div></a>`;
 }
 function hero(d) {
   const s = lead(d);
   return `<a class="dhero" href="#/drop/${encodeURIComponent(d.id)}"><span class="dh-bg">${imgTag(d.banner || d.logo, d.name, 1400)}</span><i class="dh-shade"></i>
-    <div class="dh-in">${chip(d)}<div class="dh-id"><span class="dc-logo lg">${imgTag(d.logo, d.name, 160)}</span><div><h2>${esc(d.name)}${d.verified ? tick : ''}</h2><small>by ${esc(by(d))}</small></div></div>
+    <div class="dh-in">${chip(d)}<div class="dh-id"><span class="dc-logo lg">${imgTag(d.logo, d.name, 160)}</span><div><h2>${esc(d.name)}${d.verified ? tick : ''}</h2><small>by ${by(d)}</small></div></div>
       <div class="dh-row"><span><small>${s ? esc(s.name) : 'Price'}</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b>${s && s.priceUsd ? `<em>≈ ${solTxt(solOf(s.priceUsd))}</em>` : ''}</span>${timer(d)}</div>${bar(d)}
       <span class="btn primary lg dh-cta">${d.status === 'live' ? 'Mint now' : 'View drop'}</span></div></a>`;
 }
@@ -115,7 +115,7 @@ export async function dropPage({ args: [id] }) {
   const html = `<div class="dp">
     <div class="cx-top"><button class="rbtn" id="dp-back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="rbtn" id="dp-share" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg></button></div>
     <div class="dp-grid"><div class="dp-main">
-      <div class="cx-id"><span class="cx-logo">${imgTag(d.logo, d.name, 200)}</span>${chip(d)}<h1>${esc(d.name)}${d.verified ? tick : ''}</h1><p>by ${esc(by(d))}${d.kind === 'platform' ? tick : ''}</p></div>
+      <div class="cx-id"><span class="cx-logo">${imgTag(d.logo, d.name, 200)}</span>${chip(d)}<h1>${esc(d.name)}${d.verified ? tick : ''}</h1><p>by ${by(d)}${d.kind === 'platform' ? tick : ''}</p></div>
       <div class="chips2"><span>${d.supply ? 'Max supply ' + d.supply.toLocaleString() : 'Open edition'}</span>${d.artCount != null && d.supply && d.artCount < d.supply ? `<span>${d.artCount.toLocaleString()} ready to mint</span>` : ''}<span>${esc(reveal)}</span><span>${d.royaltyPct ?? 5}% royalty</span><span>Solana · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</span></div>
       <section class="dp-sec"><h3>Mint schedule</h3><div class="stgs">${d.stages.map(stRow).join('')}</div></section>
       <section class="dp-sec"><h3>${d.revealed ? 'The art' : 'Before the reveal'}</h3><div class="rvl glass"><span class="rvl-im ${d.revealed ? '' : 'hid'}">${imgTag(d.revealed ? d.banner || d.logo : d.preReveal || d.logo, d.name, 500)}${d.revealed ? '' : '<b>?</b>'}</span>

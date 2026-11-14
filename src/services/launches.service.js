@@ -8,6 +8,7 @@ import { saveUpload } from './storage.service.js';
 import { notify } from './notifications.service.js';
 import { listCollections, invalidateCollections } from './collections.service.js';
 import { bad, conflict, forbidden, notFound } from '../lib/errors.js';
+import { config } from '../config/index.js';
 
 const fromB64 = (f) => {
   if (!f || !f.data) return null;
@@ -38,7 +39,7 @@ export async function createLaunch({ wallet, body }) {
   const doc = {
     wallet, name: body.name, symbol: body.symbol, description: body.description, theme: body.theme || 'other', links: body.links || {},
     logo, banner: banner || logo, preReveal: preReveal || logo, revealMode: body.revealMode, revealAt: body.revealMode === 'date' ? +body.revealAt || null : null,
-    supply: body.supply, royaltyPct: body.royaltyPct, stages, art: [], minted: 0, status: 'review', createdAt: now(), updatedAt: now()
+    supply: body.supply, royaltyPct: body.royaltyPct, stages, art: [], minted: 0, status: wallet === config.auth.platformWallet ? 'approved' : 'review', createdAt: now(), updatedAt: now()
   };
   await col('launches').doc(id).set(doc);
   return { id, ...doc };
@@ -88,7 +89,7 @@ export async function listDrops() {
   const count = new Map(), minted = new Map();
   for (const i of items) { if (i.hidden) continue; const k = i.collectionId || i.era; count.set(k, (count.get(k) || 0) + 1); if (i.status === 'minted') minted.set(k, (minted.get(k) || 0) + 1); }
   const platform = cols.filter((c) => c.drop && c.drop.published).map((c) => ({ id: 'gta-' + c.id, kind: 'platform', collectionId: c.id, name: c.name, creator: 'GTA Marketplace', verified: true, logo: c.cover || c.banner, banner: c.banner || c.cover, preReveal: c.drop.preReveal || c.cover, description: c.blurb || '', theme: c.id, supply: c.drop.supply || count.get(c.id) || 0, artCount: count.get(c.id) || 0, minted: minted.get(c.id) || 0, stages: c.drop.stages, revealMode: c.drop.revealMode, revealAt: c.drop.revealAt, royaltyPct: 5 }));
-  const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, verified: true, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length }));
+  const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, creatorName: l.wallet === config.auth.platformWallet ? 'GTA Marketplace' : null, verified: true, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length }));
   const t = now();
   return [...platform, ...creator].map((d) => shape(d, t));
 }

@@ -216,14 +216,12 @@ test('sale price: owner lists once, buyer pays in one atomic tx, outstanding off
   const pB = await call('POST', '/items/1/offers', { usd: 3 }, T.B); await run(pB, W.B, T.B);
   const b0 = await bal(W.B);
 
-  // users can NOT set their own sale price any more (admins price the mint; owners accept offers)
-  assert.equal((await call('POST', '/items/1/listing', { priceUsd: 20 }, T.E)).status, 403);
-  assert.equal((await call('PATCH', '/items/1/listing', { priceUsd: 20 }, T.E)).status, 403);
-  // legacy path (a listing created before the change) still sells safely: create it through the service
-  const { prepareList } = await import('../src/services/listings.service.js');
-  const lp = await prepareList({ wallet: W.E, itemId: '1', priceUsd: 20 });
-  const listed = await run({ ...lp, status: 200 }, W.E, T.E);
+  // owners set their own price (standard marketplace): list, change the price, the floor follows the cheapest listing
+  assert.equal((await call('POST', '/items/1/listing', { priceUsd: 20 }, T.B)).status, 403); // not the owner
+  const lp = await call('POST', '/items/1/listing', { priceUsd: 30 }, T.E); assert.equal(lp.status, 200, JSON.stringify(lp));
+  const listed = await run(lp, W.E, T.E);
   assert.equal(listed.status, 'confirmed');
+  assert.equal((await call('PATCH', '/items/1/listing', { priceUsd: 20 }, T.E)).status, 200);
   const it = (await call('GET', '/items/1')).item;
   assert.equal(it.listing.priceUsd, 20); assert.equal(it.listing.priceSol, 0.2);
 

@@ -61,7 +61,9 @@ export const config = {
     jwtSecret: env.JWT_SECRET || (env.NODE_ENV === 'production' ? null : 'dev-secret-change-me'),
     jwtTtl: env.JWT_TTL || '7d',
     nonceTtlMs: 5 * 60 * 1000,
-    adminWallets: list(env.ADMIN_WALLETS),
+    // the platform's own wallet: its collections and NFTs show as "GTA Marketplace" and it is always an admin
+    platformWallet: env.PLATFORM_WALLET || '8MW1zuraJnErVv6Sh9ajWzgtgHUSGWuJzXBodgjigapQ',
+    adminWallets: [...new Set([...list(env.ADMIN_WALLETS), env.PLATFORM_WALLET || '8MW1zuraJnErVv6Sh9ajWzgtgHUSGWuJzXBodgjigapQ'])],
     adminPassword: env.ADMIN_PASSWORD || null // enables the password login used by the admin panel (POST /auth/admin-login)
   },
 
