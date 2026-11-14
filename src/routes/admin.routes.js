@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { adminCollections, restoreLaunch, searchUsers, setBlocked, userDetail } from '../services/adminviews.service.js';
 import { listLaunches, reviewLaunch } from '../services/launches.service.js';
 import { col, getDoc, now, queryDocs } from '../lib/db.js';
 import { chain } from '../services/chain/index.js';
@@ -32,6 +33,11 @@ export const routes = [
   },
   { method: 'get', path: '/admin/launches', auth: 'admin', query: z.object({ status: z.enum(['review', 'approved', 'rejected', 'live']).optional() }), summary: 'Creator collections submitted to the launchpad', handler: async (req) => ({ launches: await listLaunches(req.valid.query.status) }) },
   { method: 'post', path: '/admin/launches/:id/review', auth: 'admin', params: idParam, body: z.object({ approve: z.boolean(), reason: z.string().max(300).optional() }), summary: 'Verify (approve) or reject a creator collection', handler: async (req) => reviewLaunch({ id: req.valid.params.id, by: req.user.wallet, ...req.valid.body }) },
+  { method: 'get', path: '/admin/creator-collections', auth: 'admin', summary: 'Every creator collection with mint progress, revenue and trading numbers', handler: async () => ({ collections: await adminCollections() }) },
+  { method: 'post', path: '/admin/launches/:id/restore', auth: 'admin', params: idParam, summary: 'Put a taken-down collection back on the launchpad', handler: async (req) => restoreLaunch({ id: req.valid.params.id, by: req.user.wallet }) },
+  { method: 'get', path: '/admin/users', auth: 'admin', query: z.object({ q: z.string().max(80).optional() }), summary: 'Find wallets by address, name or @username', handler: async (req) => ({ users: await searchUsers(req.valid.query.q) }) },
+  { method: 'get', path: '/admin/users/:id', auth: 'admin', params: idParam, summary: 'One wallet: holdings, offers, trades, collections', handler: async (req) => ({ user: await userDetail(req.valid.params.id) }) },
+  { method: 'post', path: '/admin/users/:id/block', auth: 'admin', params: idParam, body: z.object({ blocked: z.boolean(), reason: z.string().max(200).optional() }), summary: 'Block or unblock a wallet (blocked wallets can browse but cannot trade, mint or create)', handler: async (req) => setBlocked({ wallet: req.valid.params.id, ...req.valid.body, by: req.user.wallet }) },
   { method: 'delete', path: '/admin/collections/:id/address', auth: 'admin', params: idParam, summary: 'Detach a collection address (sets it back to pending; minted NFTs keep their own recorded collection)', handler: async (req) => { await removeAddress(req.valid.params.id); return { ok: true }; } },
 
   // ---- catalog & prices ----

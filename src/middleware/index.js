@@ -5,12 +5,13 @@ import { isAdminToken, verifyToken } from '../services/auth.service.js';
 import { log } from '../lib/logger.js';
 import { getDoc } from '../lib/db.js';
 
-export function requireUser(req, _res, next) {
+export async function requireUser(req, _res, next) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return next(unauthorized());
   try {
     const p = verifyToken(h.slice(7));
     req.user = { wallet: p.sub, admin: isAdminToken(p) };
+    if (!req.user.admin && req.method !== 'GET') { const u = await getDoc('users', p.sub); if (u && u.blocked) return next(forbidden('This wallet has been blocked from trading. Contact support.')); } // blocked wallets can look, not act
     next();
   } catch (e) { next(e); }
 }
