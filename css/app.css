@@ -6,7 +6,7 @@
   --pink: #ff2d8a; --orange: #ff7a1a; --gold: #ffc93c; --teal: #19e3d2; --line: rgba(255, 243, 232, .13);
   --sunset: linear-gradient(120deg, #ff2d8a 0%, #ff7a1a 62%, #ffc93c 100%); --vice: linear-gradient(120deg, #ff3d9a 0%, #d63dff 55%, #8a4dff 100%);
   --glass: rgba(43, 15, 77, .5); --glass2: rgba(255, 243, 232, .07); --r: 20px;
-  --disp: 'Pixelify Sans', 'Anton', Impact, monospace; --body: 'Pixelify Sans', 'Manrope', system-ui, sans-serif; --ease: cubic-bezier(.2, .8, .2, 1);
+  --disp: 'Pixelify Sans', 'Anton', Impact, monospace; --body: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; --px: 'Pixelify Sans', monospace; --ease: cubic-bezier(.2, .8, .2, 1);
   --nav-h: 68px; --wrap: 1240px;
 }
 * { box-sizing: border-box; margin: 0; }
@@ -805,5 +805,11 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 .sd-mint, .mrow { min-width: 0; } .mrow { flex-wrap: wrap; } .usd input { width: 54px; } @media (max-width: 440px) { .usd em { display: none; } .seg3 button { padding: 8px 11px; } }
 .mt.sm { flex: 0 0 auto; min-width: 56px; } .mrow .chips3 { margin-left: auto; }
 
-/* v17 pixel type */ body { font-weight: 500; letter-spacing: .01em; -webkit-font-smoothing: none; } .display { letter-spacing: 0; line-height: 1.05; font-weight: 700; } .brand { font-weight: 700; } button, input, select, textarea { font-family: var(--body); }
+/* v17 type: pixel for headings, buttons, tabs, labels and numbers; Manrope for everything you read */
+body { font-weight: 500; -webkit-font-smoothing: antialiased; }
+.display, h1, h2, h3, h4, .brand, .btn, button, .dock a, .tabs a, .eyebrow, .tag, .chips2 span, .hpill b, .cx-stats b, .price, .st, .wn, .rbtn, .sd-seg a, .stat b, .sug button, label.field { font-family: var(--px); }
+.display, h1, h2, h3 { letter-spacing: 0; line-height: 1.1; font-weight: 700; } .brand { font-weight: 700; }
+.btn, button, .tabs a, .dock a { letter-spacing: .02em; }
+input, select, textarea, p, .fine, .muted, small, .note, .about, dd, dt { font-family: var(--body); }
+input, select, textarea { font-weight: 600; }
 .bulkbar { display: flex; justify-content: flex-end; margin: 0 0 12px; } .bulk-f { display: grid; gap: 14px; } .bulk-f .qty { display: flex; align-items: center; justify-content: center; gap: 18px; } .bulk-f .qty button { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 22px; } .bulk-f .qty b { font-size: 34px; min-width: 56px; text-align: center; } .bulk-f .tot { display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.06); }
