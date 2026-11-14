@@ -739,3 +739,4 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 .lart-b { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .cx-id p, .dh-id small, .dc-by { gap: 5px; } .dc-by, .dh-id small { display: flex; align-items: center; }
 .lart { grid-template-columns: 1fr; } .lart-b { justify-content: flex-start; }
+.cx::before { left: -16px; right: -16px; } @media (min-width: 761px) { .cx::before { left: -24px; right: -24px; } }
