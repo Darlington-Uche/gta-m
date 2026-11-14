@@ -37,7 +37,7 @@ async function readCatalog() {
 
 /** Drop pieces stay hidden behind the drop's cover until the reveal. */
 export const revealedNow = (it) => !it.preReveal || it.revealMode === 'instant' || !!it.revealedAt || (it.revealMode === 'date' && it.revealAt && now() >= it.revealAt);
-const masked = (it) => (revealedNow(it) ? it : { ...it, image: it.preReveal, title: `${it.collectionName || ERAS[it.era]?.label || 'Drop'} #?`, description: it.revealMode === 'date' && it.revealAt ? `Unrevealed. The art is revealed on ${new Date(it.revealAt).toUTCString()}.` : 'Unrevealed. The art is revealed when the creator reveals the collection.', category: 'Unrevealed', rarity: 'Unrevealed', tags: [], unrevealed: true });
+export const masked = (it) => (revealedNow(it) ? it : { ...it, image: it.preReveal, title: `${it.collectionName || ERAS[it.era]?.label || 'Drop'} #?`, description: it.revealMode === 'date' && it.revealAt ? `Unrevealed. The art is revealed on ${new Date(it.revealAt).toUTCString()}.` : 'Unrevealed. The art is revealed when the creator reveals the collection.', category: 'Unrevealed', rarity: 'Unrevealed', tags: [], unrevealed: true });
 export function publicItem(raw, cat, solUsd) {
   const it = masked(raw);
   const listing = cat.listingBy.get(it.id) || null;

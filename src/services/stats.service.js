@@ -1,5 +1,6 @@
 import { col, queryDocs } from '../lib/db.js';
 import { ERAS } from '../lib/constants.js';
+import { masked } from './items.service.js';
 import { roundUsd } from '../lib/money.js';
 import { listCollections } from './collections.service.js';
 
@@ -26,6 +27,7 @@ async function computeStats() {
 }
 
 /** The frontend's "Collections" page: one collection per game era. */
+const shown = (it) => (it ? masked(it) : it); // an unrevealed piece never leaks its art or name through the feeds
 const memo = (fn, ttl) => { let c = { at: 0, v: null, args: '' }; return async (...a) => { const k = JSON.stringify(a); if (c.v && c.args === k && Date.now() - c.at < ttl) return c.v; const v = await fn(...a); c = { at: Date.now(), v, args: k }; return v; }; };
 export const collectionsSummary = memo(async function collectionsSummaryRaw() {
   const [items, sl, listings, reg0, launches] = await Promise.all([queryDocs(col('items')), sales(), queryDocs(col('listings').where('status', '==', 'active')), listCollections(), queryDocs(col('launches'))]);
@@ -58,7 +60,7 @@ export const recentActivity = memo(async function recentActivityRaw(limit = 30) 
   const [sl, items] = await Promise.all([sales(), queryDocs(col('items'))]);
   const by = new Map(items.map((i) => [i.id, i]));
   return sl.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((s) => ({
-    type: s.type, itemId: s.itemId, title: by.get(s.itemId)?.title, image: by.get(s.itemId)?.image,
+    type: s.type, itemId: s.itemId, title: shown(by.get(s.itemId))?.title, image: shown(by.get(s.itemId))?.image,
     buyer: s.buyer, seller: s.seller, usd: s.usd, lamports: s.lamports, signature: s.signature, at: s.createdAt
   }));
 }, 20_000);
@@ -80,7 +82,7 @@ export async function collectionDetail(id, days = 30) {
   const vault = null;
   const holders = [...hold.entries()].map(([wallet, n]) => ({ wallet, n })).sort((a, b) => b.n - a.n).slice(0, 25);
   const mySales = sl.filter((s) => ids.has(s.itemId)).sort((a, b) => b.createdAt - a.createdAt);
-  const activity = mySales.slice(0, 60).map((s) => ({ type: s.type, itemId: s.itemId, title: by.get(s.itemId)?.title, image: by.get(s.itemId)?.image, buyer: s.buyer, seller: s.seller, usd: s.usd || 0, signature: s.signature, at: s.createdAt }));
+  const activity = mySales.slice(0, 60).map((s) => ({ type: s.type, itemId: s.itemId, title: shown(by.get(s.itemId))?.title, image: shown(by.get(s.itemId))?.image, buyer: s.buyer, seller: s.seller, usd: s.usd || 0, signature: s.signature, at: s.createdAt }));
   const DAY = 864e5, end = Math.floor(Date.now() / DAY) * DAY + DAY, series = [];
   for (let d = days - 1; d >= 0; d--) series.push({ t: end - (d + 1) * DAY, buys: 0, buyUsd: 0, sells: 0, sellUsd: 0 });
   for (const s of mySales) { const k = Math.floor((s.createdAt - (end - days * DAY)) / DAY); if (k < 0 || k >= days) continue; const b = series[k]; if (BUY.has(s.type)) { b.buys++; b.buyUsd += s.usd || 0; } if (SELL.has(s.type)) { b.sells++; b.sellUsd += s.usd || 0; } }
