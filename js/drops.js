@@ -1,5 +1,5 @@
 // Launchpad pages. Drops hub (Minting now / Upcoming / Past) and a drop page with its mint stages, mint panel and reveal.
-import { S, $, $$, esc, usd, short, imgTag, http, toast, walletModal, who } from './core.js';
+import { S, $, $$, esc, usd, short, imgTag, http, toast, walletModal, who, act, runTx } from './core.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const solOf = (u) => { const r = S.meta && S.meta.solUsd; return r && u != null ? u / r : null; };
@@ -94,7 +94,7 @@ export async function dropsHub({ q }) {
 /* ================= DROP PAGE ================= */
 export async function dropPage({ args: [id] }) {
   id = decodeURIComponent(id);
-  const d = (await http('GET', '/drops/' + encodeURIComponent(id))).drop;
+  const [d, used] = await Promise.all([http('GET', '/drops/' + encodeURIComponent(id)).then((r) => r.drop), S.wallet ? http('GET', '/drops/' + encodeURIComponent(id) + '/mine').then((r) => r.minted || {}).catch(() => ({})) : Promise.resolve({})]);
   dispatchEvent(new CustomEvent('gta:dropbd', { detail: { id, url: d.banner || d.logo } }));
   const s = lead(d), live = d.status === 'live' ? s : null;
   const reveal = d.revealed ? 'Revealed' : d.revealMode === 'date' && d.revealAt ? 'Reveal ' + when(d.revealAt) : 'Reveal after mint';
@@ -109,6 +109,7 @@ export async function dropPage({ args: [id] }) {
     if (!live) return [d.status === 'upcoming' ? 'Not started yet' : 'Mint has ended', true];
     if (!S.wallet) return ['Connect wallet to mint', false];
     if (live.eligible === false) return ['You are not on the allowlist', true];
+    if ((used[live.id] || 0) >= live.perWallet) return ['Wallet limit reached', true];
     return [null, false];
   };
   const [block, dis] = why();
@@ -126,7 +127,7 @@ export async function dropPage({ args: [id] }) {
       <div class="mp-h"><small>${live ? esc(live.name) + ' · live' : s ? esc(s.name) : 'Mint'}</small>${timer(d)}</div>
       <div class="mp-p"><b>${s ? priceTxt(s.priceUsd) : '—'}</b>${s && s.priceUsd ? `<em>≈ ${solTxt(solOf(s.priceUsd))}</em>` : ''}</div>
       ${bar(d)}
-      <div class="mp-q"><span>Quantity <small>max ${s ? s.perWallet : 1} per wallet</small></span><div class="qty"><button data-q="-1" aria-label="Less">−</button><b id="qn">1</b><button data-q="1" aria-label="More">+</button></div></div>
+      <div class="mp-q"><span>Quantity <small>${live && used[live.id] ? `${used[live.id]} of ${live.perWallet} used` : `max ${s ? s.perWallet : 1} per wallet`}</small></span><div class="qty"><button data-q="-1" aria-label="Less">−</button><b id="qn">1</b><button data-q="1" aria-label="More">+</button></div></div>
       <div class="mp-t"><span>Total</span><b id="qt">${s ? priceTxt(s.priceUsd) : '—'}</b></div>
       <button class="btn primary lg mp-go" id="mint" ${dis ? 'disabled' : ''}>${block || 'Mint'}</button>
       <p class="fine">${d.revealed ? 'Your NFT lands in your wallet as soon as the mint confirms.' : 'You get an unrevealed NFT now; it turns into your real piece at the reveal.'}</p></div></aside></div>
@@ -134,12 +135,17 @@ export async function dropPage({ args: [id] }) {
   return {
     html,
     mount(root) {
-      let q = 1; const max = s ? s.perWallet : 1, price = s ? s.priceUsd : 0;
+      let q = 1; const left = live ? Math.max(0, live.perWallet - (used[live.id] || 0)) : s ? s.perWallet : 1, max = Math.max(1, left), price = s ? s.priceUsd : 0;
       const upd = () => { $('#qn', root).textContent = q; $('#qt', root).textContent = price ? usd(price * q) + ' · ≈ ' + solTxt(solOf(price * q)) : 'Free'; };
       root.addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; q = Math.max(1, Math.min(max, q + +b.dataset.q)); upd(); });
-      const go = () => {
+      const go = async () => {
         if (!S.wallet) return walletModal();
-        toast(`Minting opens when the ${d.name} contract goes live. You are set for ${q} in ${live ? live.name : "the next stage"}.`);
+        let done = 0;
+        for (let i = 0; i < q; i++) {
+          try { await runTx(q > 1 ? `Minting ${i + 1} of ${q}` : 'Minting', (ui) => act('POST', `/drops/${encodeURIComponent(d.id)}/mint`, {}, ui), i === q - 1 ? (d.revealed ? 'Minted! It is in your wallet' : 'Minted! It reveals soon') : null); done++; }
+          catch (_) { break; }
+        }
+        if (done) setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 600);
       };
       $('#mint', root).onclick = go; $('#mint2', root).onclick = () => (S.wallet ? go() : walletModal());
       $('#dp-back', root).onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/drops'));

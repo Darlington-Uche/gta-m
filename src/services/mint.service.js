@@ -20,7 +20,9 @@ export async function prepareMint({ wallet, itemId }) {
   const ptxId = newPtxId();
   const pre = (await itemRef.get()).data();
   if (!pre || pre.hidden) throw notFound('Artwork not found');
+  if (pre.dropOnly) throw conflict('use_drop', 'This piece is part of a drop. Mint it from the drop page.');
   const coll = await collectionFor(pre); // throws if this era's collection is not deployed/registered yet
+  if (coll.drop && coll.drop.published) throw conflict('use_drop', `${coll.name} is minting as a drop now. Mint from the drop page.`);
 
   const item = await runTx(async (tx) => {
     const [s, u] = await Promise.all([tx.get(itemRef), tx.get(userRef)]);

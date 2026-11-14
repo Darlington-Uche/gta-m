@@ -1,6 +1,7 @@
 import { getCollection } from '../services/collections.service.js';
 import { chain } from '../services/chain/index.js';
 import { config } from '../config/index.js';
+import { launchCollectionMeta } from '../services/dropmint.service.js';
 import { getDoc } from '../lib/db.js';
 import { getSettings, bidWindowState } from '../services/settings.service.js';
 import { getSolUsd } from '../services/priceOracle.js';
@@ -47,6 +48,7 @@ export const routes = [
         const base = config.nftSymbolName;
         return res.json({ name: c.name || base, symbol: 'GTAM', description: c.blurb || 'GTA-inspired art collection. Fan-made, not affiliated with Rockstar Games or Take-Two.', image: c.cover || c.banner || '', external_url: config.assetsBaseUrl, properties: { category: 'image', files: c.cover ? [{ uri: c.cover, type: 'image/jpeg' }] : [] } });
       }
+      if (req.params.id.startsWith('launch-')) return res.json(await launchCollectionMeta(req.params.id.slice(7)));
       if (req.params.id === 'collection') return res.json({ name: config.nftSymbolName, symbol: 'GTAM', description: 'GTA-inspired art collection. Fan-made, not affiliated with Rockstar Games or Take-Two.', image: `${config.assetsBaseUrl}/assets/hero/hero-home.png`, external_url: config.assetsBaseUrl || config.publicBaseUrl });
       return res.json(metadataFor(await getItemRaw(req.params.id)));
     }

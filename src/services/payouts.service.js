@@ -29,6 +29,10 @@ async function complete(payoutId) {
     let offer = null, offerRef = null;
     if (p.type === 'offer_refund') { offerRef = col('offers').doc(p.ref.offerId); offer = (await tx.get(offerRef)).data(); }
     tx.update(pRef, { status: 'sent', sentAt: now(), updatedAt: now() });
+    if (p.type === 'creator_payout') {
+      ledgerInTx(tx, { type: 'creator_payout', lamports: -p.lamports, wallet: p.to, ref: { ...p.ref, signature: p.signature }, deltas: { escrow: -p.lamports } });
+      const n = makeNotification(p.to, 'creator_paid', 'Mint revenue paid', `${lamportsToSol(p.lamports).toFixed(4)} SOL from your drop is in your wallet.`, p.ref); tx.set(n.ref, n.data);
+    }
     if (p.type === 'offer_refund') {
       const finalStatus = offer?.finalStatus || 'refunded';
       tx.update(offerRef, { status: finalStatus, refundedAt: now(), refundSignature: p.signature });

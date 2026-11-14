@@ -35,7 +35,11 @@ async function readCatalog() {
   return cache.data;
 }
 
-export function publicItem(it, cat, solUsd) {
+/** Drop pieces stay hidden behind the drop's cover until the reveal. */
+export const revealedNow = (it) => !it.preReveal || it.revealMode === 'instant' || !!it.revealedAt || (it.revealMode === 'date' && it.revealAt && now() >= it.revealAt);
+const masked = (it) => (revealedNow(it) ? it : { ...it, image: it.preReveal, title: `${it.collectionName || ERAS[it.era]?.label || 'Drop'} #?`, description: it.revealMode === 'date' && it.revealAt ? `Unrevealed. The art is revealed on ${new Date(it.revealAt).toUTCString()}.` : 'Unrevealed. The art is revealed when the creator reveals the collection.', category: 'Unrevealed', rarity: 'Unrevealed', tags: [], unrevealed: true });
+export function publicItem(raw, cat, solUsd) {
+  const it = masked(raw);
   const listing = cat.listingBy.get(it.id) || null;
   const offers = (cat.offersBy.get(it.id) || []).sort((a, b) => b.lamports - a.lamports);
   const minted = it.status === 'minted';
@@ -45,8 +49,8 @@ export function publicItem(it, cat, solUsd) {
   const solOf = (usd) => (solUsd ? roundUsd(usd / solUsd * 1000) / 1000 : null);
   return {
     id: it.id, title: it.title, description: it.description || '', image: it.image, artist: it.artist || 'GTA Marketplace',
-    collectionId: it.collectionId || it.era, collection: { id: it.collectionId || it.era, name: coll?.name || era?.label, live: collLive, address: it.collection || coll?.address || null },
-    era: it.era, eraLabel: era?.label, eraShort: era?.short, category: it.category, rarity: it.rarity, tags: it.tags || [],
+    collectionId: it.collectionId || it.era, collection: { id: it.collectionId || it.era, name: coll?.name || it.collectionName || era?.label, live: collLive, address: it.collection || coll?.address || null },
+    era: it.era, eraLabel: it.collectionName || era?.label, eraShort: it.collectionName || era?.short, unrevealed: !!it.unrevealed, revealAt: it.unrevealed ? it.revealAt || null : null, launchId: it.launchId || null, category: it.category, rarity: it.rarity, tags: it.tags || [],
     status: it.status, minted, asset: it.asset || null, owner: it.owner || null, mintedAt: it.mintedAt || null,
     likes: it.likes || 0,
     floorUsd: it.floorUsd ?? null, // platform-set floor: owners can sell to the platform at this price
@@ -63,7 +67,7 @@ export function publicItem(it, cat, solUsd) {
 export async function listItems(q = {}) {
   const cat = await loadCatalog();
   const solUsd = await getSolUsd().catch(() => null);
-  let rows = cat.items.filter((i) => !i.hidden);
+  let rows = cat.items.filter((i) => !i.hidden && !(i.dropOnly && i.status !== 'minted')); // drop art is only seen once someone mints it
   const count = (k) => Object.entries(rows.reduce((m, i) => (i[k] ? ((m[i[k]] = (m[i[k]] || 0) + 1), m) : m), {})).map(([value, n]) => ({ value, n }));
   const facets = { category: count('category'), rarity: count('rarity'), era: count('era') }; // what actually exists, so the site only offers filters that match something
   const arr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -94,7 +98,7 @@ export async function listItems(q = {}) {
 
 export async function getPublicItem(id) {
   const cat = await loadCatalog();
-  const it = cat.items.find((i) => i.id === String(id) && !i.hidden);
+  const it = cat.items.find((i) => i.id === String(id) && !i.hidden && !(i.dropOnly && i.status !== 'minted'));
   if (!it) throw notFound('Artwork not found');
   return publicItem(it, cat, await getSolUsd().catch(() => null));
 }
@@ -113,7 +117,8 @@ export async function quoteUsd(usd) {
 }
 
 /* ---------- NFT metadata (what wallets/explorers read via the on-chain uri) ---------- */
-export function metadataFor(it, perm = null) {
+export function metadataFor(raw, perm = null) {
+  const it = masked(raw);
   const era = ERAS[it.era];
   const image = perm?.image || it.image, mime = perm?.mime || 'image/png';
   return {

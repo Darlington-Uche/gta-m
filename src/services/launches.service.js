@@ -51,9 +51,29 @@ export async function addLaunchArt({ wallet, id, file }) {
   if ((l.art || []).length >= (l.supply || 500)) throw bad('supply_full', `All ${l.supply} artworks are uploaded. That is the max supply.`);
   const f = fromB64(file); if (!f) throw bad('no_file', 'Missing image');
   const saved = await saveUpload(f, 'launches/' + id);
-  const art = [...(l.art || []), { url: saved.url, at: now() }];
+  const art = [...(l.art || []), { url: saved.url, at: now() }], n = art.length;
   await col('launches').doc(id).update({ art, updatedAt: now() });
+  // every uploaded piece becomes a mintable (hidden until minted) artwork of the drop
+  await col('items').doc(`${id}-${n}`).set({ title: `${l.name} #${n}`, description: l.description || '', image: saved.url, era: ['vi', 'v', 'iv', 'sa', 'vice'].includes(l.theme) ? l.theme : 'vi', collectionId: id, collectionName: l.name,
+    category: 'Characters', rarity: 'Common', tags: [], artist: l.wallet === config.auth.platformWallet ? 'GTA Marketplace' : l.wallet, creator: l.wallet, launchId: id, dropOnly: true, status: 'unminted', priceUsd: null,
+    preReveal: l.revealMode === 'instant' ? null : l.preReveal, revealMode: l.revealMode, revealAt: l.revealAt || null, likes: 0, createdAt: now() });
   return { count: art.length, url: saved.url };
+}
+/** Creator (or admin) reveals the collection now: every minted and future piece shows its real art. */
+export async function revealLaunch({ id, wallet, admin }) {
+  const l = await getDoc('launches', id); if (!l) throw notFound('Collection not found');
+  if (l.wallet !== wallet && !admin) throw forbidden('Not your collection');
+  const t = now(); await col('launches').doc(id).update({ revealedAt: t, revealMode: 'instant' });
+  const its = await queryDocs(col('items').where('launchId', '==', id));
+  await Promise.all(its.map((i) => col('items').doc(i.id).update({ revealedAt: t })));
+  return { revealed: its.length };
+}
+export async function revealPlatformDrop(collectionId) {
+  const t = now(), c = (await listCollections()).find((x) => x.id === collectionId); if (!c || !c.drop) throw notFound('No drop for this collection');
+  await col('collections').doc(collectionId).set({ drop: { ...c.drop, revealedAt: t } }, { merge: true }); invalidateCollections();
+  const its = await queryDocs(col('items').where('dropId', '==', 'gta-' + collectionId));
+  await Promise.all(its.map((i) => col('items').doc(i.id).update({ revealedAt: t })));
+  return { revealed: its.length };
 }
 export const myLaunches = (wallet) => queryDocs(col('launches').where('wallet', '==', wallet)).then((r) => r.sort((a, b) => b.createdAt - a.createdAt));
 export const listLaunches = (status) => queryDocs(status ? col('launches').where('status', '==', status) : col('launches')).then((r) => r.sort((a, b) => b.createdAt - a.createdAt));
@@ -88,8 +108,8 @@ export async function listDrops() {
   const [cols, launches, items] = await Promise.all([listCollections(), queryDocs(col('launches')), queryDocs(col('items'))]);
   const count = new Map(), minted = new Map();
   for (const i of items) { if (i.hidden) continue; const k = i.collectionId || i.era; count.set(k, (count.get(k) || 0) + 1); if (i.status === 'minted') minted.set(k, (minted.get(k) || 0) + 1); }
-  const platform = cols.filter((c) => c.drop && c.drop.published).map((c) => ({ id: 'gta-' + c.id, kind: 'platform', collectionId: c.id, name: c.name, creator: 'GTA Marketplace', verified: true, logo: c.cover || c.banner, banner: c.banner || c.cover, preReveal: c.drop.preReveal || c.cover, description: c.blurb || '', theme: c.id, supply: c.drop.supply || count.get(c.id) || 0, artCount: count.get(c.id) || 0, minted: minted.get(c.id) || 0, stages: c.drop.stages, revealMode: c.drop.revealMode, revealAt: c.drop.revealAt, royaltyPct: 5 }));
-  const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, creatorName: l.wallet === config.auth.platformWallet ? 'GTA Marketplace' : null, verified: true, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length }));
+  const platform = cols.filter((c) => c.drop && c.drop.published).map((c) => ({ id: 'gta-' + c.id, kind: 'platform', collectionId: c.id, name: c.name, creator: 'GTA Marketplace', verified: true, logo: c.cover || c.banner, banner: c.banner || c.cover, preReveal: c.drop.preReveal || c.cover, description: c.blurb || '', theme: c.id, supply: c.drop.supply || count.get(c.id) || 0, artCount: count.get(c.id) || 0, minted: minted.get(c.id) || 0, stages: c.drop.stages, revealMode: c.drop.revealMode, revealAt: c.drop.revealAt, revealedAt: c.drop.revealedAt || null, royaltyPct: 5 }));
+  const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, creatorName: l.wallet === config.auth.platformWallet ? 'GTA Marketplace' : null, verified: true, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length, revealedAt: l.revealedAt || null }));
   const t = now();
   return [...platform, ...creator].map((d) => shape(d, t));
 }

@@ -736,3 +736,6 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 .brk { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); margin-bottom: 10px; } .brk div { display: flex; justify-content: space-between; font-weight: 700; color: var(--dim); font-size: 14px; } .brk b { color: #fff; } .brk em { font-style: normal; color: var(--dim); font-weight: 600; font-size: 12px; }
 .brk .tot { padding-top: 8px; border-top: 1px solid var(--line); } .brk .tot span { color: #fff; } .brk .tot b { font-size: 18px; color: #29e07f; } .warn-t { color: #ffd24d; font-size: 13px; font-weight: 700; }
 .wn .vf { width: 13px; height: 13px; margin-left: 3px; }
+.lart-b { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.cx-id p, .dh-id small, .dc-by { gap: 5px; } .dc-by, .dh-id small { display: flex; align-items: center; }
+.lart { grid-template-columns: 1fr; } .lart-b { justify-content: flex-start; }
