@@ -30,7 +30,7 @@ async function computeStats() {
 const shown = (it) => (it ? masked(it) : it); // an unrevealed piece never leaks its art or name through the feeds
 const memo = (fn, ttl) => { let c = { at: 0, v: null, args: '' }; return async (...a) => { const k = JSON.stringify(a); if (c.v && c.args === k && Date.now() - c.at < ttl) return c.v; const v = await fn(...a); c = { at: Date.now(), v, args: k }; return v; }; };
 export const collectionsSummary = memo(async function collectionsSummaryRaw() {
-  const [items, sl, listings, reg0, launches] = await Promise.all([queryDocs(col('items')), sales(), queryDocs(col('listings').where('status', '==', 'active')), listCollections(), queryDocs(col('launches'))]);
+  const [items, sl, listings, reg0, launches, actOffers] = await Promise.all([queryDocs(col('items')), sales(), queryDocs(col('listings').where('status', '==', 'active')), listCollections(), queryDocs(col('launches')), queryDocs(col('offers').where('status', '==', 'active'))]);
   const reg = [...reg0, ...launches.filter((l) => !reg0.some((c) => c.id === l.id)).map((l) => ({ id: l.id, name: l.name, blurb: l.description, cover: l.logo, banner: l.banner, creator: l.wallet }))];
   const regBy = new Map(reg.map((c) => [c.id, c]));
   const cidOf = (i) => i.collectionId || i.era;
@@ -52,7 +52,7 @@ export const collectionsSummary = memo(async function collectionsSummaryRaw() {
       id: era, era: ERAS[era] ? era : mine[0]?.era || era, name: r?.name || meta.label, blurb: r?.blurb || '', cover: r?.cover || '', banner: r?.banner || '', creator: r?.creator || null, short: meta.short, address: r?.address || null, live: !!(r && r.status === 'live' && r.address), covers: mine.slice(0, 4).map((i) => i.image),
       items: mine.length, minted: mine.filter((i) => i.status === 'minted').length,
       owners: new Set(mine.map((i) => i.owner).filter(Boolean)).size,
-      floorUsd: floors.length ? Math.min(...floors) : null, lastSaleUsd: lastSale ? lastSale.usd : null, listedCount: floors.length, mintPriceUsd: mintPrices.length ? Math.min(...mintPrices) : null, volumeUsd: roundUsd(vol), vol24Usd: roundUsd(v24), sales24: n24, change24: vPrev > 0 ? Math.round(((v24 - vPrev) / vPrev) * 1000) / 10 : v24 > 0 ? null : 0, isNew24: vPrev === 0 && v24 > 0, likes: mine.reduce((a, i) => a + (i.likes || 0), 0), createdAt: mine.reduce((m, i) => Math.min(m, i.createdAt || m), Date.now())
+      floorUsd: floors.length ? Math.min(...floors) : null, lastSaleUsd: lastSale ? lastSale.usd : null, topOfferUsd: Math.max(0, ...actOffers.filter((o) => eraOf.get(o.itemId) === era).map((o) => o.usdAtPlacement || 0)) || null, listedCount: floors.length, mintPriceUsd: mintPrices.length ? Math.min(...mintPrices) : null, volumeUsd: roundUsd(vol), vol24Usd: roundUsd(v24), sales24: n24, change24: vPrev > 0 ? Math.round(((v24 - vPrev) / vPrev) * 1000) / 10 : v24 > 0 ? null : 0, isNew24: vPrev === 0 && v24 > 0, likes: mine.reduce((a, i) => a + (i.likes || 0), 0), createdAt: mine.reduce((m, i) => Math.min(m, i.createdAt || m), Date.now())
     };
   }).filter((c) => c.items > 0);
 }, 20_000);

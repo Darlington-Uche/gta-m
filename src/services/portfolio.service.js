@@ -15,11 +15,11 @@ export async function portfolio(wallet) {
   const byCol = new Map();
   for (const it of nfts) {
     const id = it.collectionId || it.era, c = cols.find((x) => x.id === id) || {};
-    const cost = paid.get(String(it.id)) ?? paid.get(it.id) ?? 0.1, value = c.floorUsd ?? c.lastSaleUsd ?? it.lastSaleUsd ?? cost; // no floor right now: last sale price, else what it cost (never $0)
-    const g = byCol.get(id) || { id, name: c.name || it.eraLabel || id, cover: c.cover || c.banner || '', floorUsd: c.floorUsd ?? null, count: 0, valueUsd: 0, costUsd: 0, items: [] };
-    g.count++; g.valueUsd = r2(g.valueUsd + (value || 0)); g.costUsd = r2(g.costUsd + (paid.get(String(it.id)) ?? paid.get(it.id) ?? 0.1)); g.items.push(it.id); byCol.set(id, g);
+    const cost = paid.get(String(it.id)) ?? paid.get(it.id) ?? 0.1, value = c.floorUsd ?? c.topOfferUsd ?? null; // worth = the floor, else the best offer; with neither there is no price yet
+    const g = byCol.get(id) || { id, name: c.name || it.eraLabel || id, cover: c.cover || c.banner || '', floorUsd: c.floorUsd ?? null, count: 0, priced: 0, valueUsd: 0, costUsd: 0, items: [] };
+    g.count++; g.items.push(it.id); if (value != null) { g.priced++; g.valueUsd = r2(g.valueUsd + value); g.costUsd = r2(g.costUsd + cost); } byCol.set(id, g);
   }
-  for (const g of byCol.values()) { g.pnlUsd = r2(g.valueUsd - g.costUsd); g.pnlPct = g.costUsd > 0 ? Math.round((g.pnlUsd / g.costUsd) * 1000) / 10 : null; }
+  for (const g of byCol.values()) { g.hasPrice = g.priced > 0; g.pnlUsd = g.hasPrice ? r2(g.valueUsd - g.costUsd) : null; g.pnlPct = g.hasPrice && g.costUsd > 0 ? Math.round((g.pnlUsd / g.costUsd) * 1000) / 10 : null; }
   const groups = [...byCol.values()].sort((a, b) => b.valueUsd - a.valueUsd || b.count - a.count);
   const nftUsd = r2(groups.reduce((a, g) => a + g.valueUsd, 0));
   const costUsd = r2(groups.reduce((a, g) => a + g.costUsd, 0));
