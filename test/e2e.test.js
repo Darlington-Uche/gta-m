@@ -481,3 +481,23 @@ test('admin panel password login: right password -> admin token; wrong password 
   assert.equal((await call('GET', '/admin/stats')).status, 401);
   assert.equal((await call('GET', '/admin/stats', null, T.B)).status, 403); // a normal wallet is still not admin
 });
+
+test('bulk: offers on several NFTs are ONE payment / one signature, and the owner can sell to offers in one request', async () => {
+  const minted = (await call('GET', '/items?status=minted&limit=50')).items.filter((i) => i.owner !== W.F && !i.platformOwned);
+  const pick = minted.filter((i) => !(i.offers && i.offers.count >= 5)).slice(0, 3);
+  assert.ok(pick.length >= 2, 'need at least 2 minted NFTs held by others');
+  const before = await bal(W.F);
+  const prep = await call('POST', '/offers/bulk', { itemIds: pick.map((i) => i.id), usd: 3 }, T.F);
+  assert.equal(prep.status, 200, JSON.stringify(prep));
+  assert.equal(prep.count, pick.length); assert.equal(prep.offerIds.length, pick.length);
+  await run(prep, W.F, T.F); // one signature for all
+  for (const i of pick) { const os = (await call('GET', `/items/${i.id}/offers`)).offers; assert.ok(os.some((o) => o.bidder === W.F && o.usd === 3), `offer on ${i.id}`); }
+  assert.ok(before - (await bal(W.F)) >= pick.length * 0.03 * SOL * 0.9, 'paid for all offers in one go');
+  assert.equal((await call('POST', '/offers/bulk', { itemIds: pick.map((i) => i.id), usd: 3 }, T.F)).status, 409); // already offered everywhere
+  // seller side: accept the top offer of the first NFT through the bulk endpoint
+  const first = pick[0], ownerKey = Object.keys(W).find((k) => W[k] === first.owner), top = (await call('GET', `/items/${first.id}/offers`)).offers[0];
+  const sell = await call('POST', '/offers/accept-bulk', { offerIds: [top.id] }, T[ownerKey]);
+  assert.equal(sell.status, 200, JSON.stringify(sell)); assert.equal(sell.ptxs.length, 1);
+  await run({ status: 200, ptxId: sell.ptxs[0].ptxId, txB64: sell.ptxs[0].txB64 }, W[ownerKey], T[ownerKey]);
+  assert.equal((await call('GET', `/items/${first.id}`)).item.owner, top.bidder);
+});

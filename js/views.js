@@ -1,10 +1,10 @@
 import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, historyFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow, who, http } from './core.js';
 
 const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>';
-export const poster = (it) => {
+export const poster = (it, sel) => {
   const price = it.state === 'mint' ? `<span class="price ${it.free ? 'free' : ''}">${usd(it.priceUsd)}</span>` : it.state === 'listed' ? `<span class="price listed">${usd(it.priceUsd)}</span>` : `<span class="price own">${it.owner ? who(it.owner) : 'Owned'}</span>`;
   return `<a class="card" href="#/art/${esc(it.id)}"><div class="thumb">${it.img ? imgTag(it.img, it.title, 560, 'fill') : ''}${imgTag(it.img, it.title, 560)}
-  <button class="like ${S.likes.has(String(it.id)) ? 'on' : ''}" data-like="${esc(it.id)}" aria-label="Like">${heart}<span>${it.likes}</span></button></div>
+  ${sel ? `<button class="sel ${sel.on ? 'on' : ''}" data-sel="${esc(it.id)}" aria-label="Select"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>` : `<button class="like ${S.likes.has(String(it.id)) ? 'on' : ''}" data-like="${esc(it.id)}" aria-label="Like">${heart}<span>${it.likes}</span></button>`}</div>
   <div class="meta"><div><h3>${esc(it.title)}</h3><p><i class="rb ${esc(it.rarity)}"></i>${esc(it.eraShort)} · ${esc(it.category || '')}</p></div>${price}</div></a>`;
 };
 const skels = (n) => `<div class="grid">${'<div class="skel"></div>'.repeat(n)}</div>`;

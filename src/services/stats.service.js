@@ -46,13 +46,14 @@ export const collectionsSummary = memo(async function collectionsSummaryRaw() {
     const mineSales = sl.filter((s) => eraOf.get(s.itemId) === era), DAY = 864e5, t = Date.now();
     const vol = mineSales.reduce((a, s) => a + (s.usd || 0), 0);
     const v24 = mineSales.filter((s) => t - s.createdAt < DAY).reduce((a, s) => a + (s.usd || 0), 0), vPrev = mineSales.filter((s) => t - s.createdAt >= DAY && t - s.createdAt < 2 * DAY).reduce((a, s) => a + (s.usd || 0), 0);
+    const lows = mineSales.filter((x) => x.type !== 'mint' && (x.usd || 0) > 0 && t - x.createdAt < DAY).map((x) => x.usd), lowSale24 = lows.length ? Math.min(...lows) : null; // floor = the lowest price anything sold for in the last 24h, even a sale to the top offer
     const lastSale = [...mineSales].filter((x) => (x.usd || 0) > 0).sort((a, b) => b.createdAt - a.createdAt)[0];
     const n24 = mineSales.filter((s) => t - s.createdAt < DAY).length;
     return {
       id: era, era: ERAS[era] ? era : mine[0]?.era || era, name: r?.name || meta.label, blurb: r?.blurb || '', cover: r?.cover || '', banner: r?.banner || '', creator: r?.creator || null, short: meta.short, address: r?.address || null, live: !!(r && r.status === 'live' && r.address), covers: mine.slice(0, 4).map((i) => i.image),
       items: mine.length, minted: mine.filter((i) => i.status === 'minted').length,
       owners: new Set(mine.map((i) => i.owner).filter(Boolean)).size,
-      floorUsd: floors.length ? Math.min(...floors) : null, lastSaleUsd: lastSale ? lastSale.usd : null, topOfferUsd: Math.max(0, ...actOffers.filter((o) => eraOf.get(o.itemId) === era).map((o) => o.usdAtPlacement || 0)) || null, listedCount: floors.length, mintPriceUsd: mintPrices.length ? Math.min(...mintPrices) : null, volumeUsd: roundUsd(vol), vol24Usd: roundUsd(v24), sales24: n24, change24: vPrev > 0 ? Math.round(((v24 - vPrev) / vPrev) * 1000) / 10 : v24 > 0 ? null : 0, isNew24: vPrev === 0 && v24 > 0, likes: mine.reduce((a, i) => a + (i.likes || 0), 0), createdAt: mine.reduce((m, i) => Math.min(m, i.createdAt || m), Date.now())
+      floorUsd: lowSale24 != null ? lowSale24 : null, lowestListUsd: floors.length ? Math.min(...floors) : null, lastSaleUsd: lastSale ? lastSale.usd : null, topOfferUsd: Math.max(0, ...actOffers.filter((o) => eraOf.get(o.itemId) === era).map((o) => o.usdAtPlacement || 0)) || null, listedCount: floors.length, mintPriceUsd: mintPrices.length ? Math.min(...mintPrices) : null, volumeUsd: roundUsd(vol), vol24Usd: roundUsd(v24), sales24: n24, change24: vPrev > 0 ? Math.round(((v24 - vPrev) / vPrev) * 1000) / 10 : v24 > 0 ? null : 0, isNew24: vPrev === 0 && v24 > 0, likes: mine.reduce((a, i) => a + (i.likes || 0), 0), createdAt: mine.reduce((m, i) => Math.min(m, i.createdAt || m), Date.now())
     };
   }).filter((c) => c.items > 0);
 }, 20_000);

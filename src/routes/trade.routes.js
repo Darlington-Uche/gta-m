@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { prepareCollect } from '../services/platform.service.js';
-import { cancelOffer, prepareAccept, prepareOffer, rejectOffer } from '../services/offers.service.js';
+import { cancelOffer, prepareAccept, prepareBulkAccept, prepareBulkOffer, rejectOffer, prepareOffer } from '../services/offers.service.js';
 import { cancelListing, prepareBuy, prepareList, updateListing } from '../services/listings.service.js';
 import { getPtxFor, submitPtx } from '../services/pendingTx.service.js';
 import { idParam, usd } from './schemas.js';
@@ -13,6 +13,8 @@ export const routes = [
     summary: 'PREPARE an offer on any minted NFT (no listing needed). Amount in USD, charged in SOL at the current price into escrow. Returns unsigned payment tx.',
     handler: async (req) => prepareOffer({ wallet: req.user.wallet, itemId: req.valid.params.id, usd: req.valid.body.usd })
   },
+  { method: 'post', path: '/offers/bulk', auth: 'user', body: z.object({ itemIds: z.array(z.string().max(128)).min(1).max(20), usd }), summary: 'PREPARE offers on several NFTs with ONE payment (one signature)', handler: async (req) => prepareBulkOffer({ wallet: req.user.wallet, ...req.valid.body }) },
+  { method: 'post', path: '/offers/accept-bulk', auth: 'user', body: z.object({ offerIds: z.array(z.string().max(128)).min(1).max(10) }), summary: 'PREPARE selling several NFTs to their offers; returns one tx per offer to sign together', handler: async (req) => prepareBulkAccept({ wallet: req.user.wallet, ...req.valid.body }) },
   { method: 'delete', path: '/offers/:id', auth: 'user', params: idParam, summary: 'Cancel my active offer (SOL is refunded from the vault)', handler: async (req) => cancelOffer({ wallet: req.user.wallet, offerId: req.valid.params.id }) },
   { method: 'post', path: '/offers/:id/reject', auth: 'user', params: idParam, summary: 'Owner declines an offer (bidder is refunded)', handler: async (req) => rejectOffer({ wallet: req.user.wallet, offerId: req.valid.params.id }) },
   {

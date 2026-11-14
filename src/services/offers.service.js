@@ -91,6 +91,53 @@ async function offerPaymentRollback(ptx) {
 }
 registerHandler('offer_payment', { finalize: offerPaymentFinalize, rollback: offerPaymentRollback });
 
+/* ---------- bulk: offers on several NFTs with ONE payment / one signature ---------- */
+export async function prepareBulkOffer({ wallet, itemIds, usd }) {
+  const settings = await getSettings();
+  if (!settings.tradingEnabled) throw unavailable('Trading is paused right now');
+  const win = bidWindowState(settings);
+  if (!win.open) throw conflict('bid_window_closed', 'Offers are only accepted during the bidding window', win);
+  if (usd < settings.minOfferUsd) throw bad('offer_too_low', `Minimum offer is $${settings.minOfferUsd}`);
+  const ids = [...new Set(itemIds.map(String))].slice(0, 20);
+  const q = await quoteUsd(usd), ptxId = newPtxId(), made = [], skipped = [];
+  for (const id of ids) {
+    try {
+      const item = await getItemRaw(id);
+      if (item.hidden || item.status !== 'minted' || !item.owner) throw new Error('not for offers');
+      if (item.owner === wallet) throw new Error('yours'); if (item.platformOwned) throw new Error('platform');
+      const ref = col('offers').doc();
+      await runTx(async (tx) => {
+        const [act, pend] = await Promise.all([tx.get(col('offers').where('itemId', '==', item.id).where('status', '==', 'active')), tx.get(col('offers').where('itemId', '==', item.id).where('status', '==', 'pending_payment'))]);
+        if ([...act.docs, ...pend.docs].some((d) => d.data().bidder === wallet)) throw new Error('already offered');
+        if (act.size >= settings.maxActiveOffersPerItem) throw new Error('full');
+        tx.set(ref, { itemId: item.id, asset: item.asset, bidder: wallet, lamports: q.lamports, usdAtPlacement: usd, solUsdAtPlacement: q.solUsd, status: 'pending_payment', ptxId, createdAt: now() });
+      });
+      made.push(ref.id);
+    } catch (e) { skipped.push({ itemId: id, reason: e.message }); }
+  }
+  if (!made.length) throw conflict('nothing_to_offer', 'No NFT here can take your offer right now');
+  try {
+    const total = q.lamports * made.length;
+    const built = await chain.buildPaymentTx({ payer: wallet, lamports: total });
+    const ptx = await createPtx({ id: ptxId, kind: 'offer_bulk_payment', wallet, refId: made[0], data: { offerIds: made, lamports: q.lamports }, built });
+    return { ...publicPtx(ptx), txB64: built.txB64, offerIds: made, count: made.length, skipped, price: { usd, each: q.lamports, totalUsd: usd * made.length, totalSol: lamportsToSol(total), solUsd: q.solUsd } };
+  } catch (e) { for (const id of made) await offerPaymentRollback({ data: { offerId: id } }); throw e; }
+}
+registerHandler('offer_bulk_payment', {
+  finalize: async (ptx) => { for (const offerId of ptx.data.offerIds) await offerPaymentFinalize({ ...ptx, data: { offerId, lamports: ptx.data.lamports } }); },
+  rollback: async (ptx) => { for (const offerId of ptx.data.offerIds) await offerPaymentRollback({ data: { offerId } }); }
+});
+/** Sell several NFTs at once: one prepared tx per offer, all returned together so the wallet signs them in a single approval. */
+export async function prepareBulkAccept({ wallet, offerIds }) {
+  const out = [], skipped = [];
+  for (const offerId of [...new Set(offerIds.map(String))].slice(0, 10)) {
+    try { const p = await prepareAccept({ wallet, offerId }); out.push({ offerId, ptxId: p.ptxId, txB64: p.txB64, usd: (await getDoc('offers', offerId))?.usdAtPlacement }); }
+    catch (e) { skipped.push({ offerId, reason: e.message }); }
+  }
+  if (!out.length) throw conflict('nothing_to_sell', skipped[0]?.reason || 'No offer could be accepted right now');
+  return { ptxs: out, skipped };
+}
+
 const shortWallet = (w) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 
 /* ---------- cancel / reject ---------- */

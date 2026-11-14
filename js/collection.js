@@ -1,5 +1,5 @@
 // Collection page v2: header + stats like a trading app, tabs swap in place (About · Items · Owned · Holders · Activity · Analytics).
-import { S, $, $$, esc, usd, sol, short, ago, imgTag, items, http, explorer, toast, walletModal, who, modal, act, runTx } from './core.js';
+import { S, $, $$, esc, usd, sol, short, ago, imgTag, items, http, explorer, toast, walletModal, who, modal, act, actMany, runTx, offersFor } from './core.js';
 import { poster } from './views.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
@@ -64,29 +64,46 @@ export async function collection({ args: [id], q }) {
 
 function mountCollection(root, c, id, start) {
   const pane = $('#cx-pane', root), bar = $('.cx-tabs', root), ind = $('.ind', bar);
-  let tab = start, range = 30, metric = 'n', sort = 'liked', term = '', list = [], total = 0;
+  const picked = new Set(); let tab = start, range = 30, metric = 'n', sort = 'liked', term = '', list = [], total = 0;
   const moveInd = () => { const a = $('a.on', bar); if (a && (a.offsetLeft < bar.scrollLeft + 8 || a.offsetLeft + a.offsetWidth > bar.scrollLeft + bar.clientWidth - 8)) bar.scrollTo({ left: Math.max(0, a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2), behavior: 'smooth' }); if (a && ind) { ind.style.width = a.offsetWidth + 'px'; ind.style.transform = `translateX(${a.offsetLeft}px)`; requestAnimationFrame(() => bar.classList.add('ready')); } };
   const holderRow = (h, i) => `<div class="hrow2"><span class="rank">${i + 1}</span><i class="av" style="--h:${hue(h.wallet)}"></i><b>${who(h.wallet)}</b><span class="n">${h.n} item${h.n > 1 ? 's' : ''}</span><em>${c.items ? Math.round((h.n / c.items) * 1000) / 10 : 0}%</em></div>`;
   const actRow = (a) => { const [l, k] = KIND[a.type] || ['Trade', 'sale']; return `<a class="arow" href="#/art/${encodeURIComponent(a.itemId)}"><span class="ai">${imgTag(a.image, a.title || '', 100)}</span><div><b>${esc(a.title || 'Artwork')}</b><small><span class="tag ${k}">${l}</span>${a.type === 'platform_buy' ? who(a.seller) : who(a.buyer)}</small></div><div class="r"><b>${a.usd ? usd(a.usd) : 'FREE'}</b><small>${ago(a.at)}</small></div></a>`; };
-  const gridHtml = () => { const f = term ? list.filter((it) => (it.title + ' ' + (it.category || '') + ' ' + (it.rarity || '')).toLowerCase().includes(term)) : list; return f.length ? `<div class="grid">${f.map(poster).join('')}</div>` : '<div class="empty"><b>Nothing found</b>Try a different search.</div>'; };
+  const canPick = (it) => tab === 'owned' ? it.owner === S.wallet && it.offers && it.offers.count > 0 : tab === 'items' && it.minted && it.owner && it.owner !== S.wallet && !it.platformOwned;
+  const cache = new Map(); const remember = (arr) => arr.forEach((i) => cache.set(String(i.id), i));
+  const selBar = () => {
+    let b = $('#selbar'); const n = picked.size;
+    if (!n) { b && b.remove(); return; }
+    if (!b) { b = document.createElement('div'); b.id = 'selbar'; b.className = 'selbar glass'; document.body.appendChild(b); }
+    const mineTab = tab === 'owned', total = mineTab ? [...picked].reduce((a, k) => a + ((cache.get(k) || {}).offers?.topUsd || 0), 0) : 0;
+    b.innerHTML = `<button class="rbtn" data-clr aria-label="Clear">✕</button><b>${n}</b><span>selected</span><button class="btn" data-all>All</button><button class="btn primary" data-go>${mineTab ? `Sell to offers · ${usd(total)}` : 'Make offer'}</button>`;
+    b.onclick = (e) => { const t = e.target.closest('button'); if (!t) return;
+      if (t.hasAttribute('data-clr')) { picked.clear(); sync(); }
+      else if (t.hasAttribute('data-all')) { $$('.sel', pane).forEach((x) => picked.add(x.dataset.sel)); sync(); }
+      else if (mineTab) sellPicked([...picked].map((k) => cache.get(k)).filter(Boolean), () => { picked.clear(); sync(); render(); });
+      else bulkOffer([...picked], () => { picked.clear(); sync(); }); };
+  };
+  const sync = () => { $$('.sel', pane).forEach((x) => x.classList.toggle('on', picked.has(x.dataset.sel))); selBar(); };
+  pane.addEventListener('click', (e) => { const t = e.target.closest('.sel'); if (!t) return; e.preventDefault(); e.stopPropagation(); const k = t.dataset.sel; if (picked.has(k)) picked.delete(k); else picked.add(k); sync(); });
+  const gridHtml = () => { const f = term ? list.filter((it) => (it.title + ' ' + (it.category || '') + ' ' + (it.rarity || '')).toLowerCase().includes(term)) : list; return f.length ? `<div class="grid">${f.map((it) => poster(it, canPick(it) ? { on: picked.has(String(it.id)) } : undefined)).join('')}</div>` : '<div class="empty"><b>Nothing found</b>Try a different search.</div>'; };
   async function load(more) {
-    const r = await items({ era: id, sort, limit: 60, page: more ? Math.floor(list.length / 60) + 1 : 1 }); list = more ? list.concat(r.items) : r.items; total = r.total;
+    const r = await items({ era: id, sort, limit: 60, page: more ? Math.floor(list.length / 60) + 1 : 1 }); list = more ? list.concat(r.items) : r.items; total = r.total; remember(r.items);
   }
   async function render() {
+    if (pane.dataset.t !== tab) { picked.clear(); pane.dataset.t = tab; selBar(); }
     $$('a', bar).forEach((a) => a.classList.toggle('on', a.dataset.k === tab)); moveInd();
     if (tab === 'about') pane.innerHTML = `<div class="about glass"><p>${esc(c.blurb || c.name + ' — original GTA-inspired art on Solana.')}</p><dl>
       <dt>Era</dt><dd>${esc(c.short || c.era)}</dd><dt>Supply</dt><dd>${c.items}</dd><dt>Collected</dt><dd>${c.minted}</dd><dt>Network</dt><dd>Solana ${esc(S.meta.network)}</dd><dt>Creator</dt><dd>GTA Marketplace ${tick}</dd>
       ${c.address ? `<dt>Address</dt><dd><a href="https://explorer.solana.com/address/${esc(c.address)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}" target="_blank" rel="noopener">${short(c.address)} ↗</a></dd>` : ''}</dl></div>`;
     else if (tab === 'items') {
-      pane.innerHTML = `<div class="bulkbar"><button class="btn primary" id="cx-bulk">Make offers</button></div><div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="liked">Most liked</option><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;
-      $('#cx-sort', root).value = sort; $('#cx-bulk', root).onclick = () => bulkOffer(c, id);
+      pane.innerHTML = `<div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="liked">Most liked</option><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;
+      $('#cx-sort', root).value = sort;
       if (!list.length) await load(); if (tab !== 'items') return;
       $('#cx-grid', root).innerHTML = gridHtml() + (list.length < total ? '<div class="pager"><button class="btn" id="cx-more">Load more</button></div>' : '');
     } else if (tab === 'owned') {
       if (!S.wallet) { pane.innerHTML = '<div class="empty"><b>Connect your wallet</b>See which pieces of this collection you own.<br><button class="btn primary" id="cx-cw" style="margin-top:14px">Connect wallet</button></div>'; $('#cx-cw', root).onclick = walletModal; return; }
       pane.innerHTML = '<div class="grid"><div class="skel"></div><div class="skel"></div></div>';
       const r = await items({ era: id, owner: S.wallet, limit: 60 }); if (tab !== 'owned') return;
-      pane.innerHTML = r.items.length ? `<div class="grid">${r.items.map(poster).join('')}</div>` : '<div class="empty"><b>You own nothing here yet</b>Collect a piece and it shows up here.</div>';
+      remember(r.items); pane.innerHTML = r.items.length ? `<div class="grid">${r.items.map((it) => poster(it, canPick(it) ? { on: picked.has(String(it.id)) } : undefined)).join('')}</div>` : '<div class="empty"><b>You own nothing here yet</b>Collect a piece and it shows up here.</div>';
     } else if (tab === 'holders') pane.innerHTML = c.holders.length ? `<div class="hl glass">${c.holders.map(holderRow).join('')}</div>` : '<div class="empty"><b>No holders yet</b>Collected pieces appear here.</div>';
     else if (tab === 'activity') pane.innerHTML = c.activity.length ? `<div class="al glass">${c.activity.map(actRow).join('')}</div>` : '<div class="empty"><b>No activity yet</b>Mints, sales and offers will show up here.</div>';
     else pane.innerHTML = analytics(c, range, metric);
@@ -107,26 +124,36 @@ function mountCollection(root, c, id, start) {
   return () => removeEventListener('resize', moveInd);
 }
 
-/** Offer on several pieces of a collection at once: pick how many and how much each. */
-async function bulkOffer(c, id) {
+/** Offers on the selected pieces: one price for each, ONE payment and one signature for all of them. */
+function bulkOffer(ids, done) {
   if (!S.wallet) return walletModal();
-  const r = await items({ era: id, status: 'minted', limit: 100 }).catch(() => ({ items: [] }));
-  const pool = r.items.filter((i) => i.owner && i.owner !== S.wallet && !i.platformOwned);
-  if (!pool.length) return toast('Nothing to offer on yet', 'bad');
-  const solUsd = (S.meta && S.meta.solUsd) || 0, min = ((S.meta && S.meta.settings) || {}).minOfferUsd || 1;
-  modal(`<button class="x" data-x>✕</button><h2 class="display">Make offers</h2><div class="bulk-f">
+  const solUsd = (S.meta && S.meta.solUsd) || 0, min = ((S.meta && S.meta.settings) || {}).minOfferUsd || 1, n = ids.length;
+  modal(`<button class="x" data-x>✕</button><h2 class="display">Offer on ${n} NFT${n > 1 ? 's' : ''}</h2><div class="bulk-f">
     <label class="field">Price for each (USD)<input id="bp" class="input big" type="number" min="${min}" step="0.01" placeholder="0.00"></label>
-    <div class="qty"><button type="button" data-d="-1">−</button><b id="bq">1</b><button type="button" data-d="1">+</button></div>
     <div class="tot"><span>Total</span><b id="bt">$0</b></div><p class="fine" id="bs"></p>
-    <div class="txfoot"><button class="btn primary" data-go>Send offers</button></div></div>`, (m, close) => {
-    let q = 1; const inp = $('#bp', m), upd = () => { const v = +inp.value || 0; $('#bq', m).textContent = q; $('#bt', m).textContent = usd(v * q); $('#bs', m).textContent = (solUsd && v ? `≈ ${sol((v * q) / solUsd)} held safely until the offers end. ` : '') + `${pool.length} available`; };
+    <div class="txfoot"><button class="btn primary" data-go>Send ${n > 1 ? 'offers' : 'offer'}</button></div></div>`, (m, close) => {
+    const inp = $('#bp', m), upd = () => { const v = +inp.value || 0; $('#bt', m).textContent = usd(v * n); $('#bs', m).textContent = solUsd && v ? `≈ ${sol((v * n) / solUsd)} held safely until the offers end. One approval for all.` : 'One approval for all.'; };
     $('[data-x]', m).onclick = close; inp.oninput = upd; upd(); inp.focus();
-    m.addEventListener('click', (e) => { const d = e.target.closest('[data-d]'); if (d) { q = Math.max(1, Math.min(pool.length, q + +d.dataset.d)); upd(); } });
     $('[data-go]', m).onclick = async () => {
       const v = +inp.value; if (!(v >= min)) return toast(`Minimum offer is $${min}`, 'bad'); close();
-      let ok = 0;
-      for (const it of pool) { if (ok >= q) break; try { await runTx(`Offer ${ok + 1} of ${q}`, (ui) => act('POST', `/items/${it.id}/offers`, { usd: v }, ui), ok + 1 === q ? 'All offers sent' : ''); ok++; } catch (e) { if (e && e.code === 'offer_exists') continue; break; } }
+      try { const r = await runTx('Sending offers', (ui) => act('POST', '/offers/bulk', { itemIds: ids, usd: v }, ui), `${n} offer${n > 1 ? 's' : ''} sent`); done && done(); if (r && r.prep && r.prep.skipped && r.prep.skipped.length) toast(`${r.prep.skipped.length} skipped (already offered or not available)`); } catch (_) { /* shown in the dialog */ }
       window.dispatchEvent(new HashChangeEvent('hashchange'));
     };
   });
 }
+/** Sell the selected pieces to their top offers: one wallet approval per 10 pieces. */
+async function sellPicked(its, done) {
+  if (!S.wallet) return walletModal();
+  let ids = [], sum = 0;
+  try { for (const it of its) { const o = (await offersFor(it.id))[0]; if (o) { ids.push(o.id); sum += o.usd; } } } catch (_) { return toast('Could not load offers', 'bad'); }
+  if (!ids.length) return toast('No offers to accept', 'bad');
+  modal(`<button class="x" data-x>✕</button><h2 class="display">Sell ${ids.length} NFT${ids.length > 1 ? 's' : ''}</h2><div class="bulk-f"><div class="tot"><span>Top offers total</span><b>${usd(sum)}</b></div><p class="fine">Platform fee and network fee are taken from each sale. One approval for up to 10 NFTs.</p><div class="txfoot"><button class="btn primary" data-go>Sell now</button></div></div>`, (m, close) => {
+    $('[data-x]', m).onclick = close;
+    $('[data-go]', m).onclick = async () => {
+      close();
+      for (let i = 0; i < ids.length; i += 10) { try { await runTx('Selling', (ui) => actMany('POST', '/offers/accept-bulk', { offerIds: ids.slice(i, i + 10) }, ui), 'Sold!'); } catch (_) { break; } }
+      done && done(); window.dispatchEvent(new HashChangeEvent('hashchange'));
+    };
+  });
+}
+window.addEventListener('hashchange', () => { if (!/^#\/collection\//.test(location.hash)) { const b = document.getElementById('selbar'); if (b) b.remove(); } });

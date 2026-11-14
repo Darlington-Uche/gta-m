@@ -129,6 +129,12 @@ function stdProvider(w) {
       const [r] = await w.features['solana:signTransaction'].signTransaction({ account: acct, transaction: tx.serialize(), chain: CFG.NETWORK === 'mainnet-beta' || (S.meta && S.meta.network === 'mainnet-beta') ? 'solana:mainnet' : 'solana:devnet' });
       return { serialize: () => r.signedTransaction };
     },
+    async signAllTransactions(txs) {
+      if (!acct) acct = pick(w.accounts); if (!acct) await this.connect();
+      const chain = CFG.NETWORK === 'mainnet-beta' || (S.meta && S.meta.network === 'mainnet-beta') ? 'solana:mainnet' : 'solana:devnet';
+      const rs = await w.features['solana:signTransaction'].signTransaction(...txs.map((tx) => ({ account: acct, transaction: tx.serialize(), chain })));
+      return rs.map((r) => ({ serialize: () => r.signedTransaction }));
+    },
     disconnect() { try { w.features['standard:disconnect'] && w.features['standard:disconnect'].disconnect(); } catch (_) { /* ignore */ } }
   };
 }
@@ -213,6 +219,35 @@ async function signTx(txB64) {
   const w3 = await loadWeb3();
   const signed = await p.signTransaction(w3.VersionedTransaction.deserialize(b64ToBytes(txB64)));
   return bytesToB64(signed.serialize());
+}
+
+/** Signs several prepared transactions with ONE wallet approval where the wallet allows it. */
+async function signTxs(list) {
+  if (S.provider && S.provider.startsWith('test:')) { const out = []; for (const b of list) out.push(await signTx(b)); return out; }
+  const p = PROVIDERS[S.provider] && PROVIDERS[S.provider]();
+  if (!p) throw new ApiError('Reconnect your wallet to sign.', 'no_wallet', 0);
+  const w3 = await loadWeb3(), txs = list.map((b) => w3.VersionedTransaction.deserialize(b64ToBytes(b)));
+  const signed = p.signAllTransactions ? await p.signAllTransactions(txs) : await (async () => { const o = []; for (const t of txs) o.push(await p.signTransaction(t)); return o; })();
+  return signed.map((x) => bytesToB64(x.serialize()));
+}
+/** Like act(), for endpoints that return { ptxs: [{ ptxId, txB64 }] }: one approval signs them all, then each is sent and confirmed. */
+export async function actMany(method, path, body, ui) {
+  if (!S.token) throw new ApiError('Connect your wallet first.', 'auth', 401);
+  const step = (s, x) => ui && ui(s, x);
+  step('prepare');
+  const prep = await http(method, path, body);
+  step('sign', prep);
+  let signed;
+  try { signed = await signTxs(prep.ptxs.map((x) => x.txB64)); } catch (e) { if (e instanceof ApiError) throw e; throw new ApiError(/reject|denied|cancel/i.test(e.message || '') ? 'You cancelled the request in your wallet.' : (e.message || 'Wallet could not sign.'), 'rejected', 0); }
+  step('submit', prep);
+  const done = [];
+  for (let i = 0; i < prep.ptxs.length; i++) {
+    const id = prep.ptxs[i].ptxId; let tx = (await http('POST', '/tx/submit', { ptxId: id, signedTx: signed[i] })).tx;
+    for (let k = 0; k < 40 && tx.status !== 'confirmed'; k++) { step('confirm', tx); if (tx.status === 'failed' || tx.status === 'expired') break; await sleep(1500); tx = (await http('GET', '/tx/' + id)).tx; }
+    done.push(tx.status === 'confirmed');
+  }
+  step('done'); refreshMe().catch(() => {});
+  return { prep, done, ok: done.filter(Boolean).length };
 }
 
 /* ---------- prepare → sign → submit → confirm ---------- */
