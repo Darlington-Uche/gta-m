@@ -6,6 +6,7 @@ import { reconcilePtx } from '../services/pendingTx.service.js';
 import { processPayouts } from '../services/payouts.service.js';
 import { expireOffers } from '../services/offers.service.js';
 import { reconcileOwners } from '../services/ownership.service.js';
+import { syncReveals } from '../services/reveal.service.js';
 import { log } from '../lib/logger.js';
 
 const HOLDER = `${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
@@ -28,6 +29,7 @@ export async function runJobsOnce({ force = false } = {}) {
   await step('reconcileTx', reconcilePtx);
   await step('expireOffers', expireOffers);
   await step('payouts', processPayouts);
+  await step('reveals', () => syncReveals());
   if (force || now() - lastOwnerSync > 10 * 60_000) { lastOwnerSync = now(); await step('reconcileOwners', () => reconcileOwners()); }
   return report;
 }

@@ -44,6 +44,8 @@ test('creator drop: allowlist then public, limits, random pick, pre-reveal, payo
   assert.equal((await call('POST', `/launches/${id}/reveal`, null, B)).status, 403);
   assert.equal((await call('POST', `/launches/${id}/reveal`, null, creator)).revealed, 10);
   const after = (await call('GET', `/items?owner=${pub(aKp)}`)).items[0]; assert.equal(after.unrevealed, false); assert.match(after.title, /Vice Nights #\d/);
+  await runJobsOnce({ force: true });
+  assert.match(chain.meta.get(after.asset), /Vice Nights #\d/, 'on-chain name updated at reveal');
 });
 
 test('selling out reveals the collection automatically', async () => {

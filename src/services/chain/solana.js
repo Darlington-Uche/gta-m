@@ -9,7 +9,7 @@ import {
   publicKey, publicKeyBytes, signerIdentity, transactionBuilder
 } from '@metaplex-foundation/umi';
 import { transferSol } from '@metaplex-foundation/mpl-toolbox';
-import { addPlugin, create, createCollection, fetchAsset, fetchCollection, mplCore, transfer } from '@metaplex-foundation/mpl-core';
+import { addPlugin, create, createCollection, fetchAsset, fetchCollection, mplCore, transfer, update } from '@metaplex-foundation/mpl-core';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import { createGenericFile, sol as solAmount } from '@metaplex-foundation/umi';
 import { config } from '../../config/index.js';
@@ -266,6 +266,11 @@ export class SolanaChain {
   }
 
   // ---- deployment helper (used by scripts/create-collection.js) ----
+  /** Reveal on-chain: the collection's update authority (us) renames the asset and points it at its final metadata. */
+  async updateAssetMeta({ asset, owner, collection, name, uri }) {
+    const res = await update(this.umi, { asset: this._assetRef(asset, owner), collection: collection ? { publicKey: publicKey(collection), oracles: [], lifecycleHooks: [] } : undefined, name, uri, authority: this.authoritySigner }).sendAndConfirm(this.umi);
+    return { signature: bs58.encode(res.signature) };
+  }
   async createCollection({ name, uri }) {
     const collection = generateSigner(this.umi);
     const res = await createCollection(this.umi, { collection, name, uri, updateAuthority: this.authoritySigner.publicKey }).sendAndConfirm(this.umi);

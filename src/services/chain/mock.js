@@ -165,5 +165,6 @@ export class MockChain {
     return this.height > lastValid ? 'expired' : 'pending';
   }
   async airdrop(address, sol) { this.fund(address, Math.round(sol * 1e9)); return { sol }; }
+  async updateAssetMeta({ asset, name }) { this.meta = this.meta || new Map(); this.meta.set(asset, name); return { signature: 'mock_update_' + asset.slice(0, 6) }; }
   async createCollection({ name }) { return { address: 'MockCollection_' + name.replace(/\W/g, '').slice(0, 20) + '_' + (++this.counter), signature: 'mock' }; }
 }
