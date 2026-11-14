@@ -55,7 +55,7 @@ async function tabBody(tab) {
     const by = new Map(r.items.map((i) => [String(i.id), i]));
     body = pf.groups.length ? `<label class="isearch pf-s"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="pfq" placeholder="Search your items" autocomplete="off"></label>
       <div class="pfg">${pf.groups.map((g, gi) => { const its = g.items.map((id) => by.get(String(id))).filter(Boolean);
-        return `<div class="pgr${gi === 0 ? ' open' : ''}" data-g="${esc(g.id)}"><button class="pgr-h" type="button"><span class="pgr-lg">${imgTag(g.cover || (its[0] && its[0].img), g.name, 120)}</span><span class="pgr-t"><b>${esc(g.name)}</b><small>${g.count} item${g.count > 1 ? 's' : ''}${g.floorUsd != null ? ' · floor ' + (g.floorUsd ? usd(g.floorUsd) : 'free') : ''}</small></span><span class="pgr-v"><b>${g.valueUsd ? usd(g.valueUsd) : '$0'}</b>${pnl(g.pnlUsd, g.pnlPct, g.costUsd)}<small>${g.costUsd > 0 ? 'paid ' + usd(g.costUsd) : g.valueUsd && pf.solUsd ? '≈ ' + tinySol(g.valueUsd / pf.solUsd) : ''}</small></span><i class="pgr-ch"></i></button>
+        return `<div class="pgr${gi === 0 ? ' open' : ''}" data-g="${esc(g.id)}"><button class="pgr-h" type="button"><span class="pgr-lg">${imgTag(g.cover || (its[0] && its[0].img), g.name, 120)}</span><span class="pgr-t"><b>${esc(g.name)}</b><small>${g.count} item${g.count > 1 ? 's' : ''}${g.floorUsd != null ? ' · floor ' + (g.floorUsd ? usd(g.floorUsd) : 'free') : ''}</small></span><span class="pgr-v"><b>${g.valueUsd ? usd(g.valueUsd) : '$0'}</b>${pnl(g.pnlUsd, g.pnlPct, g.costUsd)}</span><i class="pgr-ch"></i></button>
           <div class="pgr-b"><div class="grid">${its.map(poster).join('')}</div></div></div>`; }).join('')}</div>`
       : `<div class="pf-empty glass"><b>No items yet</b><span>Start with a free drop or browse what's minting now.</span><div class="cta"><a class="btn primary" href="#/drops">See drops</a><a class="btn" href="#/browse?status=free">Free pieces</a></div></div>`;
   }
@@ -132,12 +132,38 @@ export async function profile({ args: [tab] }) {
       <button class="rbtn" id="pf-edit2" aria-label="Edit profile"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></button></div>
     <div class="pf-bal glass"><small>Portfolio value · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</small>
       <div class="pf-tot"><b data-count="${pf.totalUsd}" data-prefix="$">${usd(pf.totalUsd) === 'FREE' ? '$0' : usd(pf.totalUsd)}</b><em>${totalSol != null ? '≈ ' + tinySol(totalSol) : ''}</em></div>
+      <div class="pfc" id="pfc"><div class="pfc-g" id="pfc-g"></div><div class="pfc-r">${[['1D', 864e5], ['1W', 6048e5], ['1M', 2592e6], ['All', 0]].map(([l, ms], i) => `<button data-r="${ms}" class="${i === 3 ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <div class="pf-alloc"><i style="width:${wPct}%"></i><i style="width:${100 - wPct}%"></i></div>
-      <div class="pf-leg"><span><i class="w"></i>Wallet <b>${pf.walletUsd != null ? usd(pf.walletUsd) === 'FREE' ? '$0' : usd(pf.walletUsd) : '—'}</b><em>${pf.sol != null ? tinySol(pf.sol) : 'unavailable'}</em></span><span><i class="n"></i>NFTs <b>${pf.nftUsd ? usd(pf.nftUsd) : '$0'}</b><em>${pf.nftCount} item${pf.nftCount === 1 ? '' : 's'} ${pf.nftCount ? pnl(pf.nftPnlUsd, pf.nftPnlPct, pf.nftCostUsd) : ''}</em></span></div></div>
+      <div class="pf-leg"><span><i class="w"></i>Wallet <b>${pf.walletUsd != null ? usd(pf.walletUsd) === 'FREE' ? '$0' : usd(pf.walletUsd) : '—'}</b><em>${pf.sol != null ? tinySol(pf.sol) : 'unavailable'}</em></span><span><i class="n"></i>NFTs <b>${pf.nftUsd ? usd(pf.nftUsd) : '$0'}</b><em>${pf.nftCount} item${pf.nftCount === 1 ? '' : 's'}</em></span></div></div>
     <div class="tabs pf-tabs" role="tablist"><i class="ind" aria-hidden="true"></i>${TABS.map(([k, l]) => `<a href="#/me/${k}" data-k="${k}" role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</a>`).join('')}</div><div id="pane">${body}</div></div>`;
   const mount = (root) => {
     const edit = () => editSheet(p, () => window.dispatchEvent(new HashChangeEvent('hashchange')));
     ['#pf-edit', '#pf-edit2', '#pf-setu'].forEach((sel) => { const b = $(sel, root); if (b) b.onclick = edit; });
+    // portfolio line chart: drag across it to read past values (the big number follows your finger)
+    const tot = $('.pf-tot b', root), totSol = $('.pf-tot em', root), base = [tot.textContent, totSol.textContent];
+    const hist = (pf.history || []).map(([t, v]) => [t, v]);
+    if (!hist.length || Date.now() - hist[hist.length - 1][0] > 60e3) hist.push([Date.now(), pf.totalUsd]);
+    const draw = (range) => {
+      let pts = range ? hist.filter(([t]) => t >= Date.now() - range) : hist.slice();
+      if (pts.length < 2) { const first = pts[0] || [Date.now(), pf.totalUsd]; pts = [[first[0] - (range || 864e5), first[1]], first]; }
+      const W = 340, H = 120, P = 6, xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), pad = (hi - lo) * 0.15 || Math.max(1, hi * 0.05);
+      const X = (t) => P + ((t - x0) / (x1 - x0 || 1)) * (W - P * 2), Y = (v) => P + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad) || 1)) * (H - P * 2);
+      const c = pts.map(([t, v]) => [X(t), Y(v)]);
+      let d = `M${c[0][0].toFixed(1)},${c[0][1].toFixed(1)}`; for (let i = 1; i < c.length; i++) { const [ax, ay] = c[i - 1], [bx, by] = c[i], mx = (ax + bx) / 2; d += ` C${mx.toFixed(1)},${ay.toFixed(1)} ${mx.toFixed(1)},${by.toFixed(1)} ${bx.toFixed(1)},${by.toFixed(1)}`; }
+      const up = ys[ys.length - 1] >= ys[0], col = up ? '#29e07f' : '#ff4d6d';
+      $('#pfc-g', root).innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="pfa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".28"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+        <path d="${d} L${c[c.length - 1][0].toFixed(1)},${H} L${c[0][0].toFixed(1)},${H} Z" fill="url(#pfa)"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linecap="round" vector-effect="non-scaling-stroke" class="pfc-l" pathLength="1"/>
+        <line class="pfc-x" x1="0" x2="0" y1="0" y2="${H}" vector-effect="non-scaling-stroke"/><circle class="pfc-d" r="4.5" cx="${c[c.length - 1][0]}" cy="${c[c.length - 1][1]}"/></svg>`;
+      const svg = $('#pfc-g svg', root), dot = $('.pfc-d', svg), ln = $('.pfc-x', svg);
+      const at = (e) => { const r = svg.getBoundingClientRect(), x = ((e.touches ? e.touches[0].clientX : e.clientX) - r.left) / r.width * W; let k = 0; c.forEach((q, i) => { if (Math.abs(q[0] - x) < Math.abs(c[k][0] - x)) k = i; });
+        dot.setAttribute('cx', c[k][0]); dot.setAttribute('cy', c[k][1]); ln.setAttribute('x1', c[k][0]); ln.setAttribute('x2', c[k][0]); svg.classList.add('scrub');
+        tot.textContent = usd(pts[k][1]) === 'FREE' ? '$0' : usd(pts[k][1]); totSol.textContent = new Date(pts[k][0]).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+      const out = () => { svg.classList.remove('scrub'); dot.setAttribute('cx', c[c.length - 1][0]); dot.setAttribute('cy', c[c.length - 1][1]); [tot.textContent, totSol.textContent] = base; };
+      svg.addEventListener('pointermove', at); svg.addEventListener('touchmove', at, { passive: true }); svg.addEventListener('pointerleave', out); svg.addEventListener('touchend', out);
+    };
+    draw(0);
+    $('.pfc-r', root).addEventListener('click', (e) => { const b = e.target.closest('[data-r]'); if (!b) return; $$('.pfc-r button', root).forEach((x) => x.classList.toggle('on', x === b)); draw(+b.dataset.r); });
     const copy = (msg) => { try { navigator.clipboard.writeText(S.wallet); toast(msg); } catch (_) { toast(S.wallet); } };
     $('#cp', root).onclick = () => copy('Address copied');
     const bar = $('.tabs', root), pane = $('#pane', root), cache = { [tab]: Promise.resolve(first) };

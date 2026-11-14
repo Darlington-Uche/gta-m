@@ -23,7 +23,8 @@ export async function portfolio(wallet) {
   const groups = [...byCol.values()].sort((a, b) => b.valueUsd - a.valueUsd || b.count - a.count);
   const nftUsd = r2(groups.reduce((a, g) => a + g.valueUsd, 0));
   const costUsd = r2(groups.reduce((a, g) => a + g.costUsd, 0));
-  return { wallet, sol, solUsd, walletUsd, nftUsd, nftCostUsd: costUsd, nftPnlUsd: r2(nftUsd - costUsd), nftPnlPct: costUsd > 0 ? Math.round(((nftUsd - costUsd) / costUsd) * 1000) / 10 : null, totalUsd: r2((walletUsd || 0) + nftUsd), nftCount: nfts.length, groups, profile: publicProfile(wallet, profile) };
+  const totalUsd = r2((walletUsd || 0) + nftUsd), history = await snapshot(wallet, totalUsd, walletUsd == null);
+  return { history, wallet, sol, solUsd, walletUsd, nftUsd, nftCostUsd: costUsd, nftPnlUsd: r2(nftUsd - costUsd), nftPnlPct: costUsd > 0 ? Math.round(((nftUsd - costUsd) / costUsd) * 1000) / 10 : null, totalUsd: r2((walletUsd || 0) + nftUsd), nftCount: nfts.length, groups, profile: publicProfile(wallet, profile) };
 }
 export const publicProfile = (wallet, p) => ({ wallet, name: p?.name || null, username: p?.username || null, avatar: p?.avatar || null, bio: p?.bio || null });
 
@@ -50,4 +51,16 @@ export async function updateProfile(wallet, body) {
   if (body.removeAvatar) patch.avatar = null;
   await col('users').doc(wallet).set(patch, { merge: true });
   return publicProfile(wallet, await getDoc('users', wallet));
+}
+
+/** Value history for the portfolio chart: one point per visit, merged when they are close together. */
+async function snapshot(wallet, usdv, partial) {
+  const ref = col('pfsnaps').doc(wallet), cur = (await getDoc('pfsnaps', wallet)) || { pts: [] }, pts = cur.pts || [], t = now();
+  if (!partial) {
+    const last = pts[pts.length - 1];
+    if (last && t - last[0] < 15 * 60e3) last[1] = usdv; else pts.push([t, usdv]);
+    while (pts.length > 800) pts.shift();
+    await ref.set({ pts, updatedAt: t }).catch(() => {});
+  }
+  return pts;
 }
