@@ -49,3 +49,11 @@ test('profile + portfolio', async () => {
   const pf = await call('GET', '/me/portfolio', null, a); assert.equal(pf.status, 200, JSON.stringify(pf)); assert.equal(pf.nftCount, 0); assert.equal(typeof pf.totalUsd, 'number'); assert.equal(pf.profile.username, 'tommy_v');
   assert.equal((await call('PATCH', '/me', { removeAvatar: true }, a)).profile.avatar, null);
 });
+
+test('art uploads stop at max supply', async () => {
+  const u = await login(kp()), t = Date.now();
+  const c = await call('POST', '/launches', { name: 'Tiny', symbol: 'TINY', description: 'A one piece collection for testing supply.', revealMode: 'instant', supply: 1, royaltyPct: 0, logo: { data: png }, stages: [{ kind: 'public', priceUsd: 0, start: t, perWallet: 1 }] }, u);
+  assert.equal((await call('POST', `/launches/${c.launch.id}/art`, { file: { data: png } }, u)).count, 1);
+  const full = await call('POST', `/launches/${c.launch.id}/art`, { file: { data: png } }, u); assert.equal(full.status, 400); assert.match(full.error?.message || full.message || JSON.stringify(full), /max supply/);
+  const pf = await call('GET', '/me/portfolio', null, u); assert.equal(pf.nftPnlPct, null);
+});

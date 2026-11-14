@@ -55,7 +55,7 @@ async function tabBody(tab) {
     const by = new Map(r.items.map((i) => [String(i.id), i]));
     body = pf.groups.length ? `<label class="isearch pf-s"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="pfq" placeholder="Search your items" autocomplete="off"></label>
       <div class="pfg">${pf.groups.map((g, gi) => { const its = g.items.map((id) => by.get(String(id))).filter(Boolean);
-        return `<div class="pgr${gi === 0 ? ' open' : ''}" data-g="${esc(g.id)}"><button class="pgr-h" type="button"><span class="pgr-lg">${imgTag(g.cover || (its[0] && its[0].img), g.name, 120)}</span><span class="pgr-t"><b>${esc(g.name)}</b><small>${g.count} item${g.count > 1 ? 's' : ''}${g.floorUsd != null ? ' · floor ' + usd(g.floorUsd) : ''}</small></span><span class="pgr-v"><b>${g.valueUsd ? usd(g.valueUsd) : '—'}</b><small>${g.valueUsd && pf.solUsd ? '≈ ' + tinySol(g.valueUsd / pf.solUsd) : ''}</small></span><i class="pgr-ch"></i></button>
+        return `<div class="pgr${gi === 0 ? ' open' : ''}" data-g="${esc(g.id)}"><button class="pgr-h" type="button"><span class="pgr-lg">${imgTag(g.cover || (its[0] && its[0].img), g.name, 120)}</span><span class="pgr-t"><b>${esc(g.name)}</b><small>${g.count} item${g.count > 1 ? 's' : ''}${g.floorUsd != null ? ' · floor ' + (g.floorUsd ? usd(g.floorUsd) : 'free') : ''}</small></span><span class="pgr-v"><b>${g.valueUsd ? usd(g.valueUsd) : '$0'}</b>${pnl(g.pnlUsd, g.pnlPct, g.costUsd)}<small>${g.costUsd > 0 ? 'paid ' + usd(g.costUsd) : g.valueUsd && pf.solUsd ? '≈ ' + tinySol(g.valueUsd / pf.solUsd) : ''}</small></span><i class="pgr-ch"></i></button>
           <div class="pgr-b"><div class="grid">${its.map(poster).join('')}</div></div></div>`; }).join('')}</div>`
       : `<div class="pf-empty glass"><b>No items yet</b><span>Start with a free drop or browse what's minting now.</span><div class="cta"><a class="btn primary" href="#/drops">See drops</a><a class="btn" href="#/browse?status=free">Free pieces</a></div></div>`;
   }
@@ -64,12 +64,13 @@ async function tabBody(tab) {
   else if (tab === 'notifications') { const l = await get('/me/notifications', 'notifications'); body = l.length ? l.map((n) => `<div class="rowc"><div><b>${esc(n.title)}</b>${n.read ? '' : '<span class="dotn"></span>'}<small>${esc(n.body || '')} · ${ago(n.createdAt)}</small></div>${n.data && n.data.itemId ? `<a class="btn sm" href="#/art/${encodeURIComponent(n.data.itemId)}">Open</a>` : ''}</div>`).join('') : none('Inbox zero'); }
   else if (tab === 'activity') { const l = await get('/me/activity', 'activity'); body = l.length ? l.map((a) => `<div class="rowc"><div>${a.itemId ? link(a.itemId, `<b>${esc(a.itemTitle || a.type)}</b>`) : `<b>${esc(a.type)}</b>`}<small>${esc(a.type)}${a.role ? ' · ' + esc(a.role) : ''} · ${ago(a.createdAt)}</small></div><b>${a.usd != null ? usd(a.usd) : ''}</b></div>`).join('') : none('No activity yet'); }
   else if (tab === 'launches') { const l = await get('/me/launches', 'launches'); const lab = { review: 'In review', approved: 'Verified', live: 'Live', rejected: 'Not approved' };
-    body = l.length ? l.map((x) => `<div class="rowc"><div class="l">${th(x.logo, x.name)}<div>${x.status === 'approved' || x.status === 'live' ? `<a href="#/drop/${encodeURIComponent(x.id)}"><b>${esc(x.name)}</b></a>` : `<b>${esc(x.name)}</b>`}<small>${esc(x.symbol || '')} · ${(x.supply || 0).toLocaleString()} items · ${x.stages.length} stage${x.stages.length > 1 ? 's' : ''} · ${ago(x.createdAt)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></div></div><span class="st ${x.status === 'rejected' ? 'bad' : x.status === 'review' ? 'warn' : 'ok'}">${lab[x.status] || esc(x.status)}</span></div>`).join('') + '<div class="cta" style="margin-top:14px"><a class="btn" href="#/create/collection">Launch another</a></div>'
+    LAUNCHES = l; body = l.length ? l.map((x) => `<div class="rowc"><div class="l">${th(x.logo, x.name)}<div>${x.status === 'approved' || x.status === 'live' ? `<a href="#/drop/${encodeURIComponent(x.id)}"><b>${esc(x.name)}</b></a>` : `<b>${esc(x.name)}</b>`}<small>${esc(x.symbol || '')} · ${(x.supply || 0).toLocaleString()} items · ${x.stages.length} stage${x.stages.length > 1 ? 's' : ''} · ${ago(x.createdAt)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></div></div><span class="st ${x.status === 'rejected' ? 'bad' : x.status === 'review' ? 'warn' : 'ok'}">${lab[x.status] || esc(x.status)}</span></div>${x.status !== 'rejected' ? `<div class="lart"><div class="dprog"><div class="dpb"><i style="width:${Math.min(100, ((x.art || []).length / (x.supply || 1)) * 100)}%"></i></div><span><b>${(x.art || []).length}</b> / ${(x.supply || 0).toLocaleString()} artworks uploaded</span><span>max supply</span></div>${(x.art || []).length < x.supply ? `<button class="btn sm primary" data-art="${esc(x.id)}">Add artwork</button>` : '<span class="st ok">Full</span>'}</div>` : ''}`).join('') + '<div class="cta" style="margin-top:14px"><a class="btn" href="#/create/collection">Launch another</a></div>'
       : none('No collections yet', '<a class="btn primary" style="margin-top:14px" href="#/create/collection">Launch a collection</a>'); }
   else { const l = await get('/me/submissions', 'submissions'); body = l.length ? l.map((s) => `<div class="rowc"><div class="l">${th(s.media && s.media[0] && s.media[0].url, s.title)}<div><b>${esc(s.title)}</b><small>${esc(s.era || '')} · ${ago(s.createdAt)}${s.reason ? ' · ' + esc(s.reason) : ''}</small></div></div><span class="st ${stc(s.status)}">${esc(s.status)}</span></div>`).join('') : none('No submissions', '<a class="accent" href="#/create">Submit your first piece</a>'); }
   return { body, recv };
 }
-let PF = null; // portfolio for this visit, shared by the header and the Items tab
+let PF = null, LAUNCHES = []; // portfolio for this visit, shared by the header and the Items tab
+const pnl = (usdv, pct, cost) => (cost > 0 ? `<span class="pnl ${usdv >= 0 ? 'up' : 'dn'}">${usdv >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>` : usdv > 0 ? '<span class="pnl up">▲ from free</span>' : '<span class="pnl flat">—</span>');
 const tinySol = (n) => (n == null ? '' : (n >= 10 ? n.toFixed(2) : n >= 0.1 ? n.toFixed(3) : n.toFixed(4)).replace(/\.?0+$/, '') + ' SOL');
 const hueOf = (a) => [...String(a || 'x')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 export const avatarHtml = (p, size = '') => (p && p.avatar ? `<span class="pav ${size}"><img src="${esc(p.avatar)}" alt=""></span>` : `<span class="pav gen ${size}" style="--h:${hueOf(S.wallet)}">${esc(((p && (p.name || p.username)) || S.wallet || '?')[0].toUpperCase())}</span>`);
@@ -96,6 +97,26 @@ function editSheet(p, done) {
     catch (x) { toast(x.message, 'bad'); b.disabled = false; b.textContent = 'Save'; }
   };
 }
+function artSheet(l) {
+  const m = document.createElement('div'); m.className = 'sheetw'; let have = (l.art || []).length;
+  const prog = () => `<div class="dprog"><div class="dpb"><i style="width:${Math.min(100, (have / l.supply) * 100)}%"></i></div><span><b>${have}</b> / ${l.supply.toLocaleString()} uploaded</span><span>${l.supply - have} left</span></div>`;
+  m.innerHTML = `<div class="sheet2 glass" role="dialog" aria-label="Add artwork"><i class="grab"></i><div class="sh-h"><h2>${esc(l.name)}</h2><button class="xbtn" data-x aria-label="Close">✕</button></div>
+    <p class="muted" style="line-height:1.5">Max supply is ${l.supply.toLocaleString()}. Upload what you have now and add the rest whenever they are ready. Only you can add art to this collection, and only uploaded pieces can be minted.</p>
+    <div id="as-p">${prog()}</div><label class="upl wide as-drop"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden><span class="upl-in"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg><b>Choose images</b><small>Pick one or many · JPG, PNG, GIF, WebP</small></span></label>
+    <div class="as-grid" id="as-g">${(l.art || []).slice(-24).reverse().map((a) => `<span class="as-t done"><img src="${esc(a.url)}" alt=""></span>`).join('')}</div></div>`;
+  document.body.appendChild(m); requestAnimationFrame(() => m.classList.add('on'));
+  const close = () => { m.classList.remove('on'); setTimeout(() => m.remove(), 280); if (have !== (l.art || []).length) window.dispatchEvent(new HashChangeEvent('hashchange')); };
+  m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-x]')) close(); });
+  $('.as-drop input', m).onchange = async (e) => {
+    const files = [...e.target.files].slice(0, l.supply - have); if (!files.length) return toast('Max supply reached', 'bad');
+    const grid = $('#as-g', m), tiles = files.map((f) => { const t = document.createElement('span'); t.className = 'as-t up'; t.innerHTML = `<img src="${URL.createObjectURL(f)}" alt=""><i></i>`; grid.prepend(t); return t; });
+    for (let i = 0; i < files.length; i++) {
+      try { const img = await shrinkImage(files[i], 1600, 0.88); const r = await http('POST', `/launches/${l.id}/art`, { file: img }); have = r.count; tiles[i].className = 'as-t done'; $('#as-p', m).innerHTML = prog(); }
+      catch (x) { tiles[i].className = 'as-t bad'; toast(x.message, 'bad'); if (/max supply/i.test(x.message)) break; }
+    }
+    e.target.value = '';
+  };
+}
 export async function profile({ args: [tab] }) {
   tab = TABS.some(([k]) => k === tab) ? tab : 'nfts';
   if (!S.wallet) return { html: banner('', 'Portfolio', 'Your <span class="grad">stash.</span>') + gate('Connect your wallet', 'See your balance, what you own, your offers and notifications.'), mount: wireGate };
@@ -112,15 +133,13 @@ export async function profile({ args: [tab] }) {
     <div class="pf-bal glass"><small>Portfolio value · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</small>
       <div class="pf-tot"><b data-count="${pf.totalUsd}" data-prefix="$">${usd(pf.totalUsd) === 'FREE' ? '$0' : usd(pf.totalUsd)}</b><em>${totalSol != null ? '≈ ' + tinySol(totalSol) : ''}</em></div>
       <div class="pf-alloc"><i style="width:${wPct}%"></i><i style="width:${100 - wPct}%"></i></div>
-      <div class="pf-leg"><span><i class="w"></i>Wallet <b>${pf.walletUsd != null ? usd(pf.walletUsd) === 'FREE' ? '$0' : usd(pf.walletUsd) : '—'}</b><em>${pf.sol != null ? tinySol(pf.sol) : 'unavailable'}</em></span><span><i class="n"></i>NFTs <b>${pf.nftUsd ? usd(pf.nftUsd) : '$0'}</b><em>${pf.nftCount} item${pf.nftCount === 1 ? '' : 's'}</em></span></div></div>
-    <div class="pf-acts"><button class="pfa" id="pf-recv"><i><svg viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></svg></i>Receive</button><a class="pfa" href="#/drops"><i><svg viewBox="0 0 24 24"><path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/></svg></i>Mint</a><a class="pfa" href="#/explore"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></i>Explore</a><a class="pfa" href="#/create"><i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>Create</a></div>
+      <div class="pf-leg"><span><i class="w"></i>Wallet <b>${pf.walletUsd != null ? usd(pf.walletUsd) === 'FREE' ? '$0' : usd(pf.walletUsd) : '—'}</b><em>${pf.sol != null ? tinySol(pf.sol) : 'unavailable'}</em></span><span><i class="n"></i>NFTs <b>${pf.nftUsd ? usd(pf.nftUsd) : '$0'}</b><em>${pf.nftCount} item${pf.nftCount === 1 ? '' : 's'} ${pf.nftCount ? pnl(pf.nftPnlUsd, pf.nftPnlPct, pf.nftCostUsd) : ''}</em></span></div></div>
     <div class="tabs pf-tabs" role="tablist"><i class="ind" aria-hidden="true"></i>${TABS.map(([k, l]) => `<a href="#/me/${k}" data-k="${k}" role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}">${l}${badge[k] ? `<span class="n">${badge[k]}</span>` : ''}</a>`).join('')}</div><div id="pane">${body}</div></div>`;
   const mount = (root) => {
     const edit = () => editSheet(p, () => window.dispatchEvent(new HashChangeEvent('hashchange')));
     ['#pf-edit', '#pf-edit2', '#pf-setu'].forEach((sel) => { const b = $(sel, root); if (b) b.onclick = edit; });
     const copy = (msg) => { try { navigator.clipboard.writeText(S.wallet); toast(msg); } catch (_) { toast(S.wallet); } };
     $('#cp', root).onclick = () => copy('Address copied');
-    $('#pf-recv', root).onclick = () => copy('Address copied. Send SOL or NFTs to it on ' + (S.meta.network === 'devnet' ? 'devnet' : 'mainnet') + '.');
     const bar = $('.tabs', root), pane = $('#pane', root), cache = { [tab]: Promise.resolve(first) };
     const slide = (a, center) => { const i = $('.ind', bar); i.style.width = a.offsetWidth + 'px'; i.style.transform = `translateX(${a.offsetLeft}px)`; if (center) bar.scrollTo({ left: a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2, behavior: 'smooth' }); };
     const markRead = (k) => { if (k === 'notifications' && S.unread) http('POST', '/me/notifications/read', {}).then(() => { S.unread = 0; emit('unread', 0); const n = $('a[data-k="notifications"] .n', bar); if (n) n.remove(); const on = $('a.on', bar); if (on) slide(on); }).catch(() => {}); };
@@ -139,6 +158,7 @@ export async function profile({ args: [tab] }) {
       $$('.pgr', pane).forEach((g) => { let any = false; $$('.card', g).forEach((c) => { const hit = !q || c.textContent.toLowerCase().includes(q) || $('.pgr-t b', g).textContent.toLowerCase().includes(q); c.hidden = !hit; any = any || hit; }); g.hidden = !any; if (q && any) g.classList.add('open'); }); });
     root.onclick = async (e) => {
       const h = e.target.closest('.pgr-h'); if (h) { h.parentElement.classList.toggle('open'); return; }
+      const ab = e.target.closest('[data-art]'); if (ab) { const l = LAUNCHES.find((x) => x.id === ab.dataset.art); if (l) artSheet(l); return; }
       const b = e.target.closest('[data-can]'); if (!b) return; await runTx('Cancelling', (ui) => act('DELETE', `/offers/${b.dataset.can}`, undefined, ui), 'Offer cancelled, SOL refunded').then(() => { cClear(); window.dispatchEvent(new HashChangeEvent('hashchange')); }, () => {});
     };
     if (tab === 'notifications') markRead(tab);

@@ -46,7 +46,8 @@ export async function createLaunch({ wallet, body }) {
 export async function addLaunchArt({ wallet, id, file }) {
   const l = await getDoc('launches', id); if (!l) throw notFound('Launch not found');
   if (l.wallet !== wallet) throw forbidden('Not your collection');
-  if ((l.art || []).length >= 500) throw bad('too_much_art', 'Up to 500 artworks per collection for now');
+  if (l.status === 'rejected') throw conflict('rejected', 'This collection was not approved');
+  if ((l.art || []).length >= (l.supply || 500)) throw bad('supply_full', `All ${l.supply} artworks are uploaded. That is the max supply.`);
   const f = fromB64(file); if (!f) throw bad('no_file', 'Missing image');
   const saved = await saveUpload(f, 'launches/' + id);
   const art = [...(l.art || []), { url: saved.url, at: now() }];
@@ -86,7 +87,7 @@ export async function listDrops() {
   const [cols, launches, items] = await Promise.all([listCollections(), queryDocs(col('launches')), queryDocs(col('items'))]);
   const count = new Map(), minted = new Map();
   for (const i of items) { if (i.hidden) continue; const k = i.collectionId || i.era; count.set(k, (count.get(k) || 0) + 1); if (i.status === 'minted') minted.set(k, (minted.get(k) || 0) + 1); }
-  const platform = cols.filter((c) => c.drop && c.drop.published).map((c) => ({ id: 'gta-' + c.id, kind: 'platform', collectionId: c.id, name: c.name, creator: 'GTA Marketplace', verified: true, logo: c.cover || c.banner, banner: c.banner || c.cover, preReveal: c.drop.preReveal || c.cover, description: c.blurb || '', theme: c.id, supply: c.drop.supply || count.get(c.id) || 0, minted: minted.get(c.id) || 0, stages: c.drop.stages, revealMode: c.drop.revealMode, revealAt: c.drop.revealAt, royaltyPct: 5 }));
+  const platform = cols.filter((c) => c.drop && c.drop.published).map((c) => ({ id: 'gta-' + c.id, kind: 'platform', collectionId: c.id, name: c.name, creator: 'GTA Marketplace', verified: true, logo: c.cover || c.banner, banner: c.banner || c.cover, preReveal: c.drop.preReveal || c.cover, description: c.blurb || '', theme: c.id, supply: c.drop.supply || count.get(c.id) || 0, artCount: count.get(c.id) || 0, minted: minted.get(c.id) || 0, stages: c.drop.stages, revealMode: c.drop.revealMode, revealAt: c.drop.revealAt, royaltyPct: 5 }));
   const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, verified: true, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length }));
   const t = now();
   return [...platform, ...creator].map((d) => shape(d, t));

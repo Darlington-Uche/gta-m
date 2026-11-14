@@ -45,7 +45,7 @@ export function card(d, i) {
     <span class="dc-ban">${imgTag(d.banner || d.logo, d.name, 700)}${chip(d)}</span>
     <div class="dc-in"><span class="dc-logo">${imgTag(d.logo, d.name, 140)}</span>
       <b class="dc-nm">${esc(d.name)}${d.verified ? tick : ''}</b><small class="dc-by">by ${esc(by(d))}</small>
-      <div class="dc-row"><span><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></span><span><small>Items</small><b>${d.supply ? d.supply.toLocaleString() : '—'}</b></span>${timer(d)}</div>
+      <div class="dc-row"><span><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></span><span><small>Max supply</small><b>${d.supply ? d.supply.toLocaleString() : '—'}</b></span>${timer(d)}</div>
       ${bar(d)}</div></a>`;
 }
 function hero(d) {
@@ -116,7 +116,7 @@ export async function dropPage({ args: [id] }) {
     <div class="cx-top"><button class="rbtn" id="dp-back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="rbtn" id="dp-share" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg></button></div>
     <div class="dp-grid"><div class="dp-main">
       <div class="cx-id"><span class="cx-logo">${imgTag(d.logo, d.name, 200)}</span>${chip(d)}<h1>${esc(d.name)}${d.verified ? tick : ''}</h1><p>by ${esc(by(d))}${d.kind === 'platform' ? tick : ''}</p></div>
-      <div class="chips2"><span>${d.supply ? d.supply.toLocaleString() + ' items' : 'Open edition'}</span><span>${esc(reveal)}</span><span>${d.royaltyPct ?? 5}% royalty</span><span>Solana · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</span></div>
+      <div class="chips2"><span>${d.supply ? 'Max supply ' + d.supply.toLocaleString() : 'Open edition'}</span>${d.artCount != null && d.supply && d.artCount < d.supply ? `<span>${d.artCount.toLocaleString()} ready to mint</span>` : ''}<span>${esc(reveal)}</span><span>${d.royaltyPct ?? 5}% royalty</span><span>Solana · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</span></div>
       <section class="dp-sec"><h3>Mint schedule</h3><div class="stgs">${d.stages.map(stRow).join('')}</div></section>
       <section class="dp-sec"><h3>${d.revealed ? 'The art' : 'Before the reveal'}</h3><div class="rvl glass"><span class="rvl-im ${d.revealed ? '' : 'hid'}">${imgTag(d.revealed ? d.banner || d.logo : d.preReveal || d.logo, d.name, 500)}${d.revealed ? '' : '<b>?</b>'}</span>
         <p>${d.revealed ? 'This collection is revealed. Every mint shows its real artwork straight away.' : d.revealMode === 'date' && d.revealAt ? `Mints show this cover until the reveal. Your real piece appears in <b data-cd="${d.revealAt}">${cd(d.revealAt - Date.now())}</b>.` : 'Mints show this cover until the creator reveals the collection. Then your real piece appears in your wallet and profile.'}</p></div></section>
