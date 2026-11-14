@@ -25,7 +25,7 @@ const pct = (d) => (d.supply ? Math.min(100, Math.round((d.minted / d.supply) * 
 const STATE = { live: 'Minting now', upcoming: 'Upcoming', ended: 'Ended' };
 function chip(d) {
   if (d.soldOut) return '<span class="dchip end">Sold out</span>';
-  if (d.status === 'live') return `<span class="dchip live"><i></i>${esc(stageOf(d, d.currentStage).name)} live</span>`;
+  if (d.status === 'live') return '<span class="dchip live"><i></i>Minting</span>';
   if (d.status === 'upcoming') return '<span class="dchip soon">Upcoming</span>';
   return '<span class="dchip end">Ended</span>';
 }
@@ -45,7 +45,7 @@ export function card(d, i) {
     <span class="dc-ban">${imgTag(d.banner || d.logo, d.name, 700)}${chip(d)}</span>
     <div class="dc-in"><span class="dc-logo">${imgTag(d.logo, d.name, 140)}</span>
       <b class="dc-nm">${esc(d.name)}${d.verified ? tick : ''}</b><small class="dc-by">by ${by(d)}</small>
-      <div class="dc-row"><span><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></span><span><small>Max supply</small><b>${d.supply ? d.supply.toLocaleString() : '—'}</b></span>${timer(d)}</div>
+      <div class="dc-row"><span><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></span><span><small>Items</small><b>${d.supply ? d.supply.toLocaleString() : '—'}</b></span>${timer(d)}</div>
       ${bar(d)}</div></a>`;
 }
 function hero(d) {
@@ -107,36 +107,34 @@ export async function dropPage({ args: [id] }) {
   const why = () => {
     if (d.soldOut) return ['Sold out', true];
     if (!live) return [d.status === 'upcoming' ? 'Not started yet' : 'Mint has ended', true];
-    if (!S.wallet) return ['Connect wallet to mint', false];
-    if (live.eligible === false) return ['You are not on the allowlist', true];
-    if ((used[live.id] || 0) >= live.perWallet) return ['Wallet limit reached', true];
+    if (!S.wallet) return ['Connect wallet', false];
+    if ((used[live.id] || 0) >= live.perWallet) return ['You hit your limit', true];
     return [null, false];
   };
   const [block, dis] = why();
+  const pctv = pct(d), left = live ? Math.max(0, live.perWallet - (used[live.id] || 0)) : 0;
+  const big = d.status === 'live' && s && s.end ? `<small>Ends in</small><b class="cdbig" data-cd="${s.end}">${cd(s.end - Date.now())}</b>` : d.status === 'upcoming' && s ? `<small>Starts in</small><b class="cdbig" data-cd="${s.start}">${cd(s.start - Date.now())}</b>` : `<small>${d.soldOut ? 'Sold out' : 'Mint over'}</small><b class="cdbig">${d.minted.toLocaleString()}</b>`;
   const html = `<div class="dp">
     <div class="cx-top"><button class="rbtn" id="dp-back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="rbtn" id="dp-share" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg></button></div>
     <div class="dp-grid"><div class="dp-main">
-      <div class="cx-id"><span class="cx-logo">${imgTag(d.logo, d.name, 200)}</span>${chip(d)}<h1>${esc(d.name)}${d.verified ? tick : ''}</h1><p>by ${by(d)}${d.kind === 'platform' ? tick : ''}</p></div>
-      <div class="chips2"><span>${d.supply ? 'Max supply ' + d.supply.toLocaleString() : 'Open edition'}</span>${d.artCount != null && d.supply && d.artCount < d.supply ? `<span>${d.artCount.toLocaleString()} ready to mint</span>` : ''}<span>${esc(reveal)}</span><span>${d.royaltyPct ?? 5}% royalty</span><span>Solana · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</span></div>
-      <section class="dp-sec"><h3>Mint schedule</h3><div class="stgs">${d.stages.map(stRow).join('')}</div></section>
-      <section class="dp-sec"><h3>${d.revealed ? 'The art' : 'Before the reveal'}</h3><div class="rvl glass"><span class="rvl-im ${d.revealed ? '' : 'hid'}">${imgTag(d.revealed ? d.banner || d.logo : d.preReveal || d.logo, d.name, 500)}${d.revealed ? '' : '<b>?</b>'}</span>
-        <p>${d.revealed ? 'This collection is revealed. Every mint shows its real artwork straight away.' : d.revealMode === 'date' && d.revealAt ? `Mints show this cover until the reveal. Your real piece appears in <b data-cd="${d.revealAt}">${cd(d.revealAt - Date.now())}</b>.` : 'Mints show this cover until the creator reveals the collection. Then your real piece appears in your wallet and profile.'}</p></div></section>
-      <section class="dp-sec"><h3>About</h3><p class="dp-about">${esc(d.description || '')}</p>${d.links && (d.links.x || d.links.site) ? `<div class="dp-links">${d.links.x ? `<a href="${esc(/^https?:/.test(d.links.x) ? d.links.x : 'https://x.com/' + d.links.x.replace(/^@/, ''))}" target="_blank" rel="noopener">X ↗</a>` : ''}${d.links.site ? `<a href="${esc(d.links.site)}" target="_blank" rel="noopener">Website ↗</a>` : ''}</div>` : ''}</section>
+      <div class="cx-id"><span class="cx-logo">${imgTag(d.logo, d.name, 200)}</span>${chip(d)}<h1>${esc(d.name)}${d.verified ? tick : ''}</h1><p>by ${by(d)}</p></div>
+      <div class="dstats"><div><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></div><div><small>Items</small><b>${d.supply.toLocaleString()}</b></div><div><small>Per wallet</small><b>${s ? s.perWallet : '—'}</b></div><div>${big}</div></div>
+      <div class="rvl glass"><span class="rvl-im ${d.revealed ? '' : 'hid'}">${imgTag(d.revealed ? d.banner || d.logo : d.preReveal || d.logo, d.name, 500)}${d.revealed ? '' : '<b>?</b>'}</span>
+        <div><b>${d.revealed ? 'Revealed' : 'Hidden until the mint ends'}</b><small>${d.revealed ? 'Every piece shows its real art.' : 'Sell out or time up → everyone sees their piece.'}</small></div></div>
+      ${d.description ? `<p class="dp-about">${esc(d.description)}</p>` : ''}${d.links && (d.links.x || d.links.site) ? `<div class="dp-links">${d.links.x ? `<a href="${esc(/^https?:/.test(d.links.x) ? d.links.x : 'https://x.com/' + d.links.x.replace(/^@/, ''))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>${esc(d.links.x.replace(/^https?:\/\/(x|twitter)\.com\//, '@'))}</a>` : ''}${d.links.site ? `<a href="${esc(d.links.site)}" target="_blank" rel="noopener">Website ↗</a>` : ''}</div>` : ''}
     </div>
     <aside class="dp-side"><div class="mintp glass" id="mintp">
-      <div class="mp-h"><small>${live ? esc(live.name) + ' · live' : s ? esc(s.name) : 'Mint'}</small>${timer(d)}</div>
       <div class="mp-p"><b>${s ? priceTxt(s.priceUsd) : '—'}</b>${s && s.priceUsd ? `<em>≈ ${solTxt(solOf(s.priceUsd))}</em>` : ''}</div>
       ${bar(d)}
-      <div class="mp-q"><span>Quantity <small>${live && used[live.id] ? `${used[live.id]} of ${live.perWallet} used` : `max ${s ? s.perWallet : 1} per wallet`}</small></span><div class="qty"><button data-q="-1" aria-label="Less">−</button><b id="qn">1</b><button data-q="1" aria-label="More">+</button></div></div>
-      <div class="mp-t"><span>Total</span><b id="qt">${s ? priceTxt(s.priceUsd) : '—'}</b></div>
-      <button class="btn primary lg mp-go" id="mint" ${dis ? 'disabled' : ''}>${block || 'Mint'}</button>
-      <p class="fine">${d.revealed ? 'Your NFT lands in your wallet as soon as the mint confirms.' : 'You get an unrevealed NFT now; it turns into your real piece at the reveal.'}</p></div></aside></div>
-    <div class="mbar" id="mbar"><div><small>${live ? esc(live.name) : 'Mint'}</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></div><button class="btn primary" id="mint2" ${dis ? 'disabled' : ''}>${block && block.length < 18 ? block : block ? 'Unavailable' : 'Mint'}</button></div></div>`;
+      ${live ? `<div class="mp-q"><span>${used[live.id] ? `${used[live.id]}/${live.perWallet} minted` : 'How many'}</span><div class="qty"><button data-q="-1" aria-label="Less">−</button><b id="qn">1</b><button data-q="1" aria-label="More">+</button></div></div>
+      <div class="mp-t"><span>Total</span><b id="qt">${s ? priceTxt(s.priceUsd) : '—'}</b></div>` : ''}
+      <button class="btn primary lg mp-go" id="mint" ${dis ? 'disabled' : ''}>${block || 'Mint'}</button></div></aside></div>
+    <div class="mbar" id="mbar"><div><small>${pctv}% minted</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></div><button class="btn primary" id="mint2" ${dis ? 'disabled' : ''}>${block && block.length < 18 ? block : block ? 'Unavailable' : 'Mint'}</button></div></div>`;
   return {
     html,
     mount(root) {
       let q = 1; const left = live ? Math.max(0, live.perWallet - (used[live.id] || 0)) : s ? s.perWallet : 1, max = Math.max(1, left), price = s ? s.priceUsd : 0;
-      const upd = () => { $('#qn', root).textContent = q; $('#qt', root).textContent = price ? usd(price * q) + ' · ≈ ' + solTxt(solOf(price * q)) : 'Free'; };
+      const upd = () => { if (!$('#qn', root)) return; $('#qn', root).textContent = q; $('#qt', root).textContent = price ? usd(price * q) + ' · ≈ ' + solTxt(solOf(price * q)) : 'Free'; };
       root.addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; q = Math.max(1, Math.min(max, q + +b.dataset.q)); upd(); });
       const go = async () => {
         if (!S.wallet) return walletModal();

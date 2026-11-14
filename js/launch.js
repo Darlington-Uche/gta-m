@@ -1,167 +1,129 @@
-// Create: pick "Launch a collection" or "Submit a single artwork". The collection wizard walks through
-// details → art & reveal → supply → mint stages → review, keeps a draft on this device, and submits for verification.
+// Create studio: the page looks like the finished collection. Tap a placeholder to fill it.
+// Banner, logo, name, art grid (+ rarity), one mint phase. Launch = draft → upload art → publish.
 import { S, $, $$, esc, usd, short, http, toast, walletModal, shrinkImage } from './core.js';
-import { cd, priceTxt, solTxt } from './drops.js';
 
-const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
-const solOf = (u) => { const r = S.meta && S.meta.solUsd; return r && u != null ? u / r : null; };
+const KEY = 'gta:studio';
+const MIN = 10;
+const RAR = ['Common', 'Rare', 'Epic', 'Legendary'];
+const START = [['now', 'Now', 0], ['1h', 'In 1h', 36e5], ['tmr', 'Tomorrow', null]];
+const LAST = [1, 24, 72, 168];
+const lastLbl = (h) => (h < 24 ? h + 'h' : h / 24 + 'd');
+const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(18, 0, 0, 0); return d.getTime(); };
+const solOf = (u) => { const r = S.meta && S.meta.solUsd; return r && u ? u / r : null; };
+const ic = {
+  img: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>',
+  cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  rocket: '<svg viewBox="0 0 24 24"><path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/></svg>',
+  tag: '<svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
+  clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  hour: '<svg viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/></svg>'
+};
+const load = () => { try { return { name: '', desc: '', x: '', price: 0, paid: false, per: 3, start: 'now', hours: 24, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (_) { return { name: '', desc: '', x: '', price: 0, paid: false, per: 3, start: 'now', hours: 24 }; } };
+const save = (st) => { try { localStorage.setItem(KEY, JSON.stringify({ name: st.name, desc: st.desc, x: st.x, price: st.price, paid: st.paid, per: st.per, start: st.start, hours: st.hours })); } catch (_) { /* full */ } };
 
-/* ================= CHOOSER ================= */
-export async function createHub() {
-  const html = `<div class="ph2"><div><span class="eyebrow">Create</span><h1 class="display">What are you <span class="grad">making?</span></h1></div></div>
-  <div class="choose">
-    <a class="chc main" href="#/create/collection"><span class="chc-bg" style="background-image:url('img/hero.jpg')"></span><i class="chc-sh"></i>
-      <div class="chc-in"><span class="chc-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span>
-        <h2>Launch a collection</h2><p>Your own drop on the launchpad: cover art, supply, mint stages (allowlist, public), free or paid, reveal on your schedule.</p>
-        <ul><li>Allowlist + public stages</li><li>Pre-reveal cover, reveal later</li><li>Verified by our team</li></ul><span class="btn primary">Start a collection</span></div></a>
-    <a class="chc" href="#/create/art"><span class="chc-bg" style="background-image:url('img/submit.jpg')"></span><i class="chc-sh"></i>
-      <div class="chc-in"><span class="chc-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg></span>
-        <h2>Submit one artwork</h2><p>Send a single GTA-inspired piece. We review it, price it and add it to one of our era collections.</p><span class="btn">Submit artwork</span></div></a>
-  </div>
-  <div class="how glass"><h3>How launching works</h3><ol><li><b>Build it</b><span>Details, art, supply and mint stages. Saved on this device as you go.</span></li><li><b>We verify</b><span>Our team checks it is original GTA-inspired work. Usually within a day.</span></li><li><b>It goes live</b><span>Your drop appears under Drops with countdowns, then mints on your schedule.</span></li></ol></div>`;
-  return { html };
-}
+export async function createHub(ctx) { return launchWizard(ctx); }
 
-/* ================= WIZARD ================= */
-const KEY = 'gta:launch-draft';
-const STEPS = [['details', 'Details'], ['art', 'Art & reveal'], ['supply', 'Supply'], ['stages', 'Mint stages'], ['review', 'Review']];
-const THEMES = [['vi', 'GTA VI'], ['v', 'GTA V'], ['iv', 'GTA IV'], ['sa', 'San Andreas'], ['vice', 'Vice City'], ['other', 'Other GTA']];
-const dayAt = (days, h) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(h, 0, 0, 0); return d.getTime(); };
-const fresh = () => ({ step: 0, name: '', symbol: '', description: '', theme: 'vi', x: '', site: '', logo: null, banner: null, preReveal: null, revealMode: 'date', revealAt: dayAt(3, 18), supply: 500, royaltyPct: 5,
-  stages: [{ id: 'st1', name: 'Allowlist', kind: 'allowlist', priceUsd: 0, start: dayAt(1, 18), end: dayAt(2, 18), perWallet: 2, allowlist: [] }, { id: 'st2', name: 'Public', kind: 'public', priceUsd: 5, start: dayAt(2, 18), end: null, perWallet: 5, allowlist: [] }], agree: false });
-const load = () => { try { const d = JSON.parse(localStorage.getItem(KEY)); return d && d.stages ? { ...fresh(), ...d } : fresh(); } catch (_) { return fresh(); } };
-const save = (st) => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (_) { try { localStorage.setItem(KEY, JSON.stringify({ ...st, banner: null, preReveal: null })); } catch (__) { /* storage full */ } } };
-const toLocal = (t) => { if (!t) return ''; const d = new Date(t); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); };
-const fromLocal = (v) => (v ? new Date(v).getTime() : null);
-const isWallet = (w) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(w);
-const parseList = (txt) => [...new Set(String(txt).split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
-const dataUrl = (img) => (img ? `data:${img.type};base64,${img.data}` : '');
-
-function problems(st, step) {
-  const p = {};
-  if (step === 0) { if (st.name.trim().length < 2) p.name = 'Give your collection a name'; if (!/^[A-Za-z0-9]{2,10}$/.test(st.symbol)) p.symbol = '2–10 letters or numbers'; if (st.description.trim().length < 20) p.description = 'Tell people about it (at least 20 characters)'; if (!st.logo) p.logo = 'Add a logo'; }
-  if (step === 1) { if (st.revealMode === 'date' && (!st.revealAt || st.revealAt < Date.now())) p.revealAt = 'Pick a reveal time in the future'; }
-  if (step === 2) { if (!(st.supply >= 1 && st.supply <= 10000)) p.supply = 'Between 1 and 10,000'; }
-  if (step === 3) {
-    if (!st.stages.length) p.stages = 'Add at least one stage';
-    st.stages.forEach((s, i) => { if (!s.start) p['s' + i] = 'Set a start time'; else if (s.end && s.end <= s.start) p['s' + i] = 'The end must be after the start'; else if (s.kind === 'allowlist' && !s.allowlist.filter(isWallet).length) p['s' + i] = 'Add at least one wallet address to the allowlist'; });
+export async function launchWizard({ q = {} } = {}) {
+  if (!S.wallet) return { html: `<div class="studio-gate glass"><span class="sg-ic">${ic.rocket}</span><h1 class="display">Launch your <span class="grad">collection</span></h1><button class="btn primary lg" id="gw">Connect wallet</button><a class="lnk2" href="#/create/art">or send one artwork</a></div>`, mount: (root) => { $('#gw', root).onclick = walletModal; } };
+  const st = load(); st.logo = null; st.banner = null; st.art = []; st.draft = null;
+  if (q.draft) {
+    const l = ((await http('GET', '/me/launches')).launches || []).find((x) => x.id === q.draft && x.status === 'draft');
+    if (l) Object.assign(st, { draft: l.id, name: l.name, desc: l.description || '', x: (l.links && l.links.x) || '', logo: { url: l.logo, server: true }, banner: { url: l.banner, server: true }, art: (l.art || []).map((a) => ({ url: a.url, rarity: a.rarity || 'Common', server: true })) });
   }
-  if (step === 4 && !st.agree) p.agree = 'Please confirm';
-  return p;
-}
-const err = (p, k) => (p[k] ? `<small class="ferr">${esc(p[k])}</small>` : '');
-const up = (k, label, hint, img, cls = '') => `<label class="upl ${cls} ${img ? 'has' : ''}" data-up="${k}"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>${img ? `<img src="${dataUrl(img)}" alt="">` : ''}<span class="upl-in"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg><b>${label}</b><small>${hint}</small></span>${img ? '<span class="upl-ch">Change</span>' : ''}</label>`;
+  const me = S.profile || {};
+  const html = `<div class="studio">
+    <div class="sd-top"><a class="rbtn" href="#/" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <div class="sd-seg"><a class="on" href="#/create">${ic.rocket}Collection</a><a href="#/create/art">${ic.img}One art</a></div></div>
+    <label class="sd-ban" id="ban"><input type="file" accept="image/*" hidden data-up="banner"><span class="ph">${ic.img}<b>Banner</b></span></label>
+    <div class="sd-id"><label class="sd-logo" id="logo"><input type="file" accept="image/*" hidden data-up="logo"><span class="ph">${ic.cam}</span></label>
+      <div class="sd-nm"><input id="nm" maxlength="50" placeholder="Name it" value="${esc(st.name)}" autocomplete="off"><small>by ${esc(me.name || (me.username ? '@' + me.username : short(S.wallet)))}</small></div></div>
+    <textarea id="ds" class="sd-ds" rows="1" maxlength="600" placeholder="Say something about it…">${esc(st.desc)}</textarea>
+    <label class="sd-x"><svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg><input id="xh" maxlength="60" placeholder="@handle" value="${esc(st.x)}"></label>
 
-function stepHtml(st, p) {
-  const s = STEPS[st.step][0];
-  if (s === 'details') return `<div class="wz-ups">${up('logo', 'Logo', 'Square · 500px+', st.logo, 'sq')}${up('banner', 'Banner', 'Wide · 1400 × 500 works best', st.banner, 'wide')}</div>${err(p, 'logo')}
-    <div class="fgrid"><label class="field">Name<input class="input" data-k="name" maxlength="50" value="${esc(st.name)}" placeholder="e.g. Vice Nights">${err(p, 'name')}</label>
-    <label class="field">Symbol<input class="input" data-k="symbol" maxlength="10" value="${esc(st.symbol)}" placeholder="VNIGHT" style="text-transform:uppercase">${err(p, 'symbol')}</label></div>
-    <label class="field">Description<textarea class="input" data-k="description" maxlength="1200" rows="4" placeholder="What is it, who made it, why collect it">${esc(st.description)}</textarea>${err(p, 'description')}</label>
-    <div class="field">Theme<div class="pickrow">${THEMES.map(([k, l]) => `<button type="button" class="chip ${st.theme === k ? 'on' : ''}" data-theme="${k}">${l}</button>`).join('')}</div></div>
-    <div class="fgrid"><label class="field">X / Twitter <span class="opt">optional</span><input class="input" data-k="x" value="${esc(st.x)}" placeholder="@yourhandle"></label><label class="field">Website <span class="opt">optional</span><input class="input" data-k="site" value="${esc(st.site)}" placeholder="https://"></label></div>`;
-  if (s === 'art') return `<div class="wz-two"><div>${up('preReveal', 'Pre-reveal cover', 'What every mint shows before the reveal', st.preReveal, 'sq')}<p class="fine">No cover? We use your logo.</p></div>
-    <div><div class="field">When do people see their real piece?</div><div class="radios">${[['instant', 'Straight away', 'Every mint is revealed as soon as it lands.'], ['date', 'On a date', 'Everyone sees the cover until the reveal time.'], ['manual', 'When I say', 'You reveal from your dashboard when the mint is done.']].map(([k, t, d]) => `<button type="button" class="rcard ${st.revealMode === k ? 'on' : ''}" data-reveal="${k}"><i></i><b>${t}</b><small>${d}</small></button>`).join('')}</div>
-    ${st.revealMode === 'date' ? `<label class="field">Reveal time<input class="input" type="datetime-local" data-k="revealAt" value="${toLocal(st.revealAt)}">${err(p, 'revealAt')}</label>` : ''}</div></div>
-    <div class="note2"><b>Your artwork files</b><span>Supply is the maximum your collection can ever have. You don't need every piece now: after submitting, add art from Portfolio → Launches, 10 today and more later if you like. Only you can add art, and only uploaded pieces can be minted.</span></div>`;
-  if (s === 'supply') return `<div class="fgrid"><label class="field">Max supply<input class="input" type="number" min="1" max="10000" data-k="supply" value="${st.supply}">${err(p, 'supply')}<small class="fine">The most NFTs this collection can ever have. You upload the art over time.</small></label>
-    <div class="field">Creator royalty · <b id="royv">${st.royaltyPct}%</b><input type="range" min="0" max="10" step="0.5" data-k="royaltyPct" value="${st.royaltyPct}" class="range"><small class="fine">You earn this on every resale.</small></div></div>`;
-  if (s === 'stages') return `<p class="lede2">Stages run in order. An allowlist stage lets listed wallets mint early; the public stage opens to everyone.</p>${err(p, 'stages')}
-    <div class="stl">${st.stages.map((x, i) => `<div class="sted glass" data-i="${i}"><div class="sted-h"><span class="sted-n">${i + 1}</span><input class="input bare" data-s="name" value="${esc(x.name)}" maxlength="40"><div class="seg2">${['allowlist', 'public'].map((k) => `<button type="button" data-kind="${k}" class="${x.kind === k ? 'on' : ''}">${k === 'allowlist' ? 'Allowlist' : 'Public'}</button>`).join('')}</div><button type="button" class="xbtn" data-del="${i}" aria-label="Remove stage">✕</button></div>
-      <div class="fgrid3"><label class="field">Price (USD)<div class="pfx"><input class="input" type="number" min="0" step="0.01" data-s="priceUsd" value="${x.priceUsd}"><span>${x.priceUsd ? '≈ ' + solTxt(solOf(x.priceUsd)) : 'Free'}</span></div></label>
-      <label class="field">Starts<input class="input" type="datetime-local" data-s="start" value="${toLocal(x.start)}"></label><label class="field">Ends <span class="opt">${x.kind === 'public' ? 'optional' : ''}</span><input class="input" type="datetime-local" data-s="end" value="${toLocal(x.end)}"></label></div>
-      <div class="fgrid"><div class="field">Max per wallet<div class="qty"><button type="button" data-pw="-1">−</button><b>${x.perWallet}</b><button type="button" data-pw="1">+</button></div></div>
-      ${x.kind === 'allowlist' ? `<label class="field">Allowlist wallets · <b>${x.allowlist.filter(isWallet).length}</b> valid<textarea class="input mono" data-s="allowlist" rows="3" placeholder="Paste wallet addresses, one per line or comma separated">${esc(x.allowlist.join('\n'))}</textarea></label>` : '<div class="field">Who can mint<div class="pill2">Everyone</div></div>'}</div>${err(p, 's' + i)}</div>`).join('')}</div>
-    ${st.stages.length < 6 ? '<div class="addst"><button type="button" class="btn" data-add="allowlist">+ Allowlist stage</button><button type="button" class="btn" data-add="public">+ Public stage</button></div>' : ''}`;
-  const t = THEMES.find(([k]) => k === st.theme);
-  return `<div class="rvw"><dl><dt>Name</dt><dd>${esc(st.name)} <span class="muted">${esc(st.symbol.toUpperCase())}</span></dd><dt>Theme</dt><dd>${t ? t[1] : ''}</dd><dt>Max supply</dt><dd>${(+st.supply).toLocaleString()}</dd><dt>Royalty</dt><dd>${st.royaltyPct}%</dd>
-    <dt>Reveal</dt><dd>${st.revealMode === 'instant' ? 'Straight away' : st.revealMode === 'manual' ? 'When you say' : new Date(st.revealAt).toLocaleString()}</dd></dl>
-    <div class="rvw-st">${st.stages.map((x) => `<div><b>${esc(x.name)}</b><span>${x.kind === 'allowlist' ? x.allowlist.filter(isWallet).length + ' wallets' : 'Everyone'} · ${priceTxt(x.priceUsd)} · ${x.perWallet}/wallet</span><small>${new Date(x.start).toLocaleString()}${x.end ? ' → ' + new Date(x.end).toLocaleString() : ''}</small></div>`).join('')}</div>
-    <label class="agree"><input type="checkbox" data-k="agree" ${st.agree ? 'checked' : ''}><span>This is original GTA-inspired fan art I have the right to publish. I understand GTA Marketplace verifies every collection before it goes live.</span></label>${err(p, 'agree')}</div>`;
-}
-function preview(st) {
-  const s = st.stages[0], t = s && s.start ? s.start - Date.now() : 0;
-  return `<div class="dcard pv"><span class="dc-ban">${st.banner || st.logo ? `<img src="${dataUrl(st.banner || st.logo)}" alt="">` : '<i class="ph-ban"></i>'}<span class="dchip soon">Upcoming</span></span>
-    <div class="dc-in"><span class="dc-logo">${st.logo ? `<img src="${dataUrl(st.logo)}" alt="">` : ''}</span><b class="dc-nm">${esc(st.name || 'Your collection')}${tick}</b><small class="dc-by">by ${S.wallet ? short(S.wallet) : 'you'}</small>
-    <div class="dc-row"><span><small>Price</small><b>${s ? priceTxt(s.priceUsd) : '—'}</b></span><span><small>Items</small><b>${(+st.supply || 0).toLocaleString()}</b></span><span class="dtm">Starts in <b>${cd(t)}</b></span></div>
-    <div class="dprog"><div class="dpb"><i style="width:0"></i></div><span><b>0</b> / ${(+st.supply || 0).toLocaleString()} minted</span><span>0%</span></div></div></div>`;
-}
+    <div class="sd-h"><b>Artworks</b><span class="sd-cnt" id="cnt"></span></div>
+    <div class="sd-bar"><i id="artbar"></i></div>
+    <div class="sd-grid" id="grid"></div>
+    <div class="sd-leg">${RAR.map((r) => `<span><i class="rd ${r.toLowerCase()}"></i>${r}</span>`).join('')}<em>tap a piece to change</em></div>
 
-export async function launchWizard() {
-  if (!S.wallet) return { html: `<div class="ph2"><div><span class="eyebrow">Launch a collection</span><h1 class="display">Connect to <span class="grad">start.</span></h1></div></div><div class="empty"><b>Sign in with your wallet</b>Your collection and its earnings are tied to it.<br><button class="btn primary" id="gw" style="margin-top:16px">Connect wallet</button></div>`, mount: (root) => { $('#gw', root).onclick = walletModal; } };
-  const st = load(); let shown = {};
-  const html = `<div class="wz"><div class="wz-top"><a class="rbtn" href="#/create" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a><div><span class="eyebrow">Launch a collection</span><h1 id="wz-t"></h1></div><button class="btn sm ghost" id="wz-reset">Start over</button></div>
-    <ol class="wz-steps" id="wz-steps"></ol>
-    <div class="wz-grid"><div class="wz-body glass" id="wz-body"></div><aside class="wz-pv"><small class="eyebrow">Live preview</small><div id="wz-pv"></div></aside></div>
-    <div class="wz-foot"><button class="btn" id="wz-back">Back</button><span id="wz-saved" class="muted">Draft saved</span><button class="btn primary" id="wz-next">Next</button></div></div>`;
+    <div class="sd-h"><b>Mint</b></div>
+    <div class="sd-mint glass">
+      <div class="mrow"><span class="ml">${ic.tag}</span><div class="seg3" id="pm"><button data-p="0" class="${st.paid ? '' : 'on'}">Free</button><button data-p="1" class="${st.paid ? 'on' : ''}">Paid</button></div>
+        <label class="usd ${st.paid ? '' : 'off'}" id="pwrap">$<input id="pr" type="number" min="0.5" step="0.5" value="${st.price || ''}" placeholder="5"><em id="prs"></em></label></div>
+      <div class="mrow"><span class="ml">${ic.user}</span><span class="mt">Per wallet</span><div class="qty"><button data-per="-1">−</button><b id="per">${st.per}</b><button data-per="1">+</button></div></div>
+      <div class="mrow"><span class="ml">${ic.clock}</span><div class="chips3" id="sts">${START.map(([k, l]) => `<button data-s="${k}" class="${st.start === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="mrow"><span class="ml">${ic.hour}</span><div class="chips3" id="hrs">${LAST.map((h) => `<button data-h="${h}" class="${st.hours === h ? 'on' : ''}">${lastLbl(h)}</button>`).join('')}</div></div>
+    </div>
+    <div class="sd-foot"><div class="chk" id="chk"></div><button class="btn primary lg" id="go">${ic.rocket}<span>Launch</span></button></div></div>`;
   return {
     html,
     mount(root) {
-      const body = $('#wz-body', root), pv = $('#wz-pv', root);
-      const paint = (dir) => {
-        $('#wz-t', root).textContent = STEPS[st.step][1];
-        $('#wz-steps', root).innerHTML = STEPS.map(([k, l], i) => `<li class="${i < st.step ? 'done' : i === st.step ? 'on' : ''}" data-go="${i}"><i>${i < st.step ? '✓' : i + 1}</i><span>${l}</span></li>`).join('');
-        body.innerHTML = stepHtml(st, shown);
-        if (dir) { body.style.setProperty('--dx', dir > 0 ? '28px' : '-28px'); body.classList.remove('wz-in'); void body.offsetWidth; body.classList.add('wz-in'); }
-        pv.innerHTML = preview(st);
-        $('#wz-back', root).style.visibility = st.step ? 'visible' : 'hidden';
-        $('#wz-next', root).textContent = st.step === STEPS.length - 1 ? 'Submit for verification' : 'Next';
+      const grid = $('#grid', root);
+      const pic = (box, img) => { box.classList.toggle('has', !!img); const old = box.querySelector('img'); if (old) old.remove(); if (img) { const i = new Image(); i.src = img.url; i.alt = ''; box.prepend(i); } };
+      const check = () => [['banner', !!st.banner], ['logo', !!st.logo], ['name', st.name.trim().length >= 2], ['art', st.art.length >= MIN]];
+      const paintChk = () => {
+        const c = check(), ok = c.every(([, v]) => v);
+        $('#chk', root).innerHTML = c.map(([k, v]) => `<i class="${v ? 'ok' : ''}" title="${k}">${{ banner: ic.img, logo: ic.cam, name: '<b>Aa</b>', art: '<b>' + Math.min(st.art.length, MIN) + '</b>' }[k]}</i>`).join('');
+        $('#go', root).classList.toggle('ready', ok);
+        $('#cnt', root).innerHTML = st.art.length < MIN ? `<b>${st.art.length}</b>/${MIN} min` : `<b>${st.art.length}</b> pieces`;
+        $('#artbar', root).style.width = Math.min(100, (st.art.length / MIN) * 100) + '%';
       };
-      const persist = () => { save(st); const sv = $('#wz-saved', root); sv.textContent = 'Draft saved'; sv.classList.remove('blink'); void sv.offsetWidth; sv.classList.add('blink'); pv.innerHTML = preview(st); };
-      const go = (to) => { if (to > st.step) { for (let i = st.step; i < to; i++) { const p = problems(st, i); if (Object.keys(p).length) { st.step = i; shown = p; paint(); toast(Object.values(p)[0], 'bad'); return; } } } const dir = to - st.step; st.step = to; shown = {}; save(st); paint(dir); scrollTo({ top: 0, behavior: 'smooth' }); };
-      body.addEventListener('input', (e) => {
-        const el = e.target, k = el.dataset.k, sk = el.dataset.s;
-        if (k) {
-          if (k === 'agree') st.agree = el.checked;
-          else if (k === 'revealAt') st.revealAt = fromLocal(el.value);
-          else if (k === 'supply' || k === 'royaltyPct') { st[k] = +el.value; if (k === 'royaltyPct') $('#royv', root).textContent = el.value + '%'; }
-          else st[k] = el.value;
-          if (k === 'name' && !st.symbolTouched) { st.symbol = el.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase(); const sy = $('[data-k="symbol"]', body); if (sy) sy.value = st.symbol; }
-          if (k === 'symbol') { st.symbolTouched = true; st.symbol = el.value.toUpperCase(); }
-          persist(); return;
-        }
-        if (sk) {
-          const i = +el.closest('[data-i]').dataset.i, x = st.stages[i];
-          if (sk === 'priceUsd') { x.priceUsd = Math.max(0, +el.value || 0); const span = el.parentElement.querySelector('span'); if (span) span.textContent = x.priceUsd ? '≈ ' + solTxt(solOf(x.priceUsd)) : 'Free'; }
-          else if (sk === 'start' || sk === 'end') x[sk] = fromLocal(el.value);
-          else if (sk === 'allowlist') { x.allowlist = parseList(el.value); const lab = el.closest('label').querySelector('b'); if (lab) lab.textContent = x.allowlist.filter(isWallet).length; }
-          else x[sk] = el.value;
-          persist();
-        }
+      const paintGrid = () => {
+        const tiles = st.art.map((a, i) => `<div class="sd-t" data-i="${i}"><img src="${esc(a.url)}" alt=""><i class="rd ${a.rarity.toLowerCase()}"></i>${a.server ? '' : `<button class="sd-del" data-del="${i}" aria-label="Remove">${ic.x}</button>`}</div>`).join('');
+        const empties = Math.max(0, MIN - st.art.length - 1);
+        grid.innerHTML = `<label class="sd-add"><input type="file" accept="image/*" multiple hidden data-up="art">${ic.plus}<span>Add</span></label>${tiles}${'<div class="sd-t ghost"></div>'.repeat(empties)}`;
+        paintChk();
+      };
+      const priceSol = () => { const v = +$('#pr', root).value; $('#prs', root).textContent = st.paid && v && solOf(v) ? '≈ ' + solOf(v).toFixed(3) + ' SOL' : ''; };
+      pic($('#ban', root), st.banner); pic($('#logo', root), st.logo); paintGrid(); priceSol();
+      const persist = () => { save(st); paintChk(); };
+      root.addEventListener('input', (e) => {
+        const id = e.target.id;
+        if (id === 'nm') st.name = e.target.value; else if (id === 'ds') { st.desc = e.target.value; e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }
+        else if (id === 'xh') st.x = e.target.value; else if (id === 'pr') { st.price = +e.target.value || 0; priceSol(); }
+        persist();
       });
-      body.addEventListener('click', (e) => {
-        const th = e.target.closest('[data-theme]'), rv = e.target.closest('[data-reveal]'), kd = e.target.closest('[data-kind]'), del = e.target.closest('[data-del]'), add = e.target.closest('[data-add]'), pw = e.target.closest('[data-pw]');
-        if (th) { st.theme = th.dataset.theme; $$('[data-theme]', body).forEach((b) => b.classList.toggle('on', b === th)); persist(); }
-        else if (rv) { st.revealMode = rv.dataset.reveal; persist(); paint(); }
-        else if (kd) { const x = st.stages[+kd.closest('[data-i]').dataset.i]; x.kind = kd.dataset.kind; if (x.name === 'Allowlist' || x.name === 'Public') x.name = x.kind === 'allowlist' ? 'Allowlist' : 'Public'; persist(); paint(); }
-        else if (del) { st.stages.splice(+del.dataset.del, 1); persist(); paint(); }
-        else if (add) { const last = st.stages[st.stages.length - 1], start = last ? (last.end || last.start + 864e5) : dayAt(1, 18); st.stages.push({ id: 'st' + Date.now().toString(36), name: add.dataset.add === 'allowlist' ? 'Allowlist' : 'Public', kind: add.dataset.add, priceUsd: 0, start, end: add.dataset.add === 'allowlist' ? start + 864e5 : null, perWallet: 2, allowlist: [] }); persist(); paint(); }
-        else if (pw) { const x = st.stages[+pw.closest('[data-i]').dataset.i]; x.perWallet = Math.max(1, Math.min(100, x.perWallet + +pw.dataset.pw)); pw.parentElement.querySelector('b').textContent = x.perWallet; persist(); }
-      });
-      body.addEventListener('change', async (e) => {
-        const box = e.target.closest('[data-up]'); if (!box || !e.target.files || !e.target.files[0]) return;
-        const k = box.dataset.up, f = e.target.files[0];
-        if (!/^image\//.test(f.type)) return toast('Please choose an image', 'bad');
-        try { st[k] = await shrinkImage(f, k === 'banner' ? 1600 : k === 'logo' ? 600 : 1200, 0.85); persist(); paint(); } catch (x) { toast(x.message, 'bad'); }
-      });
-      $('#wz-steps', root).addEventListener('click', (e) => { const li = e.target.closest('[data-go]'); if (li && +li.dataset.go < st.step) go(+li.dataset.go); });
-      $('#wz-back', root).onclick = () => st.step && go(st.step - 1);
-      $('#wz-reset', root).onclick = () => { if (!confirm('Clear this draft and start over?')) return; Object.assign(st, fresh()); save(st); shown = {}; paint(); };
-      $('#wz-next', root).onclick = async () => {
-        if (st.step < STEPS.length - 1) return go(st.step + 1);
-        for (let i = 0; i < STEPS.length; i++) { const p = problems(st, i); if (Object.keys(p).length) { st.step = i; shown = p; paint(); return toast(Object.values(p)[0], 'bad'); } }
-        const btn = $('#wz-next', root); btn.disabled = true; btn.textContent = 'Submitting…';
+      root.addEventListener('change', async (e) => {
+        const k = e.target.dataset.up; if (!k || !e.target.files.length) return;
+        if (st.draft && (k === 'logo' || k === 'banner')) return toast('Logo and banner are set for this draft');
         try {
-          const payload = { name: st.name.trim(), symbol: st.symbol.toUpperCase(), description: st.description.trim(), theme: st.theme, links: { x: st.x.trim() || undefined, site: st.site.trim() || undefined }, logo: st.logo, banner: st.banner, preReveal: st.preReveal,
-            revealMode: st.revealMode, revealAt: st.revealMode === 'date' ? st.revealAt : null, supply: +st.supply, royaltyPct: +st.royaltyPct,
-            stages: st.stages.map((x) => ({ id: x.id, name: x.name, kind: x.kind, priceUsd: +x.priceUsd || 0, start: x.start, end: x.end || null, perWallet: x.perWallet, allowlist: x.kind === 'allowlist' ? x.allowlist.filter(isWallet) : [] })) };
-          const r = await http('POST', '/launches', payload);
+          if (k === 'art') {
+            for (const f of [...e.target.files].slice(0, 500 - st.art.length)) { if (!/^image\//.test(f.type)) continue; const img = await shrinkImage(f, 1600, 0.88); st.art.push({ url: `data:${img.type};base64,${img.data}`, img, rarity: 'Common' }); }
+            paintGrid(); grid.lastElementChild && grid.querySelector('.sd-t:last-of-type')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          } else { const img = await shrinkImage(e.target.files[0], k === 'banner' ? 1800 : 600, 0.88); st[k] = { url: `data:${img.type};base64,${img.data}`, img }; pic($(k === 'banner' ? '#ban' : '#logo', root), st[k]); paintChk(); }
+        } catch (x) { toast(x.message, 'bad'); }
+        e.target.value = '';
+      });
+      root.addEventListener('click', (e) => {
+        const del = e.target.closest('[data-del]'); if (del) { e.stopPropagation(); st.art.splice(+del.dataset.del, 1); return paintGrid(); }
+        const t = e.target.closest('.sd-t[data-i]'); if (t) { const a = st.art[+t.dataset.i]; if (a.server) return; a.rarity = RAR[(RAR.indexOf(a.rarity) + 1) % RAR.length]; const d = t.querySelector('.rd'); d.className = 'rd ' + a.rarity.toLowerCase(); t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); return; }
+        const pm = e.target.closest('[data-p]'); if (pm) { st.paid = pm.dataset.p === '1'; $$('#pm button', root).forEach((b) => b.classList.toggle('on', b === pm)); $('#pwrap', root).classList.toggle('off', !st.paid); if (st.paid) $('#pr', root).focus(); priceSol(); return persist(); }
+        const per = e.target.closest('[data-per]'); if (per) { st.per = Math.max(1, Math.min(50, st.per + +per.dataset.per)); $('#per', root).textContent = st.per; return persist(); }
+        const s = e.target.closest('[data-s]'); if (s) { st.start = s.dataset.s; $$('#sts button', root).forEach((b) => b.classList.toggle('on', b === s)); return persist(); }
+        const h = e.target.closest('[data-h]'); if (h) { st.hours = +h.dataset.h; $$('#hrs button', root).forEach((b) => b.classList.toggle('on', b === h)); return persist(); }
+      });
+      $('#go', root).onclick = async () => {
+        const miss = check().find(([, v]) => !v);
+        if (miss) { const where = { banner: '#ban', logo: '#logo', name: '#nm', art: '#grid' }[miss[0]]; const el = $(where, root); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.remove('nudge'); void el.offsetWidth; el.classList.add('nudge'); if (miss[0] === 'name') el.focus(); return; }
+        if (st.paid && !(st.price >= 0.5)) { $('#pr', root).focus(); return toast('Set a price', 'bad'); }
+        const mint = { priceUsd: st.paid ? st.price : 0, perWallet: st.per, start: st.start === 'now' ? Date.now() : st.start === '1h' ? Date.now() + 36e5 : tomorrow(), hours: st.hours };
+        const todo = st.art.filter((a) => !a.server);
+        const ov = document.createElement('div'); ov.className = 'sd-up'; ov.innerHTML = `<div class="sd-up-in glass"><div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52"/><circle class="v" cx="60" cy="60" r="52" pathLength="100"/></svg><b id="upn">0%</b></div><div class="upthumbs" id="upt"></div></div>`;
+        document.body.appendChild(ov); requestAnimationFrame(() => ov.classList.add('on'));
+        const set = (k, n) => { const p = Math.round((k / Math.max(1, n)) * 100); ov.querySelector('.v').style.strokeDashoffset = 100 - p; $('#upn', ov).textContent = p + '%'; };
+        try {
+          let id = st.draft;
+          if (!id) { id = (await http('POST', '/launches', { name: st.name.trim(), description: st.desc.trim() || undefined, links: { x: st.x.trim() || undefined }, logo: st.logo.img, banner: st.banner.img, mint })).launch.id; st.draft = id; }
+          for (let i = 0; i < todo.length; i++) { await http('POST', `/launches/${id}/art`, { file: todo[i].img, rarity: todo[i].rarity }); todo[i].server = true; set(i + 1, todo.length + 1); const t = new Image(); t.src = todo[i].url; $('#upt', ov).prepend(t); }
+          await http('POST', `/launches/${id}/publish`, { mint }); set(1, 1);
           localStorage.removeItem(KEY);
-          root.innerHTML = `<div class="ldone glass"><span class="ldone-ic">✓</span><h1 class="display">Sent for <span class="grad">verification.</span></h1><p><b>${esc(r.launch.name)}</b> is in review. We check it is original GTA-inspired art, then it goes live under Drops on your schedule. You'll get a notification either way.</p>
-            <ol class="ldone-steps"><li class="ok">Submitted</li><li class="on">In review</li><li>Live on Drops</li></ol><div class="cta"><a class="btn primary" href="#/me/launches">See my launches</a><a class="btn" href="#/drops">Browse drops</a></div></div>`;
-        } catch (x) { toast(x.message, 'bad'); btn.disabled = false; btn.textContent = 'Submit for verification'; }
+          ov.querySelector('.sd-up-in').innerHTML = `<span class="done-ic2">${ic.rocket}</span><h2 class="display">Live!</h2><a class="btn primary lg" href="#/drop/${encodeURIComponent(id)}">See your drop</a>`;
+          ov.onclick = (e) => { if (e.target.closest('a')) ov.remove(); };
+        } catch (x) { ov.remove(); paintGrid(); toast(x.message + (st.draft ? ' — saved as a draft in Portfolio' : ''), 'bad'); }
       };
-      paint();
+      const ds = $('#ds', root); ds.style.height = ds.scrollHeight + 'px';
     }
   };
 }

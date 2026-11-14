@@ -207,35 +207,28 @@ const toLocal = (t) => { if (!t) return ''; const d = new Date(t); return new Da
 const fromLocal = (v) => (v ? new Date(v).getTime() : null);
 const stLine = (x) => `${esc(x.name)} · ${x.kind} · ${usd(x.priceUsd)} · ${x.perWallet}/wallet · ${new Date(x.start).toLocaleString()}${x.end ? ' → ' + new Date(x.end).toLocaleString() : ''}${x.kind === 'allowlist' ? ' · ' + (x.allowlist || []).length + ' wallets' : ''}`;
 function dropEditor(c) {
-  const d = c.drop || { stages: [], published: false, revealMode: 'instant' };
-  const stages = (d.stages || []).map((x) => ({ ...x, allowlist: x.allowlist || [] }));
-  const row = (x, i) => `<div class="panel glass" data-i="${i}" style="padding:14px;margin:0 0 10px"><div class="fgrid"><label class="field">Name<input data-s="name" value="${esc(x.name)}"></label><label class="field">Type<select data-s="kind">${opts(['allowlist', 'public'], x.kind)}</select></label></div>
-    <div class="fgrid"><label class="field">Price USD (0 = free)<input data-s="priceUsd" type="number" min="0" step="0.01" value="${x.priceUsd}"></label><label class="field">Per wallet<input data-s="perWallet" type="number" min="1" max="100" value="${x.perWallet}"></label></div>
-    <div class="fgrid"><label class="field">Starts<input data-s="start" type="datetime-local" value="${toLocal(x.start)}"></label><label class="field">Ends (optional)<input data-s="end" type="datetime-local" value="${toLocal(x.end)}"></label></div>
-    <label class="field">Allowlist wallets (allowlist stages)<textarea data-s="allowlist" style="min-height:60px;font-family:monospace">${esc((x.allowlist || []).join('\n'))}</textarea></label><button class="btn sm danger" data-rm="${i}">Remove stage</button></div>`;
-  modal(`<h2 class="display" style="font-size:30px">${esc(c.name || c.id)} drop</h2><p class="muted" style="margin-bottom:14px">Mint stages for our own collection. Turn on "Listed on Drops" to show it on the launchpad.</p>
-    <div class="fgrid"><label class="field">Listed on Drops<select id="pub">${opts(['no', 'yes'], d.published ? 'yes' : 'no')}</select></label><label class="field">Supply (empty = every artwork in the collection)<input id="sup" type="number" min="1" value="${d.supply || ''}"></label></div>
-    <div class="fgrid"><label class="field">Reveal<select id="rm">${opts(['instant', 'date', 'manual'], d.revealMode || 'instant')}</select></label><label class="field">Reveal time (for "date")<input id="ra" type="datetime-local" value="${toLocal(d.revealAt)}"></label></div>
-    <h3 style="margin:16px 0 10px">Stages</h3><div id="sts">${stages.map(row).join('')}</div><div class="row"><button class="btn sm" data-add="allowlist">+ Allowlist stage</button><button class="btn sm" data-add="public">+ Public stage</button></div>
-    <div class="row" style="margin-top:18px"><button class="btn primary" id="sv">Save drop</button><button class="btn" id="cx">Cancel</button></div>`, (m, close) => {
-    const read = () => $$('[data-i]', m).forEach((box) => { const x = stages[+box.dataset.i]; $$('[data-s]', box).forEach((f) => { const k = f.dataset.s; x[k] = k === 'start' || k === 'end' ? fromLocal(f.value) : k === 'priceUsd' || k === 'perWallet' ? +f.value : k === 'allowlist' ? f.value.split(/[\s,;]+/).map((w) => w.trim()).filter(Boolean) : f.value; }); });
-    const redraw = () => { $('#sts', m).innerHTML = stages.map(row).join(''); };
-    m.addEventListener('click', (e) => {
-      const a = e.target.closest('[data-add]'), r = e.target.closest('[data-rm]');
-      if (a) { read(); const last = stages[stages.length - 1], start = last ? last.end || last.start + 864e5 : Date.now() + 864e5; stages.push({ name: a.dataset.add === 'allowlist' ? 'Allowlist' : 'Public', kind: a.dataset.add, priceUsd: 0, perWallet: 1, start, end: a.dataset.add === 'allowlist' ? start + 864e5 : null, allowlist: [] }); redraw(); }
-      if (r) { read(); stages.splice(+r.dataset.rm, 1); redraw(); }
-    });
+  const d = c.drop || {}, st0 = (d.stages || [])[0] || { priceUsd: 0, perWallet: 1, start: Date.now() + 36e5, end: Date.now() + 25 * 36e5 };
+  modal(`<h2 class="display" style="font-size:30px">${esc(c.name || c.id)} mint</h2>
+    <div class="fgrid"><label class="field">On Drops<select id="pub">${opts(['no', 'yes'], d.published ? 'yes' : 'no')}</select></label><label class="field">Items to mint (empty = all)<input id="sup" type="number" min="1" value="${d.supply || ''}"></label></div>
+    <div class="fgrid"><label class="field">Price USD (0 = free)<input id="pr" type="number" min="0" step="0.5" value="${st0.priceUsd}"></label><label class="field">Per wallet<input id="pw" type="number" min="1" max="50" value="${st0.perWallet}"></label></div>
+    <div class="fgrid"><label class="field">Starts<input id="st" type="datetime-local" value="${toLocal(st0.start)}"></label><label class="field">Ends (reveal)<input id="en" type="datetime-local" value="${toLocal(st0.end)}"></label></div>
+    <div class="row" style="margin-top:18px"><button class="btn primary" id="sv">Save</button><button class="btn" id="cx">Cancel</button></div>`, (m, close) => {
     $('#cx', m).onclick = close;
-    $('#sv', m).onclick = (e) => busy(e.target, async () => { read(); await api('PUT', `/admin/collections/${c.id}/drop`, { published: $('#pub', m).value === 'yes', supply: $('#sup', m).value ? +$('#sup', m).value : null, revealMode: $('#rm', m).value, revealAt: fromLocal($('#ra', m).value), preReveal: c.drop && c.drop.preReveal || null, stages: stages.map((x) => ({ id: x.id, name: x.name, kind: x.kind, priceUsd: x.priceUsd || 0, perWallet: x.perWallet || 1, start: x.start, end: x.end || null, allowlist: x.allowlist })) }); toast('Drop saved'); close(); render(); });
+    $('#sv', m).onclick = (e) => busy(e.target, async () => {
+      const start = fromLocal($('#st', m).value), end = fromLocal($('#en', m).value);
+      await api('PUT', `/admin/collections/${c.id}/drop`, { published: $('#pub', m).value === 'yes', supply: $('#sup', m).value ? +$('#sup', m).value : null, revealMode: 'date', revealAt: end, preReveal: d.preReveal || null,
+        stages: [{ id: 'mint', name: 'Mint', kind: 'public', priceUsd: +$('#pr', m).value || 0, perWallet: +$('#pw', m).value || 1, start, end }] });
+      toast('Saved'); close(); render();
+    });
   });
 }
 VIEWS.launchpad = async (el) => {
-  const tabs = `<div class="row" style="margin-bottom:16px">${[['ours', 'Our drops'], ['review', 'To verify'], ['approved', 'Verified'], ['rejected', 'Rejected']].map(([k, l]) => `<button class="btn ${k === LPTAB ? 'primary' : ''}" data-lt="${k}">${l}</button>`).join('')}</div>`;
+  const tabs = `<div class="row" style="margin-bottom:16px">${[['ours', 'Our drops'], ['approved', 'Creator drops'], ['rejected', 'Taken down']].map(([k, l]) => `<button class="btn ${k === LPTAB ? 'primary' : ''}" data-lt="${k}">${l}</button>`).join('')}</div>`;
   if (LPTAB === 'ours') {
     const cols = (await api('GET', '/admin/collections')).collections;
     el.innerHTML = head('Launchpad', 'Mint stages for our collections, and creator collections waiting for verification.') + tabs +
       (cols.length ? cols.map((c) => `<div class="coll glass" data-id="${esc(c.id)}"><div class="cv" style="${c.cover ? `background-image:url('${esc(c.cover)}')` : ''}"></div><div style="display:grid;gap:8px;min-width:0"><div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:24px">${esc(c.name || c.id)}</h3><span class="tag ${c.drop && c.drop.published ? 'ok' : 'warn'}">${c.drop && c.drop.published ? 'On Drops' : 'Not listed'}</span></div>
-        <div class="fine">${c.drop && c.drop.stages && c.drop.stages.length ? c.drop.stages.map(stLine).join('<br>') : 'No mint stages yet'}</div><div class="row"><button class="btn primary sm" data-edit>Edit mint stages</button>${c.drop && c.drop.published && c.drop.revealMode !== 'instant' && !c.drop.revealedAt ? '<button class="btn sm" data-reveal>Reveal now</button>' : ''}</div></div></div>`).join('') : '<div class="empty"><b>No collections yet</b>Add them under Collections first.</div>');
+        <div class="fine">${c.drop && c.drop.stages && c.drop.stages.length ? c.drop.stages.map(stLine).join('<br>') : 'No mint stages yet'}</div><div class="row"><button class="btn primary sm" data-edit>Edit mint</button>${c.drop && c.drop.published && c.drop.revealMode !== 'instant' && !c.drop.revealedAt ? '<button class="btn sm" data-reveal>Reveal now</button>' : ''}</div></div></div>`).join('') : '<div class="empty"><b>No collections yet</b>Add them under Collections first.</div>');
     el.onclick = (e) => { const t = e.target.closest('[data-lt]'); if (t) { LPTAB = t.dataset.lt; return render(); } const b = e.target.closest('[data-edit]'); if (b) dropEditor(cols.find((c) => c.id === b.closest('.coll').dataset.id)); const r = e.target.closest('[data-reveal]'); if (r && confirm('Reveal this drop now?')) busy(r, async () => { const x = await api('POST', `/admin/collections/${r.closest('.coll').dataset.id}/drop/reveal`, {}); toast(`Revealed ${x.revealed} pieces`); render(); }); };
     return;
   }
@@ -246,11 +239,11 @@ VIEWS.launchpad = async (el) => {
       ${l.banner && l.banner !== l.logo ? `<div style="aspect-ratio:16/5;border-radius:12px;background:center/cover url('${esc(l.banner)}')"></div>` : ''}
       <p class="muted">${esc(l.description)}</p><div class="fine">Creator <code>${esc(l.wallet)}</code> · ${l.supply} items · ${l.royaltyPct}% royalty · theme ${esc(l.theme)} · reveal ${esc(l.revealMode)}${l.revealAt ? ' ' + new Date(l.revealAt).toLocaleString() : ''} · ${(l.art || []).length} art files${l.links && (l.links.x || l.links.site) ? ' · ' + esc([l.links.x, l.links.site].filter(Boolean).join(' · ')) : ''}</div>
       <div class="fine">${l.stages.map(stLine).join('<br>')}</div>${l.reason ? `<div class="warn">${esc(l.reason)}</div>` : ''}
-      ${LPTAB === 'review' ? '<div class="row"><button class="btn primary" data-ok>Verify &amp; list</button><button class="btn danger" data-no>Reject</button></div>' : ''}</div></div>`).join('') : `<div class="empty"><b>Nothing ${LPTAB === 'review' ? 'to verify' : 'here'}</b></div>`);
+      ${LPTAB === 'approved' ? '<div class="row"><button class="btn danger" data-no>Take down</button></div>' : ''}</div></div>`).join('') : `<div class="empty"><b>Nothing ${LPTAB === 'review' ? 'to verify' : 'here'}</b></div>`);
   el.onclick = (e) => {
     const t = e.target.closest('[data-lt]'); if (t) { LPTAB = t.dataset.lt; return render(); }
     const c = e.target.closest('.sub-card'); if (!c) return; const id = c.dataset.id;
     if (e.target.closest('[data-ok]')) busy(e.target, async () => { await api('POST', `/admin/launches/${id}/review`, { approve: true }); toast('Verified — it is on Drops now'); render(); });
-    if (e.target.closest('[data-no]')) { const reason = prompt('Reason (shown to the creator)'); if (reason === null) return; busy(e.target, async () => { await api('POST', `/admin/launches/${id}/review`, { approve: false, reason }); toast('Rejected'); render(); }); }
+    if (e.target.closest('[data-no]')) { const reason = prompt('Why? (shown to the creator)'); if (reason === null) return; busy(e.target, async () => { await api('POST', `/admin/launches/${id}/review`, { approve: false, reason }); toast('Rejected'); render(); }); }
   };
 };

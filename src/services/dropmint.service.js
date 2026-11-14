@@ -16,7 +16,7 @@ import { makeNotification } from './notifications.service.js';
 import { lockFor, isLocked } from './locks.js';
 import { collectionFor } from './collections.service.js';
 import { ensurePermanent } from './permastore.service.js';
-import { getDrop } from './launches.service.js';
+import { getDrop, revealIfDone } from './launches.service.js';
 import { conflict, forbidden, notFound, unavailable } from '../lib/errors.js';
 
 export const LAUNCHPAD_FEE_BPS = 500; // platform keeps 5% of creator mint revenue
@@ -84,6 +84,7 @@ async function finalize(ptx) {
     }
     const n = makeNotification(ptx.wallet, 'mint_success', 'Minted!', `You minted from ${d.dropName}. It is in your wallet${it.preReveal ? ' and reveals soon' : ''}.`, { itemId: String(d.itemId), asset: d.asset, signature: ptx.signature }); tx.set(n.ref, n.data);
   });
+  if (d.kind === 'creator') await revealIfDone(d.dropId).catch(() => {}); // sold out → everyone sees their piece
   invalidateCatalog();
 }
 async function rollback(ptx) {
