@@ -7,7 +7,7 @@ const banner = (key, eyebrow, title, sub) => `<div class="ph"><span class="eyebr
 
 /* ================= CREATE / SUBMIT ================= */
 export async function create() {
-  const head = banner('create', 'Submit', 'Drop your <span class="grad">art.</span>', 'Send us your GTA-inspired artwork. Our team reviews every submission, sets a price, and publishes it to the marketplace.');
+  const head = banner('create', 'Submit one artwork', 'Drop your <span class="grad">art.</span>', 'Send us your GTA-inspired artwork. Our team reviews every submission, sets a price, and publishes it to the marketplace.');
   if (!S.wallet) return { html: head + gate('Connect to submit', 'Sign in with a wallet so your artwork is credited to you.'), mount: wireGate };
   const eras = Object.entries(D.eras || {});
   const html = `${head}<div class="two"><label class="drop" id="drop"><input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif"><div id="dropin"><b>Drop an image</b><span class="muted">PNG, JPG, WEBP or GIF</span></div></label>
@@ -41,7 +41,7 @@ export async function create() {
 }
 
 /* ================= PROFILE ================= */
-const TABS = [['nfts', 'My NFTs'], ['received', 'Offers in'], ['made', 'Offers out'], ['notifications', 'Inbox'], ['activity', 'Activity'], ['submissions', 'Submissions']];
+const TABS = [['nfts', 'My NFTs'], ['received', 'Offers in'], ['made', 'Offers out'], ['notifications', 'Inbox'], ['activity', 'Activity'], ['launches', 'Launches'], ['submissions', 'Submissions']];
 const stc = (s) => (s === 'accepted' || s === 'approved' ? 'ok' : s === 'rejected' || s === 'cancelled' || s === 'expired' || s === 'failed' ? 'bad' : 'warn');
 const none = (t, d) => `<div class="empty"><b>${t}</b>${d || ''}</div>`;
 const get = async (p, k) => { try { return (await http('GET', p))[k] || []; } catch (e) { return []; } };
@@ -55,6 +55,9 @@ async function tabBody(tab) {
   else if (tab === 'made') { const l = await get('/me/offers/made', 'offers'); body = l.length ? l.map((o) => `<div class="rowc"><div class="l">${th(o.itemImage, o.itemTitle)}<div>${link(o.itemId, `<b>${esc(o.itemTitle || o.itemId)}</b>`)}<small>${usd(o.usd)} · ≈ ${sol(o.sol)} · ${ago(o.createdAt)}</small></div></div><div class="r"><span class="st ${stc(o.status)}">${esc(o.status)}</span>${o.status === 'active' ? `<button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : none('You have not made offers'); }
   else if (tab === 'notifications') { const l = await get('/me/notifications', 'notifications'); body = l.length ? l.map((n) => `<div class="rowc"><div><b>${esc(n.title)}</b>${n.read ? '' : '<span class="dotn"></span>'}<small>${esc(n.body || '')} · ${ago(n.createdAt)}</small></div>${n.data && n.data.itemId ? `<a class="btn sm" href="#/art/${encodeURIComponent(n.data.itemId)}">Open</a>` : ''}</div>`).join('') : none('Inbox zero'); }
   else if (tab === 'activity') { const l = await get('/me/activity', 'activity'); body = l.length ? l.map((a) => `<div class="rowc"><div>${a.itemId ? link(a.itemId, `<b>${esc(a.itemTitle || a.type)}</b>`) : `<b>${esc(a.type)}</b>`}<small>${esc(a.type)}${a.role ? ' · ' + esc(a.role) : ''} · ${ago(a.createdAt)}</small></div><b>${a.usd != null ? usd(a.usd) : ''}</b></div>`).join('') : none('No activity yet'); }
+  else if (tab === 'launches') { const l = await get('/me/launches', 'launches'); const lab = { review: 'In review', approved: 'Verified', live: 'Live', rejected: 'Not approved' };
+    body = l.length ? l.map((x) => `<div class="rowc"><div class="l">${th(x.logo, x.name)}<div>${x.status === 'approved' || x.status === 'live' ? `<a href="#/drop/${encodeURIComponent(x.id)}"><b>${esc(x.name)}</b></a>` : `<b>${esc(x.name)}</b>`}<small>${esc(x.symbol || '')} · ${(x.supply || 0).toLocaleString()} items · ${x.stages.length} stage${x.stages.length > 1 ? 's' : ''} · ${ago(x.createdAt)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></div></div><span class="st ${x.status === 'rejected' ? 'bad' : x.status === 'review' ? 'warn' : 'ok'}">${lab[x.status] || esc(x.status)}</span></div>`).join('') + '<div class="cta" style="margin-top:14px"><a class="btn" href="#/create/collection">Launch another</a></div>'
+      : none('No collections yet', '<a class="btn primary" style="margin-top:14px" href="#/create/collection">Launch a collection</a>'); }
   else { const l = await get('/me/submissions', 'submissions'); body = l.length ? l.map((s) => `<div class="rowc"><div class="l">${th(s.media && s.media[0] && s.media[0].url, s.title)}<div><b>${esc(s.title)}</b><small>${esc(s.era || '')} · ${ago(s.createdAt)}${s.reason ? ' · ' + esc(s.reason) : ''}</small></div></div><span class="st ${stc(s.status)}">${esc(s.status)}</span></div>`).join('') : none('No submissions', '<a class="accent" href="#/create">Submit your first piece</a>'); }
   return { body, recv };
 }

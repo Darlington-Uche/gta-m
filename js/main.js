@@ -4,24 +4,27 @@ import { explore as browse, artwork, collections } from './views.js';
 import { exploreHub as explore } from './explore.js';
 import { collection } from './collection.js';
 import { homeView as home } from './home.js';
-import { create, profile } from './me.js';
+import { create as createArt, profile } from './me.js';
+import { dropsHub, dropPage } from './drops.js';
+import { createHub, launchWizard } from './launch.js';
 
 const ic = {
   home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
   explore: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
   cols: '<svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
   create: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg>',
+  drops: '<svg viewBox="0 0 24 24"><path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/></svg>',
   me: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
 };
-const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/collections', 'Eras', ic.cols], ['/create', 'Submit', ic.create], ['/me', 'Profile', ic.me]];
+const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/drops', 'Drops', ic.drops], ['/create', 'Create', ic.create], ['/me', 'Profile', ic.me]];
 const routes = [
   [/^\/?$/, home], [/^\/explore$/, explore], [/^\/browse$/, browse], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
-  [/^\/create$/, create], [/^\/me(?:\/(\w+))?$/, profile]
+  [/^\/drops$/, dropsHub], [/^\/drop\/(.+)$/, dropPage], [/^\/create$/, createHub], [/^\/create\/art$/, createArt], [/^\/create\/collection$/, launchWizard], [/^\/me(?:\/(\w+))?$/, profile]
 ];
 
 function chrome() {
   const here = (location.hash.slice(1) || '/').split('?')[0];
-  const active = (h) => (h === '/' ? here === '/' : here.startsWith(h) || (h === '/explore' && here === '/browse') || (h === '/collections' && here.startsWith('/collection')));
+  const active = (h) => (h === '/' ? here === '/' : here.startsWith(h) || ((h === '/explore' && (here === '/browse' || here.startsWith('/collection'))) || (h === '/drops' && here.startsWith('/drop'))));
   const badge = S.unread ? `<span class="badge">${S.unread}</span>` : '';
   $('#hd').innerHTML = `<a class="brand" href="#/" aria-label="GTA Marketplace"><b>GTA</b><i>Marketplace</i></a>
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
@@ -31,9 +34,12 @@ function chrome() {
   const an = S.site && S.site.announcement; let bar = $('#ann'); if (an) { if (!bar) { bar = document.createElement('div'); bar.id = 'ann'; document.body.prepend(bar); } bar.textContent = an; } else if (bar) bar.remove();
   $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
+  $$('#dock a, #hd .links a').forEach((a) => { a.onclick = (e) => { if (a.classList.contains('on') && a.getAttribute('href') === '#' + here) { e.preventDefault(); scrollTo({ top: 0, behavior: 'smooth' }); } }; });
 }
 
 /* Full-bleed backdrop per page. Images uploaded in the admin (Site & banners / collection banner) replace the built-in ones. */
+const dropBd = {}; // drop id -> banner, filled by the drop page so its backdrop is its own art
+addEventListener('gta:dropbd', (e) => { dropBd[e.detail.id] = e.detail.url; backdrop(lastBdPath); });
 let bdCur = '', bdFlip = 0, lastBdPath = '', wasSmall = null;
 const BD = { // built-in backdrops: [image, desktop focus, mobile focus]
   home: ['img/hero.jpg', '60% 35%', '70% 20%'], explore: ['img/explore.jpg', '50% 22%', '72% 20%'], eras: ['img/eras.jpg', '50% 18%', '58% 15%'],
@@ -48,7 +54,9 @@ function backdrop(path) {
   else if (path === '/explore' || path === '/browse') { key = 'explore'; custom = b.explore; }
   else if (path === '/collections') { key = 'eras'; custom = b.eras; }
   else if (path.startsWith('/collection/')) { const c = S.collections.find((x) => x.id === decodeURIComponent(path.split('/')[2])); key = 'eras'; custom = (c && (c.banner || c.cover)) || b.eras; }
-  else if (path === '/create') { key = 'create'; custom = b.create; }
+  else if (path.startsWith('/create')) { key = 'create'; custom = b.create; }
+  else if (path === '/drops') { key = 'home'; custom = b.drops; }
+  else if (path.startsWith('/drop/')) { key = 'eras'; custom = dropBd[decodeURIComponent(path.slice(6))] || ''; }
   else if (path.startsWith('/me')) key = 'me';
   const el = $('#backdrop'); if (!el) return;
   lastBdPath = path;
@@ -104,6 +112,18 @@ document.addEventListener('click', async (e) => {
 }, true);
 on('auth', () => { chrome(); go(); }); on('unread', chrome);
 window.addEventListener('gta:signout', () => signOut());
+
+/* Back-to-top: appears once you are a screen down, on every page. */
+const topBtn = document.createElement('button'); topBtn.id = 'totop'; topBtn.setAttribute('aria-label', 'Back to top');
+topBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'; document.body.appendChild(topBtn);
+topBtn.onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
+addEventListener('scroll', () => topBtn.classList.toggle('on', scrollY > innerHeight * 0.9), { passive: true });
+
+/* A tab left open keeps running old code. Check the deployed version now and then; reload on the next page change when it moved. */
+let ver = null, stale = false;
+const checkVer = async () => { try { const v = (await (await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' })).text()).trim(); if (!v) return; if (ver && v !== ver) stale = true; ver = ver || v; } catch (_) { /* offline */ } };
+checkVer(); setInterval(() => { if (!document.hidden) checkVer(); }, 90000); document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVer(); });
+addEventListener('hashchange', () => { if (stale) location.reload(); }, true);
 
 (async () => {
   await init();

@@ -31,7 +31,7 @@ function modal(html, setup) { const m = document.createElement('div'); m.classNa
 const busy = async (btn, fn) => { if (btn) btn.disabled = true; try { return await fn(); } catch (e) { toast(e.message, true); } finally { if (btn) btn.disabled = false; } };
 
 /* ---------- shell ---------- */
-const NAVS = [['dash', 'Dashboard', '<path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/>'], ['catalog', 'Catalog', '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'], ['collections', 'Collections', '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'], ['site', 'Site & banners', '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 4"/>'], ['subs', 'Submissions', '<path d="M4 4h16v12H8l-4 4z"/>'], ['money', 'Vault & sales', '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10c0-1.5 6-1.5 6 0s-6 2-6 4 6 1.5 6 0"/>'], ['settings', 'Settings', '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>']];
+const NAVS = [['dash', 'Dashboard', '<path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/>'], ['catalog', 'Catalog', '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'], ['collections', 'Collections', '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'], ['site', 'Site & banners', '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 4"/>'], ['subs', 'Submissions', '<path d="M4 4h16v12H8l-4 4z"/>'], ['launchpad', 'Launchpad', '<path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/>'], ['money', 'Vault & sales', '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10c0-1.5 6-1.5 6 0s-6 2-6 4 6 1.5 6 0"/>'], ['settings', 'Settings', '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>']];
 const VIEWS = {};
 let pending = 0;
 async function render() {
@@ -200,3 +200,57 @@ VIEWS.settings = async (el) => {
 };
 
 render();
+
+/* ---------- launchpad: our drops (mint stages) + creator collections to verify ---------- */
+let LPTAB = 'ours';
+const toLocal = (t) => { if (!t) return ''; const d = new Date(t); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); };
+const fromLocal = (v) => (v ? new Date(v).getTime() : null);
+const stLine = (x) => `${esc(x.name)} · ${x.kind} · ${usd(x.priceUsd)} · ${x.perWallet}/wallet · ${new Date(x.start).toLocaleString()}${x.end ? ' → ' + new Date(x.end).toLocaleString() : ''}${x.kind === 'allowlist' ? ' · ' + (x.allowlist || []).length + ' wallets' : ''}`;
+function dropEditor(c) {
+  const d = c.drop || { stages: [], published: false, revealMode: 'instant' };
+  const stages = (d.stages || []).map((x) => ({ ...x, allowlist: x.allowlist || [] }));
+  const row = (x, i) => `<div class="panel glass" data-i="${i}" style="padding:14px;margin:0 0 10px"><div class="fgrid"><label class="field">Name<input data-s="name" value="${esc(x.name)}"></label><label class="field">Type<select data-s="kind">${opts(['allowlist', 'public'], x.kind)}</select></label></div>
+    <div class="fgrid"><label class="field">Price USD (0 = free)<input data-s="priceUsd" type="number" min="0" step="0.01" value="${x.priceUsd}"></label><label class="field">Per wallet<input data-s="perWallet" type="number" min="1" max="100" value="${x.perWallet}"></label></div>
+    <div class="fgrid"><label class="field">Starts<input data-s="start" type="datetime-local" value="${toLocal(x.start)}"></label><label class="field">Ends (optional)<input data-s="end" type="datetime-local" value="${toLocal(x.end)}"></label></div>
+    <label class="field">Allowlist wallets (allowlist stages)<textarea data-s="allowlist" style="min-height:60px;font-family:monospace">${esc((x.allowlist || []).join('\n'))}</textarea></label><button class="btn sm danger" data-rm="${i}">Remove stage</button></div>`;
+  modal(`<h2 class="display" style="font-size:30px">${esc(c.name || c.id)} drop</h2><p class="muted" style="margin-bottom:14px">Mint stages for our own collection. Turn on "Listed on Drops" to show it on the launchpad.</p>
+    <div class="fgrid"><label class="field">Listed on Drops<select id="pub">${opts(['no', 'yes'], d.published ? 'yes' : 'no')}</select></label><label class="field">Supply (empty = every artwork in the collection)<input id="sup" type="number" min="1" value="${d.supply || ''}"></label></div>
+    <div class="fgrid"><label class="field">Reveal<select id="rm">${opts(['instant', 'date', 'manual'], d.revealMode || 'instant')}</select></label><label class="field">Reveal time (for "date")<input id="ra" type="datetime-local" value="${toLocal(d.revealAt)}"></label></div>
+    <h3 style="margin:16px 0 10px">Stages</h3><div id="sts">${stages.map(row).join('')}</div><div class="row"><button class="btn sm" data-add="allowlist">+ Allowlist stage</button><button class="btn sm" data-add="public">+ Public stage</button></div>
+    <div class="row" style="margin-top:18px"><button class="btn primary" id="sv">Save drop</button><button class="btn" id="cx">Cancel</button></div>`, (m, close) => {
+    const read = () => $$('[data-i]', m).forEach((box) => { const x = stages[+box.dataset.i]; $$('[data-s]', box).forEach((f) => { const k = f.dataset.s; x[k] = k === 'start' || k === 'end' ? fromLocal(f.value) : k === 'priceUsd' || k === 'perWallet' ? +f.value : k === 'allowlist' ? f.value.split(/[\s,;]+/).map((w) => w.trim()).filter(Boolean) : f.value; }); });
+    const redraw = () => { $('#sts', m).innerHTML = stages.map(row).join(''); };
+    m.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-add]'), r = e.target.closest('[data-rm]');
+      if (a) { read(); const last = stages[stages.length - 1], start = last ? last.end || last.start + 864e5 : Date.now() + 864e5; stages.push({ name: a.dataset.add === 'allowlist' ? 'Allowlist' : 'Public', kind: a.dataset.add, priceUsd: 0, perWallet: 1, start, end: a.dataset.add === 'allowlist' ? start + 864e5 : null, allowlist: [] }); redraw(); }
+      if (r) { read(); stages.splice(+r.dataset.rm, 1); redraw(); }
+    });
+    $('#cx', m).onclick = close;
+    $('#sv', m).onclick = (e) => busy(e.target, async () => { read(); await api('PUT', `/admin/collections/${c.id}/drop`, { published: $('#pub', m).value === 'yes', supply: $('#sup', m).value ? +$('#sup', m).value : null, revealMode: $('#rm', m).value, revealAt: fromLocal($('#ra', m).value), preReveal: c.drop && c.drop.preReveal || null, stages: stages.map((x) => ({ id: x.id, name: x.name, kind: x.kind, priceUsd: x.priceUsd || 0, perWallet: x.perWallet || 1, start: x.start, end: x.end || null, allowlist: x.allowlist })) }); toast('Drop saved'); close(); render(); });
+  });
+}
+VIEWS.launchpad = async (el) => {
+  const tabs = `<div class="row" style="margin-bottom:16px">${[['ours', 'Our drops'], ['review', 'To verify'], ['approved', 'Verified'], ['rejected', 'Rejected']].map(([k, l]) => `<button class="btn ${k === LPTAB ? 'primary' : ''}" data-lt="${k}">${l}</button>`).join('')}</div>`;
+  if (LPTAB === 'ours') {
+    const cols = (await api('GET', '/admin/collections')).collections;
+    el.innerHTML = head('Launchpad', 'Mint stages for our collections, and creator collections waiting for verification.') + tabs +
+      (cols.length ? cols.map((c) => `<div class="coll glass" data-id="${esc(c.id)}"><div class="cv" style="${c.cover ? `background-image:url('${esc(c.cover)}')` : ''}"></div><div style="display:grid;gap:8px;min-width:0"><div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:24px">${esc(c.name || c.id)}</h3><span class="tag ${c.drop && c.drop.published ? 'ok' : 'warn'}">${c.drop && c.drop.published ? 'On Drops' : 'Not listed'}</span></div>
+        <div class="fine">${c.drop && c.drop.stages && c.drop.stages.length ? c.drop.stages.map(stLine).join('<br>') : 'No mint stages yet'}</div><div class="row"><button class="btn primary sm" data-edit>Edit mint stages</button></div></div></div>`).join('') : '<div class="empty"><b>No collections yet</b>Add them under Collections first.</div>');
+    el.onclick = (e) => { const t = e.target.closest('[data-lt]'); if (t) { LPTAB = t.dataset.lt; return render(); } const b = e.target.closest('[data-edit]'); if (b) dropEditor(cols.find((c) => c.id === b.closest('.coll').dataset.id)); };
+    return;
+  }
+  const list = (await api('GET', '/admin/launches?status=' + LPTAB)).launches;
+  el.innerHTML = head('Launchpad', 'Creator collections. Check it is original GTA-inspired work before you verify it.') + tabs +
+    (list.length ? list.map((l) => `<div class="sub-card glass" data-id="${esc(l.id)}"><img src="${esc(l.preReveal || l.logo)}" alt=""><div style="display:grid;gap:8px;align-content:start;min-width:0">
+      <div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:24px">${esc(l.name)} <span class="muted" style="font-size:14px">${esc(l.symbol)}</span></h3><span class="fine">${ago(l.createdAt)}</span></div>
+      ${l.banner && l.banner !== l.logo ? `<div style="aspect-ratio:16/5;border-radius:12px;background:center/cover url('${esc(l.banner)}')"></div>` : ''}
+      <p class="muted">${esc(l.description)}</p><div class="fine">Creator <code>${esc(l.wallet)}</code> · ${l.supply} items · ${l.royaltyPct}% royalty · theme ${esc(l.theme)} · reveal ${esc(l.revealMode)}${l.revealAt ? ' ' + new Date(l.revealAt).toLocaleString() : ''} · ${(l.art || []).length} art files${l.links && (l.links.x || l.links.site) ? ' · ' + esc([l.links.x, l.links.site].filter(Boolean).join(' · ')) : ''}</div>
+      <div class="fine">${l.stages.map(stLine).join('<br>')}</div>${l.reason ? `<div class="warn">${esc(l.reason)}</div>` : ''}
+      ${LPTAB === 'review' ? '<div class="row"><button class="btn primary" data-ok>Verify &amp; list</button><button class="btn danger" data-no>Reject</button></div>' : ''}</div></div>`).join('') : `<div class="empty"><b>Nothing ${LPTAB === 'review' ? 'to verify' : 'here'}</b></div>`);
+  el.onclick = (e) => {
+    const t = e.target.closest('[data-lt]'); if (t) { LPTAB = t.dataset.lt; return render(); }
+    const c = e.target.closest('.sub-card'); if (!c) return; const id = c.dataset.id;
+    if (e.target.closest('[data-ok]')) busy(e.target, async () => { await api('POST', `/admin/launches/${id}/review`, { approve: true }); toast('Verified — it is on Drops now'); render(); });
+    if (e.target.closest('[data-no]')) { const reason = prompt('Reason (shown to the creator)'); if (reason === null) return; busy(e.target, async () => { await api('POST', `/admin/launches/${id}/review`, { approve: false, reason }); toast('Rejected'); render(); }); }
+  };
+};

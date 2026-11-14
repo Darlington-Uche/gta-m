@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listLaunches, reviewLaunch, setPlatformDrop } from '../services/launches.service.js';
 import { col, getDoc, now, queryDocs } from '../lib/db.js';
 import { chain } from '../services/chain/index.js';
 import { config } from '../config/index.js';
@@ -29,6 +30,11 @@ export const routes = [
     body: z.object({ name: z.string().trim().min(1).max(80).optional(), blurb: z.string().max(200).optional(), cover: z.string().max(500).optional(), banner: z.string().max(500).optional(), address: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'invalid address').optional(), status: z.enum(['pending', 'live', 'paused']).optional() }),
     handler: async (req) => ({ collection: await registerCollection({ id: req.valid.params.id, ...req.valid.body, by: req.user.wallet }) })
   },
+  { method: 'get', path: '/admin/launches', auth: 'admin', query: z.object({ status: z.enum(['review', 'approved', 'rejected', 'live']).optional() }), summary: 'Creator collections submitted to the launchpad', handler: async (req) => ({ launches: await listLaunches(req.valid.query.status) }) },
+  { method: 'post', path: '/admin/launches/:id/review', auth: 'admin', params: idParam, body: z.object({ approve: z.boolean(), reason: z.string().max(300).optional() }), summary: 'Verify (approve) or reject a creator collection', handler: async (req) => reviewLaunch({ id: req.valid.params.id, by: req.user.wallet, ...req.valid.body }) },
+  { method: 'put', path: '/admin/collections/:id/drop', auth: 'admin', params: idParam, summary: 'Mint stages, supply and reveal for one of our collections. published=true lists it on the launchpad.',
+    body: z.object({ stages: z.array(z.object({ id: z.string().max(20).optional(), name: z.string().max(40).optional(), kind: z.enum(['allowlist', 'public']), priceUsd: z.coerce.number().min(0).max(100000), start: z.coerce.number().int().positive(), end: z.coerce.number().int().positive().nullable().optional(), perWallet: z.coerce.number().int().min(1).max(100), allowlist: z.array(z.string().max(60)).max(5000).optional() })).max(6), supply: z.coerce.number().int().min(1).max(100000).nullable().optional(), revealMode: z.enum(['instant', 'date', 'manual']).optional(), revealAt: z.coerce.number().int().positive().nullable().optional(), preReveal: z.string().max(500).nullable().optional(), published: z.boolean().optional() }),
+    handler: async (req) => ({ drop: await setPlatformDrop({ id: req.valid.params.id, drop: req.valid.body, by: req.user.wallet }) }) },
   { method: 'delete', path: '/admin/collections/:id/address', auth: 'admin', params: idParam, summary: 'Detach a collection address (sets it back to pending; minted NFTs keep their own recorded collection)', handler: async (req) => { await removeAddress(req.valid.params.id); return { ok: true }; } },
 
   // ---- catalog & prices ----

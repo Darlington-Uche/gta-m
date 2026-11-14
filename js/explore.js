@@ -55,7 +55,7 @@ export async function exploreHub(ctx) {
   const label = () => SORTS[tab].find(([k]) => k === st[tab])[1];
   const html = `<div class="xbar" id="xbar"><div class="xseg" role="tablist"><i class="xth" aria-hidden="true"></i>
       <button role="tab" data-tab="collections" class="${tab === 'collections' ? 'on' : ''}">Collections</button>
-      <button role="tab" data-tab="feed" class="${tab === 'feed' ? 'on' : ''}">Feed<i class="live" aria-hidden="true"></i></button></div>
+      <button role="tab" data-tab="feed" class="${tab === 'feed' ? 'on' : ''}">Feed<i class="ldot" aria-hidden="true"></i></button></div>
     <button class="xfil" id="xfil" aria-haspopup="true" aria-expanded="false"><span id="xlab">${esc(label())}</span><svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></svg></button>
     <div class="xpop" id="xpop" hidden></div></div>
   <div id="xpane" class="xpane">${body()}</div>`;
@@ -71,7 +71,7 @@ export async function exploreHub(ctx) {
         pane.style.setProperty('--dx', dir > 0 ? '34px' : '-34px'); pane.classList.remove('in'); pane.classList.add('out');
         setTimeout(() => { draw(); pane.classList.remove('out'); void pane.offsetWidth; pane.classList.add('in'); }, 150);
       };
-      const setTab = (t) => { if (t === tab) return; const dir = TABS.indexOf(t) - TABS.indexOf(tab); tab = t; $$('button', seg).forEach((b) => b.classList.toggle('on', b.dataset.tab === t)); thumb(); closePop(); url(); paint(dir);
+      const setTab = (t) => { if (t === tab) return scrollTo({ top: 0, behavior: 'smooth' }); const dir = TABS.indexOf(t) - TABS.indexOf(tab); tab = t; $$('button', seg).forEach((b) => b.classList.toggle('on', b.dataset.tab === t)); thumb(); closePop(); url(); paint(dir);
         const top = bar.getBoundingClientRect().top + scrollY - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 64) - 10; if (scrollY > top) scrollTo({ top, behavior: 'smooth' }); };
       const closePop = () => { if (pop.hidden) return; pop.classList.remove('open'); fil.setAttribute('aria-expanded', 'false'); setTimeout(() => { pop.hidden = true; }, 180); };
       const openPop = () => {
