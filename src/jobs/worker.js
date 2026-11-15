@@ -8,6 +8,7 @@ import { expireOffers } from '../services/offers.service.js';
 import { reconcileOwners } from '../services/ownership.service.js';
 import { syncReveals } from '../services/reveal.service.js';
 import { closeEndedMints } from '../services/launches.service.js';
+import { pullNews } from '../services/news.service.js';
 import { log } from '../lib/logger.js';
 
 const HOLDER = `${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
@@ -32,6 +33,7 @@ export async function runJobsOnce({ force = false } = {}) {
   await step('payouts', processPayouts);
   await step('reveals', () => syncReveals());
   await step('closeMints', () => closeEndedMints());
+  await step('news', () => pullNews());
   if (force || now() - lastOwnerSync > 10 * 60_000) { lastOwnerSync = now(); await step('reconcileOwners', () => reconcileOwners()); }
   return report;
 }

@@ -1,7 +1,9 @@
 // Collection page v2: header + stats like a trading app, tabs swap in place (About · Items · Owned · Holders · Activity · Analytics).
-import { S, $, $$, esc, usd, sol, short, ago, imgTag, items, http, explorer, toast, walletModal, who, modal, act, actMany, runTx, offersFor } from './core.js';
+import { S, $, $$, esc, usd, sol, short, ago, imgTag, items, http, explorer, toast, walletModal, who, modal, act, actMany, runTx, offersFor, isPlatform } from './core.js';
 import { poster } from './views.js';
 
+const ERA_IDS = ['vi', 'v', 'iv', 'sa', 'vice'];
+const makerOf = (c) => c.creator || (S.meta && S.meta.platformWallet);
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const hue = (a) => ([...String(a || 'x')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
 const money = (n) => (n == null ? '—' : n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? '$' + (n / 1e3).toFixed(1) + 'K' : '$' + (Math.round(n * 100) / 100).toLocaleString());
@@ -52,8 +54,8 @@ export async function collection({ args: [id], q }) {
   const chg = c.isNew24 ? '<b class="up">New</b>' : c.change24 == null ? '<b>—</b>' : `<b class="${c.change24 >= 0 ? 'up' : 'dn'}">${c.change24 >= 0 ? '▲' : '▼'} ${Math.abs(c.change24)}%</b>`;
   const html = `<div class="cx">
     <div class="cx-top"><button class="rbtn" id="cx-back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="rbtn" id="cx-share" aria-label="Copy link"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg></button></div>
-    <div class="cx-id"><span class="cx-logo">${imgTag(c.cover || c.banner, c.name, 200)}</span><h1>${esc(c.name)}${tick}</h1><p>by GTA Marketplace${tick}</p></div>
-    <div class="chips2"><span>Solana · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</span><span>${c.items} items</span>${date ? `<span>${esc(date)}</span>` : ''}<span>${esc(c.short || c.era)}</span>${c.live ? '<span class="ok">On-chain</span>' : '<span>Off-chain</span>'}</div>
+    <div class="cx-id"><span class="cx-logo">${imgTag(c.cover || c.banner, c.name, 200)}</span><h1>${esc(c.name)}${isPlatform(makerOf(c)) ? tick : ''}</h1><p>by ${who(makerOf(c))}${isPlatform(makerOf(c)) ? tick : ''}</p></div>
+    <div class="chips2"><span>Solana · ${esc(S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet')}</span><span>${c.items} items</span>${date ? `<span>${esc(date)}</span>` : ''}${c.symbol ? `<span>$${esc(c.symbol)}</span>` : ERA_IDS.includes(c.id) ? `<span>${esc(c.short || c.era)}</span>` : ''}${c.live ? '<span class="ok">On-chain</span>' : '<span>Off-chain</span>'}</div>
     <div class="cx-stats">${stat('Floor price', c.floorUsd == null ? '—' : usd(c.floorUsd))}${stat('1D volume', chg)}${stat('Top offer', c.topOfferUsd ? usd(c.topOfferUsd) : '—')}
       ${stat('24H volume', money(c.vol24Usd))}${stat('Total volume', money(c.volumeUsd))}${stat('Listed', `${c.listed} (${c.listedPct}%)`)}</div>
     ${c.holderCount ? `<div class="cx-h"><span class="avs">${c.holders.slice(0, 3).map((h) => `<i class="av" style="--h:${hue(h.wallet)}"></i>`).join('')}</span><span>${c.holderCount} holder${c.holderCount > 1 ? 's' : ''}${two.length ? ` including ${two.join(' and ')}` : ''}</span></div>` : '<div class="cx-h"><span>No holders yet. Be the first.</span></div>'}
@@ -93,7 +95,7 @@ function mountCollection(root, c, id, start) {
     if (pane.dataset.t !== tab) { picked.clear(); pane.dataset.t = tab; selBar(); }
     $$('a', bar).forEach((a) => a.classList.toggle('on', a.dataset.k === tab)); moveInd();
     if (tab === 'about') pane.innerHTML = `<div class="about glass"><p>${esc(c.blurb || c.name + ' — original GTA-inspired art on Solana.')}</p><dl>
-      <dt>Era</dt><dd>${esc(c.short || c.era)}</dd><dt>Supply</dt><dd>${c.items}</dd><dt>Collected</dt><dd>${c.minted}</dd><dt>Network</dt><dd>Solana ${esc(S.meta.network)}</dd><dt>Creator</dt><dd>GTA Marketplace ${tick}</dd>
+      <dt>Supply</dt><dd>${c.items}</dd><dt>Collected</dt><dd>${c.minted}</dd><dt>Network</dt><dd>Solana ${esc(S.meta.network)}</dd><dt>Creator</dt><dd>${who(makerOf(c))}${isPlatform(makerOf(c)) ? ' ' + tick : ''}</dd>
       ${c.address ? `<dt>Address</dt><dd><a href="https://explorer.solana.com/address/${esc(c.address)}${S.meta.network === 'devnet' ? '?cluster=devnet' : ''}" target="_blank" rel="noopener">${short(c.address)} ↗</a></dd>` : ''}</dl></div>`;
     else if (tab === 'items') {
       pane.innerHTML = `<div class="ibar"><label class="isearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input id="cx-s" placeholder="Search items…" value="${esc(term)}" autocomplete="off"></label><select id="cx-sort" aria-label="Sort"><option value="recent">Newest</option><option value="price_low">Price ↑</option><option value="price_high">Price ↓</option></select></div><div id="cx-grid"><div class="grid"><div class="skel"></div><div class="skel"></div></div></div>`;

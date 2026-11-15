@@ -9,6 +9,7 @@ import { getItemRaw, metadataFor } from '../services/items.service.js';
 import { liveCollections } from '../services/collections.service.js';
 import { collectionsSummary, collectionDetail, platformStats, recentActivity } from '../services/stats.service.js';
 import { z } from 'zod';
+import { listNews } from '../services/news.service.js';
 import { notFound } from '../lib/errors.js';
 import { page } from './schemas.js';
 
@@ -37,6 +38,7 @@ export const routes = [
     handler: async (req) => { const ws = [...new Set(req.valid.query.w.split(',').map((x) => x.trim()).filter((x) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(x)))].slice(0, 100);
       const docs = await Promise.all(ws.map((w) => getDoc('users', w).catch(() => null)));
       return { profiles: Object.fromEntries(ws.map((w, i) => [w, w === config.auth.platformWallet ? { name: 'GTA Marketplace', username: 'gtamarketplace', avatar: docs[i]?.avatar || null, verified: true } : { name: docs[i]?.name || null, username: docs[i]?.username || null, avatar: docs[i]?.avatar || null }])) }; } },
+  { method: 'get', path: '/news', auth: 'public', summary: 'Latest posts from the GTA news accounts on X (via FxTwitter, refreshed about every 5 min)', query: z.object({ limit: z.coerce.number().int().min(1).max(100).default(40), handle: z.string().max(40).optional() }), handler: async (req) => listNews(req.valid.query) },
   { method: 'get', path: '/activity', auth: 'public', summary: 'Recent sales feed', query: z.object({ limit: page.limit.default(30) }), handler: async (req) => ({ activity: await recentActivity(req.valid.query.limit) }) },
   {
     method: 'get', path: '/metadata/:id.json', auth: 'public', summary: 'Metaplex-standard NFT metadata JSON (this URL is stored on-chain as the NFT uri)',
