@@ -24,7 +24,7 @@ const pick = (s, handle) => {
 async function fetchHandle(handle, since) {
   const u = `${BASE}/2/profile/${encodeURIComponent(handle)}/statuses?count=20${since ? `&since=${since}` : ''}`;
   const r = await fetch(u, { headers: { 'user-agent': 'GTA-Marketplace-News/1.0' }, signal: AbortSignal.timeout(8000) });
-  if (r.status === 204) return [];
+  if (r.status === 204 || r.status === 404) return []; // fxtwitter answers 404 when there is nothing new (or briefly when busy); try again next round
   if (!r.ok) throw new Error(`fxtwitter ${handle}: HTTP ${r.status}`);
   const j = await r.json();
   return (j.results || []).filter((s) => s && s.type !== 'thread' && s.id).map((s) => pick(s, handle));
