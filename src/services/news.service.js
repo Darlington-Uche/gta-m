@@ -2,20 +2,21 @@
 // Pulled at most about every 5 minutes (with a little jitter) so we never hammer the source.
 import { col, getDoc, now, queryDocs } from '../lib/db.js';
 import { log } from '../lib/logger.js';
+import { getSettings } from './settings.service.js';
 
-export const NEWS_ACCOUNTS = (process.env.NEWS_ACCOUNTS || 'rockstargames,gtalphaintel').split(',').map((s) => s.trim().replace(/^@/, '')).filter(Boolean);
+const accounts = async () => ((await getSettings()).newsAccounts || []).map((s) => String(s).trim().replace(/^@/, '').toLowerCase()).filter(Boolean);
 const BASE = (process.env.FXTWITTER_BASE || 'https://api.fxtwitter.com').replace(/\/$/, '');
 const EVERY = 5 * 60_000, KEEP = 300;
 
 const pick = (s, handle) => {
   const m = s.media || {}, photos = (m.photos || []).map((p) => p.url).filter(Boolean).slice(0, 4), v = (m.videos || [])[0];
   return {
-    tweetId: String(s.id), handle: (s.author?.screen_name || handle).toLowerCase(), name: s.author?.name || handle, avatar: s.author?.avatar_url || null,
+    tweetId: String(s.id), handle: handle.toLowerCase(), author: s.author?.screen_name || handle, name: s.author?.name || handle, avatar: s.author?.avatar_url || null,
     text: String(s.text || '').slice(0, 1200), url: s.url || `https://x.com/${handle}/status/${s.id}`,
     createdAt: s.created_timestamp ? s.created_timestamp * 1000 : Date.parse(s.created_at) || now(),
     photos, video: v ? { url: v.url, thumb: v.thumbnail_url || null } : null,
     likes: s.likes || 0, reposts: s.reposts || 0, replies: s.replies || 0, views: s.views || 0,
-    repostedBy: s.reposted_by ? s.reposted_by.screen_name : null,
+    repostedBy: s.reposted_by ? s.reposted_by.screen_name : (s.author?.screen_name && s.author.screen_name.toLowerCase() !== handle.toLowerCase() ? handle : null),
     quote: s.quote && s.quote.type !== 'tombstone' ? { name: s.quote.author?.name || '', handle: s.quote.author?.screen_name || '', text: String(s.quote.text || '').slice(0, 400), photo: s.quote.media?.photos?.[0]?.url || null, url: s.quote.url || null } : null
   };
 };
@@ -37,7 +38,7 @@ export async function pullNews({ force = false } = {}) {
   // claim the slot first so overlapping requests don't all pull
   await col('meta').doc('news').set({ ...st, lastAt: t, nextAt: t + EVERY + Math.round((Math.random() - 0.5) * 60_000) }, { merge: true });
   const newest = { ...(st.newest || {}) }; let added = 0; const errors = [];
-  for (const h of NEWS_ACCOUNTS) {
+  for (const h of await accounts()) {
     try {
       const posts = await fetchHandle(h, newest[h] ? Math.floor(newest[h] / 1000) : null);
       for (const p of posts) { await col('news').doc('x_' + p.tweetId).set({ ...p, pulledAt: t }); added++; newest[h] = Math.max(newest[h] || 0, p.createdAt); }
@@ -55,5 +56,6 @@ export async function listNews({ limit = 40, handle } = {}) {
   await pullNews().catch((e) => log.warn('news', e.message)); // cheap when not due
   const h = handle ? String(handle).toLowerCase() : null;
   const all = (await queryDocs(col('news'))).filter((n) => !h || n.handle === h).sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
-  return { news: all.map(({ pulledAt, ...n }) => n), accounts: NEWS_ACCOUNTS };
+  const acc = await accounts();
+  return { news: all.filter((n) => acc.includes(n.handle)).map(({ pulledAt, ...n }) => n), accounts: acc };
 }

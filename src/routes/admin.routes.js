@@ -136,6 +136,7 @@ export const routes = [
       maxActiveOffersPerItem: z.number().int().min(1).max(200), offerTtlHours: z.number().min(1).max(24 * 60), maxFreeMintsPerWallet: z.number().int().min(0).max(1000),
       bidWindow: z.object({ enabled: z.boolean(), openMinutes: z.number().int().min(1).max(1440), cycleMinutes: z.number().int().min(1).max(10080) }).partial(),
       vaultReserveLamports: z.number().int().min(0),
+      newsAccounts: z.array(z.string().regex(/^@?\w{1,15}$/)).max(10),
       site: z.object({ heroImage: z.string().max(500), heroTitle: z.string().max(80), heroSubtitle: z.string().max(240), announcement: z.string().max(160), banners: z.object({ explore: z.string().max(500), eras: z.string().max(500), create: z.string().max(500) }).partial() }).partial()
     }).partial(),
     handler: async (req) => ({ settings: await updateSettings(req.valid.body) })

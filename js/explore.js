@@ -53,7 +53,7 @@ function newsCard(n, i, fresh) {
   const q = n.quote ? `<a class="nw-q" href="${esc(n.quote.url || n.url)}" target="_blank" rel="noopener"><b>${esc(n.quote.name)}</b> <small>@${esc(n.quote.handle)}</small><p>${esc(n.quote.text)}</p>${n.quote.photo ? `<img src="${esc(n.quote.photo)}" alt="" loading="lazy">` : ''}</a>` : '';
   return `<article class="nw${fresh ? ' fresh' : ''}" style="--i:${Math.min(i, 6)}">
     ${n.repostedBy ? `<div class="nw-rp">↻ @${esc(n.repostedBy)} reposted</div>` : ''}
-    <div class="nw-h"><span class="nw-av">${n.avatar ? `<img src="${esc(n.avatar)}" alt="">` : esc((n.name || '?')[0])}</span><div><b>${esc(n.name)}</b><small>@${esc(n.handle)} · ${ago(n.createdAt)}</small></div><a class="nw-x" href="${esc(n.url)}" target="_blank" rel="noopener" aria-label="Open on X">${xIcon}</a></div>
+    <div class="nw-h"><span class="nw-av">${n.avatar ? `<img src="${esc(n.avatar)}" alt="">` : esc((n.name || '?')[0])}</span><div><b>${esc(n.name)}</b><small>@${esc(n.author || n.handle)} · ${ago(n.createdAt)}</small></div><a class="nw-x" href="${esc(n.url)}" target="_blank" rel="noopener" aria-label="Open on X">${xIcon}</a></div>
     ${n.text ? `<p class="nw-t">${linkify(n.text)}</p>` : ''}${media}${q}
     <div class="nw-f"><span>♥ ${num(n.likes)}</span><span>↻ ${num(n.reposts)}</span><span>💬 ${num(n.replies)}</span>${n.views ? `<span>👁 ${num(n.views)}</span>` : ''}</div></article>`;
 }
