@@ -7,7 +7,9 @@ const env = { ...real };
 const dflt = (k, v) => { if (!env[k] && v) env[k] = v; };
 const projectUrl = env.SUPABASE_URL || '';
 for (const [k, v] of Object.entries(globalThis.__GTA_DEFAULTS || {})) dflt(k, v); // e.g. CRON_SECRET from the deploy wrapper
-dflt('NETWORK', 'devnet');
+dflt('NETWORK', 'mainnet-beta'); // LIVE. Set the NETWORK secret to devnet to go back to test mode.
+dflt('MAINNET_CONFIRM', 'I_UNDERSTAND');
+dflt('RPC_URL_MAINNET', 'https://api.mainnet-beta.solana.com'); // set an RPC_URL_MAINNET secret (Helius etc.) for better limits
 dflt('DB_DRIVER', 'supabase');
 dflt('CHAIN_DRIVER', 'solana');
 dflt('DB_PREFIX', env.NETWORK === 'mainnet-beta' ? 'mainnet_' : 'devnet_');
