@@ -7,7 +7,7 @@ import { processPayouts } from '../services/payouts.service.js';
 import { expireOffers } from '../services/offers.service.js';
 import { reconcileOwners } from '../services/ownership.service.js';
 import { syncReveals } from '../services/reveal.service.js';
-import { closeEndedMints } from '../services/launches.service.js';
+import { closeEndedMints, nudgeOffchain } from '../services/launches.service.js';
 import { pullNews } from '../services/news.service.js';
 import { log } from '../lib/logger.js';
 
@@ -33,6 +33,7 @@ export async function runJobsOnce({ force = false } = {}) {
   await step('payouts', processPayouts);
   await step('reveals', () => syncReveals());
   await step('closeMints', () => closeEndedMints());
+  await step('onchainNudge', () => nudgeOffchain());
   await step('news', () => pullNews());
   if (force || now() - lastOwnerSync > 10 * 60_000) { lastOwnerSync = now(); await step('reconcileOwners', () => reconcileOwners()); }
   return report;

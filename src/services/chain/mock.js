@@ -73,6 +73,10 @@ export class MockChain {
     const built = this._tx({ ixs, signers: [buyer, this.authorityAddress, asset], feePayer: buyer, autoSigned: [this.authorityAddress, asset] });
     return { ...built, asset };
   }
+  async buildCreateCollectionTx({ creator, name }) {
+    const address = 'COLL' + sha(String(Math.random()) + name + this.counter).slice(0, 36);
+    return { ...this._tx({ ixs: [{ t: 'collection', address, authority: creator, delegate: this.authorityAddress, name }], signers: [creator], feePayer: creator }), address };
+  }
   async buildPaymentTx({ payer, lamports }) {
     return this._tx({ ixs: [{ t: 'transfer', from: payer, to: this.vaultAddress, lamports }], signers: [payer], feePayer: payer });
   }

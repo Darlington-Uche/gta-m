@@ -13,6 +13,7 @@ import { addPlugin, create, createCollection, fetchAsset, fetchCollection, mplCo
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import { createGenericFile, sol as solAmount } from '@metaplex-foundation/umi';
 import { config } from '../../config/index.js';
+import { log } from '../../lib/logger.js';
 import { TxRejected } from './errors.js';
 
 const sha256hex = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
@@ -70,11 +71,22 @@ export class SolanaChain {
   }
 
   // ---- raw JSON-RPC helpers (version-proof) ----
+  /** JSON-RPC with backups: if an endpoint is down, blocked or rate-limited (HTTP error / not JSON), the next one is tried.
+   * A real JSON-RPC error (bad tx, etc.) is final and is never retried elsewhere. */
   async rpc(method, params = []) {
-    const res = await fetch(config.rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
-    const j = await res.json();
-    if (j.error) throw new (method === 'sendTransaction' ? TxRejected : Error)(`RPC ${method}: ${j.error.message}${j.error.data?.logs ? ' | ' + j.error.data.logs.slice(-3).join(' / ') : ''}`);
-    return j.result;
+    const urls = [...new Set([config.rpcUrl, ...(config.isMainnet ? ['https://solana-rpc.publicnode.com', 'https://api.mainnet-beta.solana.com'] : [])])];
+    let last;
+    for (const url of urls) {
+      let j;
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(12000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        j = await res.json();
+      } catch (e) { last = e; log.warn(`rpc ${method} via ${url.replace(/\?.*$/, '')} failed: ${e.message}`); continue; }
+      if (j.error) throw new (method === 'sendTransaction' ? TxRejected : Error)(`RPC ${method}: ${j.error.message}${j.error.data?.logs ? ' | ' + j.error.data.logs.slice(-3).join(' / ') : ''}`);
+      return j.result;
+    }
+    throw new Error(`RPC ${method}: no endpoint answered (${last && last.message})`);
   }
   async getBlockHeight() { return this.rpc('getBlockHeight', [{ commitment: 'confirmed' }]); }
   async getBalance(addr) { return (await this.rpc('getBalance', [addr, { commitment: 'confirmed' }])).value; }
@@ -270,6 +282,14 @@ export class SolanaChain {
   async updateAssetMeta({ asset, owner, collection, name, uri }) {
     const res = await update(this.umi, { asset: this._assetRef(asset, owner), collection: collection ? { publicKey: publicKey(collection), oracles: [], lifecycleHooks: [] } : undefined, name, uri, authority: this.authoritySigner }).sendAndConfirm(this.umi);
     return { signature: bs58.encode(res.signature) };
+  }
+  /** The CREATOR creates (and pays for) their collection and owns it; we are added as its update delegate so we can
+   * mint into it and reveal it. Their wallet is the fee payer; the new collection key signs here. */
+  async buildCreateCollectionTx({ creator, name, uri }) {
+    const u = this.umi, cs = createNoopSigner(publicKey(creator)), collection = generateSigner(u);
+    const b = createCollection(u, { collection, name, uri, updateAuthority: publicKey(creator), payer: cs,
+      plugins: [{ type: 'UpdateDelegate', additionalDelegates: [], authority: { type: 'Address', address: this.authoritySigner.publicKey } }] });
+    return this._finish(b, cs, { address: collection.publicKey.toString() });
   }
   async createCollection({ name, uri }) {
     const collection = generateSigner(this.umi);

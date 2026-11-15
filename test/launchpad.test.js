@@ -8,6 +8,7 @@ const kp = () => nacl.sign.keyPair(), adminKp = kp(), userKp = kp(), otherKp = k
 const pub = (k) => bs58.encode(k.publicKey);
 Object.assign(process.env, { DB_DRIVER: 'memory', CHAIN_DRIVER: 'mock', NETWORK: 'devnet', FIXED_SOL_USD: '100', JWT_SECRET: 'test-secret', ADMIN_WALLETS: pub(adminKp), ADMIN_PASSWORD: 'pw', RUN_JOBS: 'false', RATE_LIMIT_PER_MIN: '100000', AUTH_RATE_LIMIT_PER_MIN: '100000', PUBLIC_BASE_URL: 'http://api.test', STORAGE_DRIVER: 'local' });
 const { buildApp } = await import('../src/app.js');
+const { chain } = await import('../src/services/chain/index.js');
 const server = buildApp().listen(0), base = `http://127.0.0.1:${server.address().port}`;
 test.after(() => server.close());
 const call = async (method, path, body, token) => { const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { ...(await r.json().catch(() => ({}))), status: r.status }; };
@@ -24,6 +25,9 @@ test('launchpad flow: draft → 10+ art → publish, no review', async () => {
   assert.equal((await call('POST', `/launches/${id}/art`, { file: { data: png } }, other)).status, 403);
   assert.equal((await call('GET', '/drops')).drops.length, 0, 'drafts are not listed');
   assert.equal((await call('POST', `/launches/${id}/publish`, null, other)).status, 403);
+  chain.fund(pub(userKp), 1e9); const oc = await call('POST', `/launches/${id}/onchain`, null, user); assert.equal(oc.status, 200, JSON.stringify(oc));
+  const sub = await call('POST', '/tx/submit', { ptxId: oc.ptxId, signedTx: chain.signMock(oc.txB64, pub(userKp)) }, user); assert.equal(sub.status, 200, JSON.stringify(sub));
+  for (let i = 0; i < 40 && (await call('GET', '/tx/' + oc.ptxId, null, user)).tx.status !== 'confirmed'; i++) await new Promise((r) => setTimeout(r, 20));
   assert.equal((await call('POST', `/launches/${id}/publish`, null, user)).status, 200);
   const d = (await call('GET', '/drops')).drops.find((x) => x.id === id); assert.equal(d.status, 'live'); assert.equal(d.supply, 10); assert.equal(d.stages.length, 1); assert.equal(d.revealed, false);
   assert.equal((await call('POST', `/launches/${id}/art`, { file: { data: png } }, user)).status, 409, 'art is locked once minting started');

@@ -1,5 +1,6 @@
 // Portfolio: what a wallet is worth here. SOL in the wallet (live from chain) + NFTs valued at their collection floor.
 import { col, getDoc, now, queryDocs } from '../lib/db.js';
+import { log } from '../lib/logger.js';
 import { chain } from './chain/index.js';
 import { getSolUsd } from './priceOracle.js';
 import { itemsOwnedBy } from './items.service.js';
@@ -9,7 +10,7 @@ import { bad, conflict } from '../lib/errors.js';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 export async function portfolio(wallet) {
-  const [lamports, solUsd, nfts, cols, profile, mySales] = await Promise.all([chain.getBalance(wallet).catch(() => null), getSolUsd().catch(() => null), itemsOwnedBy(wallet), collectionsSummary(), getDoc('users', wallet), salesForWallet(wallet).catch(() => [])]);
+  const [lamports, solUsd, nfts, cols, profile, mySales] = await Promise.all([chain.getBalance(wallet).catch((e) => { log.warn('portfolio balance', e.message); return null; }), getSolUsd().catch(() => null), itemsOwnedBy(wallet), collectionsSummary(), getDoc('users', wallet), salesForWallet(wallet).catch(() => [])]);
   const paid = new Map(); for (const x of mySales) if (x.role === 'buyer' && !paid.has(x.itemId)) paid.set(x.itemId, x.usd || 0.1); // a free mint counts as $0.10 so the % still means something // newest purchase first = what I paid for the copy I hold
   const sol = lamports == null ? null : lamports / 1e9, walletUsd = sol != null && solUsd ? r2(sol * solUsd) : null;
   const byCol = new Map();

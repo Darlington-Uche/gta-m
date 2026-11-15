@@ -1,6 +1,6 @@
 // Create studio: the page looks like the finished collection. Tap a placeholder to fill it.
 // Banner, logo, name, art grid (+ rarity), one mint phase. Launch = draft → upload art → publish.
-import { S, $, $$, esc, usd, short, http, toast, walletModal, shrinkImage } from './core.js';
+import { S, $, $$, esc, usd, short, http, toast, walletModal, shrinkImage, act, runTx } from './core.js';
 
 const KEY = 'gta:studio';
 const MIN = 10;
@@ -117,6 +117,10 @@ export async function launchWizard({ q = {} } = {}) {
           let id = st.draft;
           if (!id) { id = (await http('POST', '/launches', { name: st.name.trim(), description: st.desc.trim() || undefined, links: { x: st.x.trim() || undefined }, logo: st.logo.img, banner: st.banner.img, mint })).launch.id; st.draft = id; }
           for (let i = 0; i < todo.length; i++) { await http('POST', `/launches/${id}/art`, { file: todo[i].img, rarity: todo[i].rarity }); todo[i].server = true; set(i + 1, todo.length + 1); const t = new Image(); t.src = todo[i].url; $('#upt', ov).prepend(t); }
+          const me = (await http('GET', '/me/launches')).launches.find((x) => x.id === id);
+          if (!(me && me.address)) { // one signature: the creator's wallet creates the collection on Solana and owns it
+            $('#upn', ov).textContent = 'Sign'; await runTx('Putting your collection on-chain', (ui) => act('POST', `/launches/${id}/onchain`, null, ui), 'On-chain!');
+          }
           await http('POST', `/launches/${id}/publish`, { mint }); set(1, 1);
           localStorage.removeItem(KEY);
           ov.querySelector('.sd-up-in').innerHTML = `<span class="done-ic2">${ic.rocket}</span><h2 class="display">Live!</h2><a class="btn primary lg" href="#/drop/${encodeURIComponent(id)}">See your drop</a>`;

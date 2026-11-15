@@ -10,6 +10,7 @@ Object.assign(process.env, { DB_DRIVER: 'memory', CHAIN_DRIVER: 'mock', NETWORK:
 const { buildApp } = await import('../src/app.js');
 const { chain } = await import('../src/services/chain/index.js');
 const { runJobsOnce } = await import('../src/jobs/worker.js');
+const { col } = await import('../src/lib/db.js');
 const server = buildApp().listen(0), base = `http://127.0.0.1:${server.address().port}`;
 test.after(() => server.close());
 const SOL = 1e9;
@@ -27,9 +28,13 @@ test('creator drop: allowlist then public, limits, random pick, pre-reveal, payo
   for (let i = 0; i < 10; i++) assert.equal((await call('POST', `/launches/${id}/art`, { file: { data: png(10 + i) } }, creator)).count, i + 1);
   assert.equal((await call('GET', `/items/${id}-1`)).status, 404, 'unminted drop art stays hidden');
   assert.equal((await call('POST', `/drops/${id}/mint`, null, A)).status, 404, 'draft is not on Drops');
+  const early = await call('POST', `/launches/${id}/publish`, null, creator); assert.equal(early.status, 409, 'must be on-chain first');
+  const oc = await call('POST', `/launches/${id}/onchain`, null, creator); assert.equal(oc.status, 200, JSON.stringify(oc));
+  assert.equal((await call('POST', `/launches/${id}/onchain`, null, A)).status, 403, 'only the creator');
+  await run(oc, pub(creatorKp), creator);
+  assert.equal((await col('launches').doc(id).get()).data().address, oc.address, 'collection is the one the creator signed for');
   assert.equal((await call('POST', `/launches/${id}/publish`, null, creator)).status, 200);
   assert.equal((await call('POST', `/drops/${id}/mint`, null, A)).status, 409, 'not started yet');
-  const { col } = await import('../src/lib/db.js');
   const doc = (await col('launches').doc(id).get()).data(); doc.stages[0].start = Date.now() - 5; await col('launches').doc(id).set(doc);
   const c0 = await chain.getBalance(pub(creatorKp));
   const m1 = await run(await call('POST', `/drops/${id}/mint`, null, A), pub(aKp), A); assert.equal(m1.status, 'confirmed');
@@ -60,6 +65,7 @@ test('selling out reveals the collection automatically', async () => {
   const L = await call('POST', '/launches', { name: 'Grove OGs', logo: { data: png(3) }, mint: { priceUsd: 0, perWallet: 10, start: Date.now() - 1000, hours: 24 } }, creator);
   const id = L.launch.id;
   for (let i = 0; i < 10; i++) await call('POST', `/launches/${id}/art`, { file: { data: png(40 + i) } }, creator);
+  await run(await call('POST', `/launches/${id}/onchain`, null, creator), pub(creatorKp), creator);
   await call('POST', `/launches/${id}/publish`, null, creator);
   for (let i = 0; i < 10; i++) assert.equal((await run(await call('POST', `/drops/${id}/mint`, null, C), pub(cKp), C)).status, 'confirmed');
   assert.equal((await call('POST', `/drops/${id}/mint`, null, C)).status, 409);

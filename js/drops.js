@@ -104,7 +104,9 @@ export async function dropPage({ args: [id] }) {
     return `<div class="stg st-${x.state}"><span class="stg-dot"><i></i></span><div class="stg-b"><div class="stg-h"><b>${esc(x.name)}</b><span class="stg-k">${x.kind === 'allowlist' ? 'Allowlist' : 'Public'}</span>${x.state === 'live' ? '<span class="dchip live sm"><i></i>Live</span>' : ''}</div>
       <small>${t}</small><div class="stg-m"><span>${priceTxt(x.priceUsd)}${x.priceUsd ? ` <em>≈ ${solTxt(solOf(x.priceUsd))}</em>` : ''}</span><span>${x.perWallet} per wallet</span>${el}</div></div></div>`;
   };
+  const mineDrop = S.wallet && d.creator === S.wallet;
   const why = () => {
+    if (d.kind === 'creator' && d.onchain === false) return mineDrop ? ['Put on-chain', false] : ['Opening soon', true];
     if (d.soldOut) return ['Sold out', true];
     if (!live) return [d.status === 'upcoming' ? 'Not started yet' : 'Mint has ended', true];
     if (!S.wallet) return ['Connect wallet', false];
@@ -138,6 +140,10 @@ export async function dropPage({ args: [id] }) {
       root.addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; q = Math.max(1, Math.min(max, q + +b.dataset.q)); upd(); });
       const go = async () => {
         if (!S.wallet) return walletModal();
+        if (d.kind === 'creator' && d.onchain === false && mineDrop) { // one signature from the creator: their wallet creates and owns the collection on Solana
+          try { await runTx('Putting your collection on-chain', (ui) => act('POST', `/launches/${encodeURIComponent(d.id)}/onchain`, null, ui), 'On-chain! Minting is open'); } catch (_) { return; }
+          return setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 600);
+        }
         let done = 0;
         for (let i = 0; i < q; i++) {
           try { await runTx(q > 1 ? `Minting ${i + 1} of ${q}` : 'Minting', (ui) => act('POST', `/drops/${encodeURIComponent(d.id)}/mint`, {}, ui), i === q - 1 ? (d.revealed ? 'Minted! It is in your wallet' : 'Minted! It reveals soon') : null); done++; }

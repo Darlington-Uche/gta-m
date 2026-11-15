@@ -9,6 +9,8 @@ import { notify } from './notifications.service.js';
 import { listCollections, invalidateCollections } from './collections.service.js';
 import { bad, conflict, forbidden, notFound } from '../lib/errors.js';
 import { config } from '../config/index.js';
+import { chain } from './chain/index.js';
+import { createPtx, newPtxId, publicPtx, registerHandler } from './pendingTx.service.js';
 
 const fromB64 = (f) => {
   if (!f || !f.data) return null;
@@ -69,12 +71,38 @@ export async function publishLaunch({ wallet, id, mint }) {
   const l = await own(wallet, id);
   if (l.status !== 'draft') throw conflict('already_live', 'Already published');
   if ((l.art || []).length < MIN_ART) throw bad('need_art', `Add at least ${MIN_ART} pieces (you have ${(l.art || []).length})`);
+  if (!l.address) throw conflict('not_onchain', 'Sign to put your collection on-chain first');
   const stages = mint ? phase(mint) : l.stages;
   if (stages[0].start < now() - 60e3) stages[0].start = now(), stages[0].end = Math.max(stages[0].end, now() + 36e5);
   await col('launches').doc(id).update({ status: 'approved', stages, revealAt: stages[0].end, supply: l.art.length, publishedAt: now() });
   const its = await queryDocs(col('items').where('launchId', '==', id));
   await Promise.all(its.map((i) => col('items').doc(i.id).update({ revealAt: stages[0].end })));
   return { id, status: 'approved' };
+}
+/** The creator puts their collection on Solana: they sign + pay, they own it; we are its update delegate (mint + reveal). */
+export async function prepareOnchain({ wallet, id }) {
+  const l = await own(wallet, id);
+  if (l.address) throw conflict('already_onchain', 'This collection is already on-chain');
+  if (l.status === 'rejected') throw conflict('taken_down', 'This collection was taken down');
+  const built = await chain.buildCreateCollectionTx({ creator: wallet, name: l.name.slice(0, 32), uri: `${config.publicBaseUrl}/metadata/launch-${id}.json` });
+  const ptx = await createPtx({ id: newPtxId(), kind: 'launch_collection', wallet, refId: id, data: { launchId: id, address: built.address }, built });
+  return { ...publicPtx(ptx), txB64: built.txB64, address: built.address };
+}
+registerHandler('launch_collection', {
+  async finalize(ptx) {
+    const l = await getDoc('launches', ptx.data.launchId); if (!l || l.address) return;
+    await col('launches').doc(ptx.data.launchId).update({ address: ptx.data.address, collectionSig: ptx.signature || null, onchainAt: now(), onchainBy: ptx.wallet });
+  },
+  async rollback() {}
+});
+/** One-time nudge for collections published before creators signed their own on-chain collection. */
+export async function nudgeOffchain() {
+  const ls = (await queryDocs(col('launches'))).filter((l) => (l.status === 'approved' || l.status === 'live') && !l.address && !l.onchainNudgedAt);
+  for (const l of ls) {
+    await notify(l.wallet, 'onchain_needed', 'Put your collection on-chain', `${l.name} needs one signature from you before anyone can mint. Open your drop and tap "Put on-chain".`, { launchId: l.id }).catch(() => {});
+    await col('launches').doc(l.id).update({ onchainNudgedAt: now() });
+  }
+  return { nudged: ls.length };
 }
 export async function deleteDraft({ wallet, id }) {
   const l = await own(wallet, id); if (l.status !== 'draft') throw conflict('not_draft', 'Only drafts can be deleted');
@@ -150,7 +178,7 @@ export async function listDrops() {
   const count = new Map(), minted = new Map();
   for (const i of items) { if (i.hidden) continue; const k = i.collectionId || i.era; count.set(k, (count.get(k) || 0) + 1); if (i.status === 'minted') minted.set(k, (minted.get(k) || 0) + 1); }
   const platform = cols.filter((c) => c.drop && c.drop.published).map((c) => ({ id: 'gta-' + c.id, kind: 'platform', collectionId: c.id, name: c.name, creator: 'GTA Marketplace', verified: true, logo: c.cover || c.banner, banner: c.banner || c.cover, preReveal: c.drop.preReveal || c.cover, description: c.blurb || '', theme: c.id, supply: c.drop.supply || count.get(c.id) || 0, artCount: count.get(c.id) || 0, minted: minted.get(c.id) || 0, stages: c.drop.stages, revealMode: c.drop.revealMode, revealAt: c.drop.revealAt, revealedAt: c.drop.revealedAt || null, royaltyPct: 5 }));
-  const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, creatorName: l.wallet === config.auth.platformWallet ? 'GTA Marketplace' : null, verified: true, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length, revealedAt: l.revealedAt || null }));
+  const creator = launches.filter((l) => l.status === 'approved' || l.status === 'live').map((l) => ({ id: l.id, kind: 'creator', name: l.name, symbol: l.symbol, creator: l.wallet, creatorName: l.wallet === config.auth.platformWallet ? 'GTA Marketplace' : null, verified: true, onchain: !!l.address, address: l.address || null, logo: l.logo, banner: l.banner, preReveal: l.preReveal, description: l.description, theme: l.theme, supply: l.supply, minted: l.minted || 0, stages: l.stages, revealMode: l.revealMode, revealAt: l.revealAt, royaltyPct: l.royaltyPct, links: l.links, artCount: (l.art || []).length, revealedAt: l.revealedAt || null }));
   const t = now();
   return [...platform, ...creator].map((d) => shape(d, t));
 }

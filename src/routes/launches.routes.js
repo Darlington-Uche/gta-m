@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { addLaunchArt, createLaunch, deleteDraft, getDrop, listDrops, myLaunches, publishLaunch, revealLaunch } from '../services/launches.service.js';
+import { addLaunchArt, createLaunch, deleteDraft, getDrop, listDrops, myLaunches, prepareOnchain, publishLaunch, revealLaunch } from '../services/launches.service.js';
 import { myDropMints, prepareDropMint } from '../services/dropmint.service.js';
 import { idParam } from './schemas.js';
 
@@ -18,6 +18,7 @@ export const routes = [
   { method: 'post', path: '/launches/:id/reveal', auth: 'user', params: idParam, summary: 'Reveal my collection now (creator only): every piece shows its real art', handler: async (req) => revealLaunch({ id: req.valid.params.id, wallet: req.user.wallet, admin: req.user.admin }) },
   { method: 'post', path: '/launches', auth: 'user', body: launchBody, summary: 'Start a collection (draft): name, logo, banner, links and the mint phase (price, per wallet, start, hours)', handler: async (req) => ({ launch: await createLaunch({ wallet: req.user.wallet, body: req.valid.body }) }) },
   { method: 'post', path: '/launches/:id/art', auth: 'user', params: idParam, body: z.object({ file: img, rarity: z.enum(['Common', 'Rare', 'Epic', 'Legendary']).optional() }), summary: 'Add one artwork (call once per image), with an optional rarity', handler: async (req) => addLaunchArt({ wallet: req.user.wallet, id: req.valid.params.id, file: req.valid.body.file, rarity: req.valid.body.rarity }) },
+  { method: 'post', path: '/launches/:id/onchain', auth: 'user', params: idParam, summary: 'PREPARE: the creator signs + pays to create their collection on Solana (they own it; we are its update delegate)', handler: async (req) => prepareOnchain({ wallet: req.user.wallet, id: req.valid.params.id }) },
   { method: 'post', path: '/launches/:id/publish', auth: 'user', params: idParam, body: z.object({ mint: launchBody.shape.mint }).optional(), summary: 'Put a draft live on Drops (needs a logo and 10+ pieces)', handler: async (req) => publishLaunch({ wallet: req.user.wallet, id: req.valid.params.id, mint: req.valid.body?.mint }) },
   { method: 'delete', path: '/launches/:id', auth: 'user', params: idParam, summary: 'Delete a draft', handler: async (req) => deleteDraft({ wallet: req.user.wallet, id: req.valid.params.id }) },
   { method: 'get', path: '/me/launches', auth: 'user', summary: 'Collections I submitted and their review status', handler: async (req) => ({ launches: await myLaunches(req.user.wallet) }) }

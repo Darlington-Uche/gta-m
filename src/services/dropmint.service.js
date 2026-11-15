@@ -22,10 +22,8 @@ import { conflict, forbidden, notFound, unavailable } from '../lib/errors.js';
 export const LAUNCHPAD_FEE_BPS = 500; // platform keeps 5% of creator mint revenue
 
 async function launchCollection(l) {
-  if (l.address) return l.address;
-  const res = await chain.createCollection({ name: l.name.slice(0, 32), uri: `${config.publicBaseUrl}/metadata/launch-${l.id}.json` });
-  await col('launches').doc(l.id).update({ address: res.address, collectionSig: res.signature || null });
-  return res.address;
+  if (l.address) return l.address; // created and owned by the creator (we are its update delegate)
+  throw conflict('not_onchain', 'The creator still has to put this collection on-chain');
 }
 
 export async function prepareDropMint({ wallet, dropId }) {
