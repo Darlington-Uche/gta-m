@@ -4,6 +4,7 @@ import { itemsOwnedBy } from './items.service.js';
 import { offersMadeBy, offersReceivedBy } from './offers.service.js';
 import { salesForWallet } from './stats.service.js';
 import { notFound, bad } from '../lib/errors.js';
+import { setLaunchItemsHidden } from './launches.service.js';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 export async function adminCollections() {
@@ -22,6 +23,7 @@ export async function restoreLaunch({ id, by }) {
   const l = await getDoc('launches', id); if (!l) throw notFound('Collection not found');
   if (l.status !== 'rejected') throw bad('not_taken_down', `This collection is ${l.status}`);
   await col('launches').doc(id).update({ status: l.minted ? 'live' : 'approved', reason: null, restoredBy: by, restoredAt: now() });
+  await setLaunchItemsHidden(id, false);
   return { id, status: l.minted ? 'live' : 'approved' };
 }
 export async function searchUsers(q) {

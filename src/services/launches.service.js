@@ -10,6 +10,7 @@ import { listCollections, invalidateCollections } from './collections.service.js
 import { bad, conflict, forbidden, notFound } from '../lib/errors.js';
 import { config } from '../config/index.js';
 import { chain } from './chain/index.js';
+import { invalidateCatalog } from './items.service.js';
 import { createPtx, newPtxId, publicPtx, registerHandler } from './pendingTx.service.js';
 
 const fromB64 = (f) => {
@@ -146,10 +147,16 @@ export async function revealPlatformDrop(collectionId) {
 }
 export const myLaunches = (wallet) => queryDocs(col('launches').where('wallet', '==', wallet)).then((r) => r.sort((a, b) => b.createdAt - a.createdAt));
 export const listLaunches = (status) => queryDocs(status ? col('launches').where('status', '==', status) : col('launches')).then((r) => r.sort((a, b) => b.createdAt - a.createdAt));
+export async function setLaunchItemsHidden(id, hidden) {
+  const its = await queryDocs(col('items').where('launchId', '==', id));
+  await Promise.all(its.map((i) => col('items').doc(i.id).update(hidden ? { hidden: true, takenDown: true } : { hidden: i.dropOnly && i.status !== 'minted' ? i.hidden || false : false, takenDown: false })));
+  invalidateCollections(); invalidateCatalog();
+}
 export async function reviewLaunch({ id, by, approve, reason }) {
   const l = await getDoc('launches', id); if (!l) throw notFound('Launch not found');
   if (approve ? l.status !== 'review' : l.status === 'rejected') throw conflict('already_reviewed', `This collection is ${l.status}`); // reject = take down, any time
   await col('launches').doc(id).update({ status: approve ? 'approved' : 'rejected', reviewedBy: by, reviewedAt: now(), reason: approve ? null : reason || null });
+  if (!approve) await setLaunchItemsHidden(id, true); // taken down: off Explore, collection pages, feeds and search
   await notify(l.wallet, approve ? 'launch_approved' : 'launch_rejected', approve ? 'Collection verified' : 'Collection not approved', approve ? `${l.name} passed verification and is listed on the launchpad.` : `${l.name}: ${reason || 'did not pass verification.'}`, { launchId: id });
   return { ok: true };
 }

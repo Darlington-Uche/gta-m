@@ -31,7 +31,7 @@ const shown = (it) => (it ? masked(it) : it); // an unrevealed piece never leaks
 const memo = (fn, ttl) => { let c = { at: 0, v: null, args: '' }; return async (...a) => { const k = JSON.stringify(a); if (c.v && c.args === k && Date.now() - c.at < ttl) return c.v; const v = await fn(...a); c = { at: Date.now(), v, args: k }; return v; }; };
 export const collectionsSummary = memo(async function collectionsSummaryRaw() {
   const [items, sl, listings, reg0, launches, actOffers] = await Promise.all([queryDocs(col('items')), sales(), queryDocs(col('listings').where('status', '==', 'active')), listCollections(), queryDocs(col('launches')), queryDocs(col('offers').where('status', '==', 'active'))]);
-  const reg = [...reg0, ...launches.filter((l) => !reg0.some((c) => c.id === l.id)).map((l) => ({ id: l.id, name: l.name, blurb: l.description, cover: l.logo, banner: l.banner, creator: l.wallet, symbol: l.symbol }))];
+  const reg = [...reg0, ...launches.filter((l) => l.status !== 'rejected' && l.status !== 'draft' && !reg0.some((c) => c.id === l.id)).map((l) => ({ id: l.id, name: l.name, blurb: l.description, cover: l.logo, banner: l.banner, creator: l.wallet, symbol: l.symbol }))];
   const regBy = new Map(reg.map((c) => [c.id, c]));
   const cidOf = (i) => i.collectionId || i.era;
   const listBy = new Map(listings.map((l) => [l.id, l]));
@@ -61,7 +61,7 @@ export const collectionsSummary = memo(async function collectionsSummaryRaw() {
 export const recentActivity = memo(async function recentActivityRaw(limit = 30) {
   const [sl, items] = await Promise.all([sales(), queryDocs(col('items'))]);
   const by = new Map(items.map((i) => [i.id, i]));
-  return sl.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((s) => ({
+  return sl.filter((s) => !(by.get(s.itemId) || {}).takenDown).sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((s) => ({
     type: s.type, itemId: s.itemId, title: shown(by.get(s.itemId))?.title, image: shown(by.get(s.itemId))?.image,
     buyer: s.buyer, seller: s.seller, usd: s.usd, lamports: s.lamports, signature: s.signature, at: s.createdAt
   }));

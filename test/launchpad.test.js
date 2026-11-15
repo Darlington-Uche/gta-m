@@ -31,6 +31,12 @@ test('launchpad flow: draft → 10+ art → publish, no review', async () => {
   assert.equal((await call('POST', `/launches/${id}/publish`, null, user)).status, 200);
   const d = (await call('GET', '/drops')).drops.find((x) => x.id === id); assert.equal(d.status, 'live'); assert.equal(d.supply, 10); assert.equal(d.stages.length, 1); assert.equal(d.revealed, false);
   assert.equal((await call('POST', `/launches/${id}/art`, { file: { data: png } }, user)).status, 409, 'art is locked once minting started');
+  // admin takes it down → gone from Drops and Explore; put back → returns
+  assert.equal((await call('POST', `/admin/launches/${id}/review`, { approve: false, reason: 'test' }, admin)).status, 200);
+  assert.ok(!(await call('GET', '/drops')).drops.some((x) => x.id === id), 'taken down drop is hidden');
+  assert.ok(!(await call('GET', '/collections')).collections.some((x) => x.id === id), 'taken down collection is hidden');
+  assert.equal((await call('POST', `/admin/launches/${id}/restore`, null, admin)).status, 200);
+  assert.ok((await call('GET', '/drops')).drops.some((x) => x.id === id), 'restored');
   // drafts can be deleted
   const d2 = await call('POST', '/launches', { name: 'Scrap', logo: { data: png } }, user);
   assert.equal((await call('DELETE', `/launches/${d2.launch.id}`, null, user)).ok, true);
