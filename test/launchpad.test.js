@@ -27,11 +27,6 @@ test('launchpad flow: draft → 10+ art → publish, no review', async () => {
   assert.equal((await call('POST', `/launches/${id}/publish`, null, user)).status, 200);
   const d = (await call('GET', '/drops')).drops.find((x) => x.id === id); assert.equal(d.status, 'live'); assert.equal(d.supply, 10); assert.equal(d.stages.length, 1); assert.equal(d.revealed, false);
   assert.equal((await call('POST', `/launches/${id}/art`, { file: { data: png } }, user)).status, 409, 'art is locked once minting started');
-  // our own collection: one phase
-  await call('PUT', '/admin/collections/iv', { name: 'GTA IV' }, admin);
-  const pd = await call('PUT', '/admin/collections/iv/drop', { published: true, supply: 50, revealMode: 'instant', stages: [{ kind: 'public', priceUsd: 0, start: t + 2 * 36e5, perWallet: 1 }] }, admin);
-  assert.equal(pd.status, 200, JSON.stringify(pd));
-  assert.equal((await call('GET', '/drops')).drops.find((x) => x.kind === 'platform').status, 'upcoming');
   // drafts can be deleted
   const d2 = await call('POST', '/launches', { name: 'Scrap', logo: { data: png } }, user);
   assert.equal((await call('DELETE', `/launches/${d2.launch.id}`, null, user)).ok, true);

@@ -3,10 +3,11 @@
 // atomic transaction: buyer -> vault, vault -> seller (minus fees), platform moves the NFT to the buyer.
 import { col, getDoc, now, runTx } from '../lib/db.js';
 import { chain } from './chain/index.js';
+import { config } from '../config/index.js';
 import { getSettings } from './settings.service.js';
 import { getItemRaw, invalidateCatalog, quoteUsd } from './items.service.js';
 import { createPtx, newPtxId, publicPtx, registerHandler } from './pendingTx.service.js';
-import { ledgerInTx } from './vault.service.js';
+import { ledgerInTx, saleFeeSplitInTx } from './vault.service.js';
 import { queueRefundInTx } from './payouts.service.js';
 import { makeNotification } from './notifications.service.js';
 import { assertUnlocked, lockFor, unlockIf } from './locks.js';
@@ -125,10 +126,11 @@ registerHandler('buy_listing', {
       const it = iS.data();
       if (!it) return;
       if (it.owner === d.buyer && (!lS.exists || lS.data().status === 'sold')) return; // idempotent
+    const launch = it && it.launchId ? (await tx.get(col('launches').doc(it.launchId))).data() : null; // its creator gets half the sale fee
       tx.update(itemRef, { owner: d.buyer, lock: null, lastOwnerCheck: now() });
       if (lS.exists) tx.update(listRef, { status: 'sold', soldAt: now(), buyer: d.buyer, signature: ptx.signature });
       tx.set(col('sales').doc(`listing_${ptx.id}`), { type: 'listing', itemId: d.itemId, asset: d.asset, buyer: d.buyer, seller: d.seller, lamports: d.lamports, saleFee: d.saleFee, sellerPayout: d.sellerPayout, devFee: d.devFee, usd: d.usd, signature: ptx.signature, createdAt: now() });
-      ledgerInTx(tx, { type: 'sale_fee', lamports: d.saleFee, wallet: d.seller, ref: { itemId: d.itemId, signature: ptx.signature }, deltas: { revenue: d.saleFee } });
+      saleFeeSplitInTx(tx, { saleFee: d.saleFee, seller: d.seller, creator: launch ? launch.wallet : null, platformWallet: config.auth.platformWallet, ref: { itemId: d.itemId, signature: ptx.signature }, payoutId: `creatorfee_${ptx.id}` });
       ledgerInTx(tx, { type: 'dev_fee', lamports: d.devFee, wallet: d.seller, ref: { itemId: d.itemId }, deltas: { revenue: d.devFee } });
       for (const doc of offS.docs) queueRefundInTx(tx, { id: doc.id, ...doc.data() }, 'refunded');
       for (const [w, type, title, body] of [

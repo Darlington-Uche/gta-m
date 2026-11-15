@@ -46,6 +46,13 @@ test('creator drop: allowlist then public, limits, random pick, pre-reveal, payo
   const after = (await call('GET', `/items?owner=${pub(aKp)}`)).items[0]; assert.equal(after.unrevealed, false); assert.match(after.title, /Vice Nights #\d/);
   await runJobsOnce({ force: true });
   assert.match(chain.meta.get(after.asset), /Vice Nights #\d/, 'on-chain name updated at reveal');
+  // resale: A lists, B buys → the creator gets half of the platform's sale fee
+  const lp = await call('POST', `/items/${after.id}/listing`, { priceUsd: 10 }, A); await run(lp, pub(aKp), A);
+  const c1 = await chain.getBalance(pub(creatorKp));
+  const bp = await call('POST', `/items/${after.id}/buy`, null, B); const done = await run(bp, pub(bKp), B); assert.equal(done.status, 'confirmed');
+  await runJobsOnce({ force: true });
+  const sale = (await col('sales').doc(`listing_${bp.ptxId}`).get()).data(); assert.ok(sale.saleFee > 0);
+  const got = (await chain.getBalance(pub(creatorKp))) - c1; assert.ok(Math.abs(got - Math.floor(sale.saleFee / 2)) < 20_000, `creator fee share ${got} vs fee ${sale.saleFee}`);
 });
 
 test('selling out reveals the collection automatically', async () => {

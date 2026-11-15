@@ -31,7 +31,7 @@ async function complete(payoutId) {
     tx.update(pRef, { status: 'sent', sentAt: now(), updatedAt: now() });
     if (p.type === 'creator_payout') {
       ledgerInTx(tx, { type: 'creator_payout', lamports: -p.lamports, wallet: p.to, ref: { ...p.ref, signature: p.signature }, deltas: { escrow: -p.lamports } });
-      const n = makeNotification(p.to, 'creator_paid', 'Mint revenue paid', `${lamportsToSol(p.lamports).toFixed(4)} SOL from your drop is in your wallet.`, p.ref); tx.set(n.ref, n.data);
+      const fee = p.ref && p.ref.kind === 'sale_fee_share', n = makeNotification(p.to, 'creator_paid', fee ? 'Sale fee share paid' : 'Mint revenue paid', fee ? `${lamportsToSol(p.lamports).toFixed(4)} SOL — your half of the fee from a sale in your collection.` : `${lamportsToSol(p.lamports).toFixed(4)} SOL from your drop is in your wallet.`, p.ref); tx.set(n.ref, n.data);
     }
     if (p.type === 'offer_refund') {
       const finalStatus = offer?.finalStatus || 'refunded';

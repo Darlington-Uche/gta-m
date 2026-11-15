@@ -4,11 +4,12 @@
 //  * When one offer is accepted, every other offer on that NFT is refunded from the vault.
 import { col, getDoc, now, queryDocs, runTx } from '../lib/db.js';
 import { chain } from './chain/index.js';
+import { config } from '../config/index.js';
 import { getSolUsd } from './priceOracle.js';
 import { bidWindowState, getSettings } from './settings.service.js';
 import { getItemRaw, invalidateCatalog, masked, quoteUsd } from './items.service.js';
 import { createPtx, newPtxId, publicPtx, registerHandler } from './pendingTx.service.js';
-import { ledgerInTx } from './vault.service.js';
+import { ledgerInTx, saleFeeSplitInTx } from './vault.service.js';
 import { queueRefundInTx } from './payouts.service.js';
 import { makeNotification } from './notifications.service.js';
 import { lockFor, assertUnlocked, unlockIf } from './locks.js';
@@ -215,12 +216,13 @@ async function acceptFinalize(ptx) {
     ]);
     const o = oS.data(), it = iS.data();
     if (!o || o.status === 'accepted') return; // idempotent
+    const launch = it && it.launchId ? (await tx.get(col('launches').doc(it.launchId))).data() : null; // its creator gets half the sale fee
     tx.update(offerRef, { status: 'accepted', acceptedAt: now(), signature: ptx.signature });
     tx.update(itemRef, { owner: d.buyer, lock: null, lastOwnerCheck: now() });
     if (lS.exists && lS.data().status === 'active') tx.update(listRef, { status: 'cancelled', cancelledAt: now(), reason: 'sold_via_offer' });
     tx.set(col('sales').doc(`offer_${d.offerId}`), { type: 'offer', itemId: d.itemId, asset: d.asset, buyer: d.buyer, seller: d.seller, lamports: d.lamports, saleFee: d.saleFee, sellerPayout: d.sellerPayout, devFee: d.devFee, usd: d.usd, signature: ptx.signature, createdAt: now() });
     ledgerInTx(tx, { type: 'offer_sale_settled', lamports: -d.lamports, wallet: d.buyer, ref: { offerId: d.offerId, itemId: d.itemId, signature: ptx.signature }, deltas: { escrow: -d.lamports } });
-    ledgerInTx(tx, { type: 'sale_fee', lamports: d.saleFee, wallet: d.seller, ref: { offerId: d.offerId, itemId: d.itemId }, deltas: { revenue: d.saleFee } });
+    saleFeeSplitInTx(tx, { saleFee: d.saleFee, seller: d.seller, creator: launch ? launch.wallet : null, platformWallet: config.auth.platformWallet, ref: { offerId: d.offerId, itemId: d.itemId }, payoutId: `creatorfee_${d.offerId}` });
     ledgerInTx(tx, { type: 'dev_fee', lamports: d.devFee, wallet: d.seller, ref: { offerId: d.offerId }, deltas: { revenue: d.devFee } });
     // everyone else who offered gets their SOL back
     for (const doc of othersS.docs) {

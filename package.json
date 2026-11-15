@@ -12,7 +12,7 @@
     "dev": "node --watch src/server.js",
     "dev:devnet": "NETWORK=devnet node --watch src/server.js",
     "start:mainnet": "NETWORK=mainnet-beta node src/server.js",
-    "test": "node --test test/e2e.test.js test/solana-tx.test.js",
+    "test": "node --test test/e2e.test.js test/solana-tx.test.js test/drops.test.js test/launchpad.test.js",
     "wallets": "node scripts/generate-wallets.js",
     "check": "node scripts/check-config.js",
     "collection:create": "node scripts/create-collection.js",

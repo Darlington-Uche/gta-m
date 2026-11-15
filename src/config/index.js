@@ -53,7 +53,7 @@ export const config = {
 
   nftSymbolName: env.COLLECTION_NAME || 'GTA Marketplace',
   priceOracle: {
-    fixedSolUsd: env.FIXED_SOL_USD ? Number(env.FIXED_SOL_USD) : null, // handy for devnet testing
+    fixedSolUsd: env.FIXED_SOL_USD && net.name !== 'mainnet-beta' ? Number(env.FIXED_SOL_USD) : null, // devnet testing only; mainnet always uses the live price
     maxStaleMs: num(env.PRICE_MAX_STALE_MS, 10 * 60 * 1000)
   },
 
@@ -62,8 +62,8 @@ export const config = {
     jwtTtl: env.JWT_TTL || '7d',
     nonceTtlMs: 5 * 60 * 1000,
     // the platform's own wallet: its collections and NFTs show as "GTA Marketplace" and it is always an admin
-    platformWallet: env.PLATFORM_WALLET || '8MW1zuraJnErVv6Sh9ajWzgtgHUSGWuJzXBodgjigapQ',
-    adminWallets: [...new Set([...list(env.ADMIN_WALLETS), env.PLATFORM_WALLET || '8MW1zuraJnErVv6Sh9ajWzgtgHUSGWuJzXBodgjigapQ'])],
+    platformWallet: env.PLATFORM_WALLET || 'BgHL4CnCYJCPzGTcriY5C2tKwpiL2hrkid8XDKhvegq5',
+    adminWallets: [...new Set([...list(env.ADMIN_WALLETS), env.PLATFORM_WALLET || 'BgHL4CnCYJCPzGTcriY5C2tKwpiL2hrkid8XDKhvegq5'])],
     adminPassword: env.ADMIN_PASSWORD || null // enables the password login used by the admin panel (POST /auth/admin-login)
   },
 

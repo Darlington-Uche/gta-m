@@ -50,3 +50,16 @@ export async function withdrawRevenue({ to, lamports, by }) {
   });
   return { payoutId: ref.id };
 }
+
+/** Sales split: half of the platform's sale fee goes to the collection's creator (paid out by the payouts job).
+ * Use inside a transaction AFTER all reads. creator = the launch wallet, or null for platform pieces. */
+export const CREATOR_FEE_SHARE_BPS = 5000;
+export function saleFeeSplitInTx(tx, { saleFee, seller, creator, platformWallet, ref, payoutId }) {
+  const share = creator && creator !== platformWallet ? Math.floor((saleFee * CREATOR_FEE_SHARE_BPS) / 10000) : 0;
+  ledgerInTx(tx, { type: 'sale_fee', lamports: saleFee - share, wallet: seller, ref, deltas: { revenue: saleFee - share } });
+  if (share > 0) {
+    ledgerInTx(tx, { type: 'creator_owed', lamports: share, wallet: creator, ref: { ...ref, kind: 'sale_fee_share' }, deltas: { escrow: share } });
+    tx.set(col('payouts').doc(payoutId), { type: 'creator_payout', to: creator, lamports: share, status: 'queued', attempts: 0, ref: { ...ref, kind: 'sale_fee_share' }, createdAt: now(), updatedAt: now() });
+  }
+  return share;
+}
