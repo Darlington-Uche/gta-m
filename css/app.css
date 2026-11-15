@@ -6,7 +6,7 @@
   --pink: #ff2d8a; --orange: #ff7a1a; --gold: #ffc93c; --teal: #19e3d2; --line: rgba(255, 243, 232, .13);
   --sunset: linear-gradient(120deg, #ff2d8a 0%, #ff7a1a 62%, #ffc93c 100%); --vice: linear-gradient(120deg, #ff3d9a 0%, #d63dff 55%, #8a4dff 100%);
   --glass: rgba(43, 15, 77, .5); --glass2: rgba(255, 243, 232, .07); --r: 20px;
-  --disp: 'Pixelify Sans', 'Anton', Impact, monospace; --body: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; --px: 'Pixelify Sans', monospace; --ease: cubic-bezier(.2, .8, .2, 1);
+  --disp: 'Anton', Impact, 'Arial Narrow', sans-serif; --body: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif; --ease: cubic-bezier(.2, .8, .2, 1);
   --nav-h: 68px; --wrap: 1240px;
 }
 * { box-sizing: border-box; margin: 0; }
@@ -805,13 +805,8 @@ img.ld { opacity: 0; } img { transition: opacity .45s ease; }
 .sd-mint, .mrow { min-width: 0; } .mrow { flex-wrap: wrap; } .usd input { width: 54px; } @media (max-width: 440px) { .usd em { display: none; } .seg3 button { padding: 8px 11px; } }
 .mt.sm { flex: 0 0 auto; min-width: 56px; } .mrow .chips3 { margin-left: auto; }
 
-/* v17 type: pixel for headings, buttons, tabs, labels and numbers; Manrope for everything you read */
-body { font-weight: 500; -webkit-font-smoothing: antialiased; }
-.display, h1, h2, .brand, .hpill b, .cx-stats b, .stat b { font-family: var(--px); }
-.display, h1, h2 { letter-spacing: 0; line-height: 1.1; font-weight: 600; } .brand { font-weight: 700; }
-h3, h4, .btn, .tabs a, .dock a, .tag, .st, .price { font-weight: 800; }
-input, select, textarea, p, .fine, .muted, small, .note, .about, dd, dt { font-family: var(--body); }
-input, select, textarea { font-weight: 600; }
+/* v17 type: Anton for display, Manrope for the rest */
+body { -webkit-font-smoothing: antialiased; }
 .bulkbar { display: flex; justify-content: flex-end; margin: 0 0 12px; } .bulk-f { display: grid; gap: 14px; } .bulk-f .qty { display: flex; align-items: center; justify-content: center; gap: 18px; } .bulk-f .qty button { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 22px; } .bulk-f .qty b { font-size: 34px; min-width: 56px; text-align: center; } .bulk-f .tot { display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.06); }
 
 /* v18 selection */
@@ -819,7 +814,7 @@ input, select, textarea { font-weight: 600; }
 .sel svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: scale(.4); transition: .2s var(--ease); }
 .sel.on { background: linear-gradient(135deg, #ff2d8a, #8a4dff); border-color: #fff; box-shadow: 0 0 0 4px rgba(255, 45, 138, .25); } .sel.on svg { opacity: 1; transform: none; }
 .selbar { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 108px); display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 22px; max-width: 560px; margin: 0 auto; animation: selin .3s var(--ease); }
-.selbar b { font-family: var(--px); font-size: 22px; } .selbar span { color: var(--dim); font-size: 13px; flex: 1; } .selbar .btn { padding: 10px 16px; } .selbar .rbtn { width: 36px; height: 36px; }
+.selbar b { font-size: 22px; font-weight: 800; } .selbar span { color: var(--dim); font-size: 13px; flex: 1; } .selbar .btn { padding: 10px 16px; } .selbar .rbtn { width: 36px; height: 36px; }
 @keyframes selin { from { transform: translateY(20px); opacity: 0; } }
 @media (min-width: 900px) { .selbar { bottom: 24px; } }
 
