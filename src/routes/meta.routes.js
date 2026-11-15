@@ -10,6 +10,7 @@ import { liveCollections } from '../services/collections.service.js';
 import { collectionsSummary, collectionDetail, platformStats, recentActivity } from '../services/stats.service.js';
 import { z } from 'zod';
 import { listNews } from '../services/news.service.js';
+import { telegramWebhook } from '../services/telegram.service.js';
 import { notFound } from '../lib/errors.js';
 import { page } from './schemas.js';
 
@@ -38,6 +39,7 @@ export const routes = [
     handler: async (req) => { const ws = [...new Set(req.valid.query.w.split(',').map((x) => x.trim()).filter((x) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(x)))].slice(0, 100);
       const docs = await Promise.all(ws.map((w) => getDoc('users', w).catch(() => null)));
       return { profiles: Object.fromEntries(ws.map((w, i) => [w, w === config.auth.platformWallet ? { name: 'GTA Marketplace', username: 'gtamarketplace', avatar: docs[i]?.avatar || null, verified: true } : { name: docs[i]?.name || null, username: docs[i]?.username || null, avatar: docs[i]?.avatar || null }])) }; } },
+  { method: 'post', path: '/telegram/webhook', auth: 'public', summary: 'Telegram button presses (checked with the secret header Telegram sends)', handler: async (req) => telegramWebhook(req.headers, req.body) },
   { method: 'get', path: '/news', auth: 'public', summary: 'Latest posts from the GTA news accounts on X (via FxTwitter, refreshed about every 5 min)', query: z.object({ limit: z.coerce.number().int().min(1).max(100).default(40), handle: z.string().max(40).optional() }), handler: async (req) => listNews(req.valid.query) },
   { method: 'get', path: '/activity', auth: 'public', summary: 'Recent sales feed', query: z.object({ limit: page.limit.default(30) }), handler: async (req) => ({ activity: await recentActivity(req.valid.query.limit) }) },
   {

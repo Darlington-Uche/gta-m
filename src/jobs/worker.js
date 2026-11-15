@@ -9,6 +9,7 @@ import { reconcileOwners } from '../services/ownership.service.js';
 import { syncReveals } from '../services/reveal.service.js';
 import { closeEndedMints, nudgeOffchain } from '../services/launches.service.js';
 import { pullNews } from '../services/news.service.js';
+import { pushTelegram } from '../services/telegram.service.js';
 import { log } from '../lib/logger.js';
 
 const HOLDER = `${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
@@ -35,6 +36,7 @@ export async function runJobsOnce({ force = false } = {}) {
   await step('closeMints', () => closeEndedMints());
   await step('onchainNudge', () => nudgeOffchain());
   await step('news', () => pullNews());
+  await step('telegram', () => pushTelegram());
   if (force || now() - lastOwnerSync > 10 * 60_000) { lastOwnerSync = now(); await step('reconcileOwners', () => reconcileOwners()); }
   return report;
 }
