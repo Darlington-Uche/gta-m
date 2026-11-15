@@ -10,7 +10,7 @@ const r2 = (n) => Math.round(n * 100) / 100;
 export async function adminCollections() {
   const [ls, items, sales] = await Promise.all([queryDocs(col('launches')), queryDocs(col('items')), queryDocs(col('sales'))]);
   const owner = new Map(); const byItem = new Map(items.map((i) => [i.id, i]));
-  return ls.filter((l) => l.status !== 'draft').sort((a, b) => (b.publishedAt || b.createdAt || 0) - (a.publishedAt || a.createdAt || 0)).map((l) => {
+  return ls.sort((a, b) => (b.publishedAt || b.createdAt || 0) - (a.publishedAt || a.createdAt || 0)).map((l) => {
     const mine = new Set(items.filter((i) => i.launchId === l.id).map((i) => i.id));
     const ss = sales.filter((s) => mine.has(String(s.itemId)));
     const mints = ss.filter((s) => s.type === 'mint'), trades = ss.filter((s) => s.type !== 'mint');
@@ -18,6 +18,14 @@ export async function adminCollections() {
     return { id: l.id, name: l.name, symbol: l.symbol, logo: l.logo, creator: l.wallet, status: l.status, reason: l.reason || null, supply: l.supply || 0, minted: l.minted || 0, mintPriceUsd: stage.priceUsd ?? 0, perWallet: stage.perWallet || 1, mintEnd: stage.end || null, closedAt: l.closedAt || null, revealedAt: l.revealedAt || null,
       mintRevenueUsd: r2(mints.reduce((a, s) => a + (s.usd || 0), 0)), tradeCount: trades.length, tradeVolumeUsd: r2(trades.reduce((a, s) => a + (s.usd || 0), 0)), holders: new Set(items.filter((i) => i.launchId === l.id && i.owner).map((i) => i.owner)).size, createdAt: l.createdAt };
   });
+}
+/** Delete a collection nobody minted from (drafts included). Its art and listing go away; an empty on-chain collection stays on Solana, unused. */
+export async function deleteLaunch({ id }) {
+  const l = await getDoc('launches', id); if (!l) throw notFound('Collection not found');
+  const its = await queryDocs(col('items').where('launchId', '==', id));
+  if ((l.minted || 0) > 0 || its.some((i) => i.status === 'minted' || i.status === 'reserved')) throw bad('has_mints', 'People already minted from this collection, take it down instead');
+  await Promise.all([...its.map((i) => col('items').doc(i.id).delete()), col('launches').doc(id).delete()]);
+  return { deleted: id };
 }
 export async function restoreLaunch({ id, by }) {
   const l = await getDoc('launches', id); if (!l) throw notFound('Collection not found');

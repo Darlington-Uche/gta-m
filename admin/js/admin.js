@@ -110,22 +110,23 @@ VIEWS.settings = async (el) => {
 /* ---------- collections: every creator collection, with take-down / restore ---------- */
 let CTAB = 'live';
 VIEWS.collections = async (el) => {
-  const all = (await api('GET', '/admin/creator-collections')).collections, down = all.filter((c) => c.status === 'rejected'), live = all.filter((c) => c.status !== 'rejected');
-  const list = CTAB === 'live' ? live : down;
-  const tabs = `<div class="row" style="margin-bottom:16px"><button class="btn ${CTAB === 'live' ? 'primary' : ''}" data-ct="live">Live · ${live.length}</button><button class="btn ${CTAB === 'down' ? 'primary' : ''}" data-ct="down">Taken down · ${down.length}</button></div>`;
+  const all = (await api('GET', '/admin/creator-collections')).collections, down = all.filter((c) => c.status === 'rejected'), drafts = all.filter((c) => c.status === 'draft'), live = all.filter((c) => c.status !== 'rejected' && c.status !== 'draft');
+  const list = CTAB === 'live' ? live : CTAB === 'drafts' ? drafts : down;
+  const tabs = `<div class="row" style="margin-bottom:16px"><button class="btn ${CTAB === 'live' ? 'primary' : ''}" data-ct="live">Live · ${live.length}</button><button class="btn ${CTAB === 'drafts' ? 'primary' : ''}" data-ct="drafts">Drafts · ${drafts.length}</button><button class="btn ${CTAB === 'down' ? 'primary' : ''}" data-ct="down">Taken down · ${down.length}</button></div>`;
   const card = (c) => { const pct = c.supply ? Math.round((c.minted / c.supply) * 100) : 0, ended = c.mintEnd && Date.now() > c.mintEnd;
     return `<div class="sub-card glass" data-id="${esc(c.id)}"><img src="${esc(c.logo || '')}" alt=""><div style="display:grid;gap:10px;min-width:0">
-      <div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:22px">${esc(c.name)} <span class="muted" style="font-size:13px">${esc(c.symbol || '')}</span></h3><span class="tag ${c.status === 'rejected' ? 'bad' : ended ? 'warn' : 'ok'}">${c.status === 'rejected' ? 'Taken down' : ended ? 'Mint ended' : 'Minting'}</span></div>
+      <div class="row" style="justify-content:space-between"><h3 class="display" style="font-size:22px">${esc(c.name)} <span class="muted" style="font-size:13px">${esc(c.symbol || '')}</span></h3><span class="tag ${c.status === 'rejected' ? 'bad' : c.status === 'draft' || ended ? 'warn' : 'ok'}">${c.status === 'rejected' ? 'Taken down' : c.status === 'draft' ? 'Draft' : ended ? 'Mint ended' : 'Minting'}</span></div>
       <div class="bar"><i style="width:${pct}%"></i></div><div class="fine">${c.minted} of ${c.supply || '—'} minted · ${usd(c.mintPriceUsd)} each · ${c.perWallet}/wallet</div>
       <div class="cards2"><div><b>$${c.mintRevenueUsd}</b><small>Mint sales</small></div><div><b>${c.tradeCount}</b><small>Trades</small></div><div><b>${usd(c.tradeVolumeUsd)}</b><small>Volume</small></div><div><b>${c.holders}</b><small>Holders</small></div></div>
       <div class="fine">By <code>${esc(short(c.creator))}</code> · ${ago(c.createdAt)}${c.reason ? ' · ' + esc(c.reason) : ''}</div>
-      <div class="row">${c.status === 'rejected' ? '<button class="btn primary sm" data-restore>Put back</button>' : '<button class="btn sm danger" data-down>Take down</button>'}<button class="btn sm" data-user="${esc(c.creator)}">Creator</button></div></div></div>`; };
+      <div class="row">${c.status === 'draft' ? '' : c.status === 'rejected' ? '<button class="btn primary sm" data-restore>Put back</button>' : '<button class="btn sm danger" data-down>Take down</button>'}${c.minted ? '' : '<button class="btn sm danger" data-del>Delete</button>'}<button class="btn sm" data-user="${esc(c.creator)}">Creator</button></div></div></div>`; };
   el.innerHTML = head('Collections', 'Every collection creators launched. Take one down if it breaks the rules.') + tabs + (list.length ? list.map(card).join('') : '<div class="empty"><b>Nothing here</b>Collections show up as soon as creators launch them.</div>');
   el.onclick = (e) => {
     const t = e.target.closest('[data-ct]'); if (t) { CTAB = t.dataset.ct; return render(); }
     const u = e.target.closest('[data-user]'); if (u) { USEL = u.dataset.user; location.hash = '#/users'; return; }
     const card = e.target.closest('[data-id]'); if (!card) return; const id = card.dataset.id;
     if (e.target.closest('[data-down]')) modal(`<h2 class="display" style="font-size:26px">Take down?</h2><p class="muted">It disappears from Drops and Explore. Holders keep what they minted.</p><label class="field">Reason (shown to the creator)<input id="rs" maxlength="200" placeholder="e.g. copied artwork"></label><div class="row" style="margin-top:16px"><button class="btn danger" id="ok">Take down</button><button class="btn" id="no">Cancel</button></div>`, (m, close) => { $('#no', m).onclick = close; $('#ok', m).onclick = (ev) => busy(ev.target, async () => { await api('POST', `/admin/launches/${id}/review`, { approve: false, reason: $('#rs', m).value || 'Removed by admin' }); close(); toast('Taken down'); render(); }); });
+    if (e.target.closest('[data-del]')) modal(`<h2 class="display" style="font-size:26px">Delete for good?</h2><p class="muted">Its art and page are removed. Nobody minted from it, so no one loses anything.</p><div class="row" style="margin-top:16px"><button class="btn danger" id="ok">Delete</button><button class="btn" id="no">Cancel</button></div>`, (m, close) => { $('#no', m).onclick = close; $('#ok', m).onclick = (ev) => busy(ev.target, async () => { await api('DELETE', `/admin/launches/${id}`); close(); toast('Deleted'); render(); }); });
     if (e.target.closest('[data-restore]')) busy(e.target, async () => { await api('POST', `/admin/launches/${id}/restore`); toast('Back on the launchpad'); render(); });
   };
 };
