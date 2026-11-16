@@ -98,10 +98,11 @@ export async function prepareBuy({ wallet, itemId }) {
 
   if (!item.collection) throw conflict('no_collection', 'This NFT has no collection on record');
   const q = await quoteUsd(listing.priceUsd);
-  const dev = await quoteUsd(settings.acceptFeeUsd);
+  const quotedDev = await quoteUsd(settings.acceptFeeUsd);
   const saleFee = feeOf(q.lamports, settings.saleFeeBps);
+  const dev = { ...quotedDev, lamports: Math.min(quotedDev.lamports, Math.floor((q.lamports - saleFee) / 4)) }; // small sales pay a smaller flat fee
   const sellerPayout = q.lamports - saleFee - dev.lamports;
-  if (sellerPayout <= 0) throw bad('price_too_low', 'Price is too low to cover fees');
+  if (sellerPayout <= 20_000) throw bad('price_too_low', 'Price is too low to cover fees');
 
   const ptxId = newPtxId();
   await runTx(async (tx) => {

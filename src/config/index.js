@@ -88,7 +88,7 @@ export const SETTINGS_DEFAULTS = {
   tradingEnabled: true,
   saleFeeBps: 250, // 2.5% platform fee on secondary sales (stays in the vault wallet)
   acceptFeeUsd: 0.3, // ~"gas" fee paid by the seller into the vault (platform revenue) on every secondary sale
-  minOfferUsd: 1,
+  minOfferUsd: 0.1,
   newsAccounts: ['rockstargames', 'gtalphaintel'], // X accounts shown in Explore → News
   maxActiveOffersPerItem: 50,
   offerTtlHours: 72,

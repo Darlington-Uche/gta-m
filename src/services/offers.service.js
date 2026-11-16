@@ -182,10 +182,12 @@ export async function prepareAccept({ wallet, offerId }) {
   if (onchain !== wallet) { await syncItemOwner(item); throw conflict('not_owner_onchain', 'Your wallet does not hold this NFT on-chain. Ownership has been refreshed.'); }
 
   if (!item.collection) throw conflict('no_collection', 'This NFT has no collection on record');
-  const dev = await quoteUsd(settings.acceptFeeUsd);
+  const quoted = await quoteUsd(settings.acceptFeeUsd);
   const saleFee = feeOf(offer.lamports, settings.saleFeeBps);
+  // Small offers pay a smaller flat fee (at most a quarter of the offer) so a $0.10 offer can still be accepted.
+  const dev = { ...quoted, lamports: Math.min(quoted.lamports, Math.floor((offer.lamports - saleFee) / 4)) };
   const sellerPayout = offer.lamports - saleFee;
-  if (sellerPayout <= dev.lamports * 2) throw bad('offer_too_small', 'This offer is too small to cover the network fee');
+  if (sellerPayout <= 20_000) throw bad('offer_too_small', 'This offer is too small to cover the network fee');
 
   const ptxId = newPtxId();
   await runTx(async (tx) => {
