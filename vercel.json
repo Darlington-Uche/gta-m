@@ -47,7 +47,7 @@
    ]
   },
   {
-   "source": "/admin/(.*)",
+   "source": "/Trenchfnf/(.*)",
    "headers": [
     {
      "key": "Cache-Control",
@@ -56,13 +56,30 @@
    ]
   },
   {
-   "source": "/admin/(.*)",
+   "source": "/Trenchfnf/(.*)",
    "headers": [
     {
      "key": "X-Robots-Tag",
      "value": "noindex, nofollow"
     }
    ]
+  }
+ ],
+ "redirects": [
+  {
+   "source": "/trenchfnf",
+   "destination": "/Trenchfnf/",
+   "permanent": false
+  },
+  {
+   "source": "/trenchfnf/(.*)",
+   "destination": "/Trenchfnf/$1",
+   "permanent": false
+  },
+  {
+   "source": "/Trenchfnf",
+   "destination": "/Trenchfnf/",
+   "permanent": false
   }
  ]
 }
