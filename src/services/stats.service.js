@@ -49,11 +49,12 @@ export const collectionsSummary = memo(async function collectionsSummaryRaw() {
     const lows = mineSales.filter((x) => x.type !== 'mint' && (x.usd || 0) > 0 && t - x.createdAt < DAY).map((x) => x.usd), lowSale24 = lows.length ? Math.min(...lows) : null; // floor = the lowest price anything sold for in the last 24h, even a sale to the top offer
     const lastSale = [...mineSales].filter((x) => (x.usd || 0) > 0).sort((a, b) => b.createdAt - a.createdAt)[0];
     const n24 = mineSales.filter((s) => t - s.createdAt < DAY).length;
+    const topOffer = Math.max(0, ...actOffers.filter((o) => eraOf.get(o.itemId) === era).map((o) => o.usdAtPlacement || 0)) || null;
     return {
       id: era, era: ERAS[era] ? era : mine[0]?.era || era, name: r?.name || meta.label, blurb: r?.blurb || '', cover: r?.cover || '', banner: r?.banner || '', creator: r?.creator || null, symbol: r?.symbol || null, short: meta.short, address: r?.address || null, live: !!(r && r.status === 'live' && r.address), covers: mine.slice(0, 4).map((i) => i.image),
       items: mine.length, minted: mine.filter((i) => i.status === 'minted').length,
       owners: new Set(mine.map((i) => i.owner).filter(Boolean)).size,
-      floorUsd: floors.length ? Math.min(...floors) : null, lowestListUsd: floors.length ? Math.min(...floors) : null, lowSale24Usd: lowSale24, // floor = the cheapest NFT you can buy right now lastSaleUsd: lastSale ? lastSale.usd : null, topOfferUsd: Math.max(0, ...actOffers.filter((o) => eraOf.get(o.itemId) === era).map((o) => o.usdAtPlacement || 0)) || null, listedCount: floors.length, mintPriceUsd: mintPrices.length ? Math.min(...mintPrices) : null, volumeUsd: roundUsd(vol), vol24Usd: roundUsd(v24), sales24: n24, change24: vPrev > 0 ? Math.round(((v24 - vPrev) / vPrev) * 1000) / 10 : v24 > 0 ? null : 0, isNew24: vPrev === 0 && v24 > 0, likes: mine.reduce((a, i) => a + (i.likes || 0), 0), createdAt: mine.reduce((m, i) => Math.min(m, i.createdAt || m), Date.now())
+      floorUsd: topOffer, lowestListUsd: floors.length ? Math.min(...floors) : null, lowSale24Usd: lowSale24, /* floor = the highest offer (what you can sell for); top offer label = cheapest listing */ lastSaleUsd: lastSale ? lastSale.usd : null, topOfferUsd: topOffer, listedCount: floors.length, mintPriceUsd: mintPrices.length ? Math.min(...mintPrices) : null, volumeUsd: roundUsd(vol), vol24Usd: roundUsd(v24), sales24: n24, change24: vPrev > 0 ? Math.round(((v24 - vPrev) / vPrev) * 1000) / 10 : v24 > 0 ? null : 0, isNew24: vPrev === 0 && v24 > 0, likes: mine.reduce((a, i) => a + (i.likes || 0), 0), createdAt: mine.reduce((m, i) => Math.min(m, i.createdAt || m), Date.now())
     };
   }).filter((c) => c.items > 0);
 }, 20_000);

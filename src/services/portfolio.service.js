@@ -16,7 +16,7 @@ export async function portfolio(wallet) {
   const byCol = new Map();
   for (const it of nfts) {
     const id = it.collectionId || it.era, c = cols.find((x) => x.id === id) || {};
-    const cost = paid.get(String(it.id)) ?? paid.get(it.id) ?? 0.1, value = c.floorUsd ?? c.topOfferUsd ?? null; // worth = the floor, else the best offer; with neither there is no price yet
+    const cost = paid.get(String(it.id)) ?? paid.get(it.id) ?? 0.1, value = c.floorUsd ?? c.lowestListUsd ?? null; // worth = the floor, else the best offer; with neither there is no price yet
     const g = byCol.get(id) || { id, name: c.name || it.eraLabel || id, cover: c.cover || c.banner || '', floorUsd: c.floorUsd ?? null, count: 0, priced: 0, valueUsd: 0, costUsd: 0, items: [] };
     g.count++; g.items.push(it.id); if (value != null) { g.priced++; g.valueUsd = r2(g.valueUsd + value); g.costUsd = r2(g.costUsd + cost); } byCol.set(id, g);
   }
