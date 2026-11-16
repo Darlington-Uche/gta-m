@@ -838,3 +838,16 @@ body { -webkit-font-smoothing: antialiased; }
   .me-chip { order: 4; margin-right: 0; padding: 3px; } .me-chip span { display: none; }
   .hs-on .hd-in .brand { display: none; }
 }
+
+/* v21 light pixel touch: headings, buttons, tabs and big numbers are pixel; everything you read stays Manrope.
+   Nothing pixel under 14px, and smoothing stays on so edges are soft on the eye. */
+:root { --px: 'Pixelify Sans', 'Manrope', system-ui, sans-serif; }
+@font-face { font-family: 'Pixelify Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/pixelify-sans-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Pixelify Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/pixelify-sans-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Pixelify Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/pixelify-sans-latin-700-normal.woff2') format('woff2'); }
+
+h1, h2, h3, .display:not(.brand *), .cnm b, .cpr b, .crk, .card h3, .tl b, .btn, .xseg button, .cx-tabs a, .tabs a, .price b, .stat b, .cx-stats b, .hpill b, .selbar b, .mintcard .big, .bal b { font-family: var(--px); font-weight: 600; letter-spacing: .01em; }
+h1, .display { font-weight: 700; letter-spacing: 0; }
+.brand, .brand * { font-family: revert; }
+.brand b { font-family: var(--disp); } .brand i { font-family: 'Script', cursive; }
+small, .fine, .muted, p, input, textarea, select, .tag, .dock a, .nw-t { font-family: var(--body); }
