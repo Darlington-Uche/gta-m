@@ -364,3 +364,11 @@ h1 .grad, h2 .grad { color: inherit; }
 .about dl { font: 400 22px/1.1 var(--disp); } .an-tiles b { font: 400 40px/.9 var(--disp); } .an-tiles small, .an-tiles em { font: 400 18px/1 var(--disp); }
 .pgr { background: var(--edge); border: 3px solid var(--panel3); } .pgr-t b { font-size: 26px; } .pgr-t small, .pnl { font: 400 18px/1 var(--disp); }
 .steps li { font: 400 22px/1 var(--disp); } .steps li.now i { animation: blink 1s steps(1, end) infinite; border-color: var(--pink); background: var(--pink); }
+
+/* contract address under the hero buttons: tap to copy */
+.ca-px { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 640px; margin: -16px 0 30px; padding: 10px 12px; background: var(--edge); color: var(--paper); border: 2px solid var(--line); box-shadow: var(--drop); cursor: pointer; text-align: left; }
+.ca-px .ca-tag { flex: none; padding: 3px 8px 5px; background: var(--gold); color: var(--edge); font: 400 20px/1 var(--disp); }
+.ca-px code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 20px/1.1 var(--read); color: var(--dim); }
+.ca-px .ca-cp { flex: none; padding: 3px 10px 5px; background: var(--pink); color: #fff; font: 400 20px/1 var(--disp); }
+.ca-px:hover { border-color: var(--pink); } .ca-px.ok .ca-cp { background: var(--green); color: var(--edge); }
+@media (max-width: 760px) { .ca-px { margin: -10px 0 24px; gap: 8px; } .ca-px code { font-size: 17px; } }

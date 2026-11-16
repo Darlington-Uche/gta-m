@@ -3,6 +3,8 @@ import { S, $, $$, esc, usd, short, ago, imgTag, items, stats, recentSales, http
 import { card as dropCardFull, liveCountdowns } from './drops.js';
 import { mountScene } from './scene.js';
 
+const CA = (window.GTA_CONFIG && window.GTA_CONFIG.CA) || '7vsy9nxAhNJdRsnndLd5a9Jhf5uVi8BDWr4C9hmZpump'; // token contract address shown under the hero buttons
+
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const arrow = (v) => (v == null ? '' : v >= 0 ? '▲' : '▼');
 const pct = (c) => (c.isNew24 ? '<span class="chg up">New</span>' : c.change24 == null ? '' : `<span class="chg ${c.change24 >= 0 ? 'up' : 'dn'}">${arrow(c.change24)} ${Math.abs(c.change24)}%</span>`);
@@ -55,6 +57,7 @@ export async function homeView() {
       <h1 class="display">${site.heroTitle ? esc(site.heroTitle) : 'Own the streets.'}</h1>
       <p class="lede">${site.heroSubtitle ? esc(site.heroSubtitle) : 'GTA-inspired art on Solana. Mint it, bid on it, collect it.'}</p>
       <div class="hero-cta"><a class="btn primary lg" href="#/explore">Explore the art</a><a class="btn lg" href="#/drops">See the drops</a></div>
+      <button class="ca-px" id="ca-copy" data-ca="${esc(CA)}" aria-label="Copy contract address"><span class="ca-tag">CA</span><code>${esc(CA)}</code><span class="ca-cp">Copy</span></button>
       <dl class="hud">${hud.map(([n, l]) => `<div><dt>${l}</dt><dd>${n}</dd></div>`).join('')}<div class="hud-net"><dt>Network</dt><dd>${esc(S.meta.network)}</dd></div></dl></section>
     ${tk ? `<section class="ticker-px" aria-label="${sales.length ? 'Recent trades' : 'Fresh drops'}"><b class="tk-tag">${sales.length ? 'Live trades' : 'Fresh drops'}</b><div class="tk-win"><div class="tk-track">${tk}${tk}</div></div></section>` : ''}
     <div class="board">
@@ -72,6 +75,8 @@ export async function homeView() {
   return {
     html,
     mount(root) {
+      const ca = $('#ca-copy', root);
+      if (ca) ca.onclick = async () => { try { await navigator.clipboard.writeText(ca.dataset.ca); } catch (_) { const t = document.createElement('textarea'); t.value = ca.dataset.ca; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); } const c = $('.ca-cp', ca); c.textContent = 'Copied!'; ca.classList.add('ok'); setTimeout(() => { c.textContent = 'Copy'; ca.classList.remove('ok'); }, 1600); };
       const stopCd0 = liveCountdowns(root), band = $('canvas[data-scene]', root), stopBand = band ? mountScene(band, band.dataset.scene, { horizon: 0.78, orbX: 0.82, noBoat: true, seed: 77 }) : () => {};
       const stopCd = () => { stopCd0(); stopBand(); };
       const seg = $('.seg', root), trend = $('#trend', root);
