@@ -32,7 +32,7 @@ export async function home() {
   ${trading.items.length ? `<div class="grid">${trading.items.map(poster).join('')}</div>` : '<div class="empty"><b>No trades yet</b>Collected pieces with offers show up here.</div>'}
   <div class="sh"><h2 class="display">Pick an <span class="grad">era</span></h2><a class="more" href="#/collections">All eras →</a></div>
   <div class="tiles">${S.collections.map((c, i) => tile(c, i)).join('')}</div>
-  <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
+  <div class="cta-band"><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got art? Get it on the wall.</h2></div><a class="btn primary lg" href="#/create">Submit artwork</a></div>`;
 }
 export async function homeView(ctx) { const html = await home(ctx); return { html, mount: (root) => { const d = $('.deck', root); const off = d ? mountDeck(d) : null; const t = tiltCards(root); return () => { off && off(); t(); }; } }; }
 

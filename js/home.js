@@ -1,6 +1,7 @@
-// Home v2: a trading-app style front page. Recent trades, trending, featured collections, top movers.
+// Home: pixel hero + HUD, live trade ticker, drops beside a leaderboard, featured collections, top movers.
 import { S, $, $$, esc, usd, short, ago, imgTag, items, stats, recentSales, http, who } from './core.js';
 import { card as dropCardFull, liveCountdowns } from './drops.js';
+import { mountScene } from './scene.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const arrow = (v) => (v == null ? '' : v >= 0 ? '▲' : '▼');
@@ -10,22 +11,19 @@ const floor = (c) => (c.floorUsd == null ? '—' : usd(c.floorUsd));
 
 const sectionHead = (t, more) => `<div class="sh2"><h2>${t}</h2>${more ? `<a href="${more}">View all</a>` : ''}</div>`;
 
-const tradeCard = (s) => `<a class="tcard glass" href="#/art/${encodeURIComponent(s.itemId)}">
-  <div class="tc-top"><span class="tc-img">${imgTag(s.image, s.title || '', 120)}</span><div><b>${esc(s.title || 'Artwork')}</b><small>${s.type === 'platform_buy' ? 'Sold to the platform' : s.type === 'mint' ? 'Minted' : 'Sale'}</small></div><em>${s.usd ? usd(s.usd) : 'FREE'}</em></div>
-  <div class="tc-bot"><i class="av" style="--h:${hue(s.buyer)}"></i><b>${who(s.buyer)}</b><small>${ago(s.at)}</small></div></a>`;
-const hue = (a) => ([...String(a || 'x')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
 
-const dropCard = (it) => `<a class="tcard glass" href="#/art/${encodeURIComponent(it.id)}">
-  <div class="tc-top"><span class="tc-img">${imgTag(it.img, it.title, 120)}</span><div><b>${esc(it.title)}</b><small>${esc(it.eraShort || '')}</small></div><em>${it.free ? 'FREE' : usd(it.priceUsd)}</em></div>
-  <div class="tc-bot"><i class="av drop"></i><b>New drop</b><small>Mint now</small></div></a>`;
+/* Leaderboard rows: rank, cover, name, floor, 24h move. */
+const trendRow = (c, i) => `<a class="lb-row" href="#/collection/${encodeURIComponent(c.id)}">
+  <span class="lb-rank">${i + 1}</span><span class="lb-img">${imgTag(coverOf(c), c.name, 120)}</span>
+  <b class="lb-name">${esc(c.name)}${tick}</b><span class="lb-num">${floor(c)}</span><span class="lb-chg">${pct(c) || '<span class="chg">—</span>'}</span></a>`;
 
-const trendRow = (c, i) => `<a class="trow glass" href="#/collection/${encodeURIComponent(c.id)}">
-  <span class="rank">${i + 1}</span><span class="tr-img">${imgTag(coverOf(c), c.name, 120)}</span>
-  <div class="tr-t"><b>${esc(c.name)}${tick}</b><small>${floor(c)} <span>floor</span>${pct(c)}</small></div></a>`;
+const trendArt = (it, i) => `<a class="lb-row" href="#/art/${encodeURIComponent(it.id)}">
+  <span class="lb-rank">${i + 1}</span><span class="lb-img">${imgTag(it.img, it.title, 120)}</span>
+  <b class="lb-name">${esc(it.title)}</b><span class="lb-num">${it.free ? 'FREE' : usd(it.priceUsd)}</span><span class="lb-chg"><span class="chg">${esc(it.eraShort || '')}</span></span></a>`;
 
-const trendArt = (it, i) => `<a class="trow glass" href="#/art/${encodeURIComponent(it.id)}">
-  <span class="rank">${i + 1}</span><span class="tr-img">${imgTag(it.img, it.title, 120)}</span>
-  <div class="tr-t"><b>${esc(it.title)}</b><small><span>${esc(it.eraShort || '')}</span></small></div></a>`;
+/* Ticker entries: one line per trade (or per fresh drop while there are no trades yet). */
+const tickTrade = (s) => `<a class="tk" href="#/art/${encodeURIComponent(s.itemId)}"><span class="tk-img">${imgTag(s.image, s.title || '', 80)}</span><b>${esc(s.title || 'Artwork')}</b><em>${s.usd ? usd(s.usd) : 'FREE'}</em><span>${s.type === 'mint' ? 'minted by' : 'bought by'} ${who(s.buyer)}</span><small>${ago(s.at)}</small></a>`;
+const tickDrop = (it) => `<a class="tk" href="#/art/${encodeURIComponent(it.id)}"><span class="tk-img">${imgTag(it.img, it.title, 80)}</span><b>${esc(it.title)}</b><em>${it.free ? 'FREE' : usd(it.priceUsd)}</em><span>ready to mint</span></a>`;
 
 const featCard = (c) => `<a class="fcard" href="#/collection/${encodeURIComponent(c.id)}">
   <span class="f-bg">${imgTag(c.banner || c.cover, c.name, 900)}</span><i class="f-shade"></i>
@@ -51,26 +49,33 @@ export async function homeView() {
   const featured = [...list].sort((a, b) => (b.live - a.live) || (b.minted - a.minted) || (b.items - a.items)).slice(0, 6);
   const movers = [...list].sort((a, b) => (b.isNew24 ? 1e9 : b.change24 ?? -1e9) - (a.isNew24 ? 1e9 : a.change24 ?? -1e9) || (b.vol24Usd || 0) - (a.vol24Usd || 0) || (b.likes || 0) - (a.likes || 0)).slice(0, 8);
   const site = S.site || {};
-  const recent = sales.length ? sales.map(tradeCard).join('') : fresh.map(dropCard).join('');
-  const html = `<section class="hh"><span class="eyebrow">Art marketplace · ${esc(S.meta.network)}</span>
-      <h1 class="display">${site.heroTitle ? esc(site.heroTitle) : 'Own the <span class="grad">streets.</span>'}</h1>
-      <div class="pills">${[[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']].map(([n, l]) => `<span class="hpill glass"><b>${n}</b>${l}</span>`).join('')}</div></section>
-    <section class="hs">${sectionHead(sales.length ? 'Recent Trades' : 'Fresh Drops', sales.length ? '#/explore?tab=feed' : '#/browse?status=unminted')}
-      ${recent ? `<div class="hrow">${recent}</div>` : '<div class="empty"><b>Nothing here yet</b>The first drops are on their way.</div>'}</section>
-    ${dl.length ? `<section class="hs">${sectionHead(dl.some((d) => d.status === 'live') ? 'Minting Now' : 'Upcoming Drops', '#/drops')}<div class="hrow drow">${dl.map(dropCardFull).join('')}</div></section>` : ''}
-    <section class="hs">${sectionHead('Trending Now', '#/explore')}
-      <div class="seg" role="tablist"><button class="on" data-t="cols" role="tab">Collections</button><button data-t="arts" role="tab">Artworks</button></div>
-      <div class="trend" id="trend"><div class="tcols" data-p="cols">${trending.map(trendRow).join('')}</div><div class="tcols" data-p="arts" hidden>${pop.slice(0, 6).map(trendArt).join('')}</div></div></section>
-    ${featured.length ? `<section class="hs">${sectionHead('Featured Collections', '#/collections')}
+  const tk = sales.length ? sales.map(tickTrade).join('') : fresh.map(tickDrop).join('');
+  const hud = [[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']];
+  const html = `<section class="hero-px">
+      <h1 class="display">${site.heroTitle ? esc(site.heroTitle) : 'Own the streets.'}</h1>
+      <p class="lede">${site.heroSubtitle ? esc(site.heroSubtitle) : 'GTA-inspired art on Solana. Mint it, bid on it, collect it.'}</p>
+      <div class="hero-cta"><a class="btn primary lg" href="#/explore">Explore the art</a><a class="btn lg" href="#/drops">See the drops</a></div>
+      <dl class="hud">${hud.map(([n, l]) => `<div><dt>${l}</dt><dd>${n}</dd></div>`).join('')}<div class="hud-net"><dt>Network</dt><dd>${esc(S.meta.network)}</dd></div></dl></section>
+    ${tk ? `<section class="ticker-px" aria-label="${sales.length ? 'Recent trades' : 'Fresh drops'}"><b class="tk-tag">${sales.length ? 'Live trades' : 'Fresh drops'}</b><div class="tk-win"><div class="tk-track">${tk}${tk}</div></div></section>` : ''}
+    <div class="board">
+      <section class="hs board-drops">${sectionHead(dl.length ? (dl.some((d) => d.status === 'live') ? 'Minting now' : 'Upcoming drops') : 'Drops', '#/drops')}
+        ${dl.length ? `<div class="hrow drow">${dl.map(dropCardFull).join('')}</div>` : '<div class="empty"><b>No drops yet</b>The first drops are on their way. <a class="accent" href="#/create/collection">Launch yours</a></div>'}</section>
+      <section class="hs lb">${sectionHead('Top of the board', '#/explore')}
+        <div class="seg" role="tablist"><button class="on" data-t="cols" role="tab">Collections</button><button data-t="arts" role="tab">Artworks</button></div>
+        <div class="trend" id="trend"><div class="lb-list" data-p="cols"><div class="lb-head"><span>#</span><span></span><span>Collection</span><span>Floor</span><span>24h</span></div>${trending.map(trendRow).join('') || '<div class="empty"><b>No collections yet</b></div>'}</div>
+          <div class="lb-list" data-p="arts" hidden><div class="lb-head"><span>#</span><span></span><span>Artwork</span><span>Price</span><span>Era</span></div>${pop.slice(0, 6).map(trendArt).join('')}</div></div></section>
+    </div>
+    ${featured.length ? `<section class="hs">${sectionHead('Featured collections', '#/collections')}
       <div class="fcar" id="fcar">${featured.map(featCard).join('')}</div><div class="dots" id="fdots">${featured.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></section>` : ''}
-    ${movers.length ? `<section class="hs">${sectionHead('Top Movers Today', '#/explore')}<div class="hrow mv">${movers.map(moverCard).join('')}</div></section>` : ''}
-    <div class="cta-band"><div class="bgi" style="background-image:url('img/crew.jpg')"></div><div><span class="eyebrow">Creators</span><h2 class="display" style="margin-top:10px">Got a collection? Launch it.</h2></div><a class="btn primary lg" href="#/create/collection">Launch a collection</a></div>`;
+    ${movers.length ? `<section class="hs">${sectionHead('Top movers today', '#/explore')}<div class="hrow mv">${movers.map(moverCard).join('')}</div></section>` : ''}
+    <div class="cta-band"><canvas class="bgi" data-scene="dawn" aria-hidden="true"></canvas><div><h2 class="display">Got a collection? Launch it.</h2><p class="lede">Upload your art, set a price and a mint window, and put it in front of collectors.</p></div><a class="btn primary lg" href="#/create/collection">Launch a collection</a></div>`;
   return {
     html,
     mount(root) {
-      const stopCd = liveCountdowns(root);
+      const stopCd0 = liveCountdowns(root), band = $('canvas[data-scene]', root), stopBand = band ? mountScene(band, band.dataset.scene, { horizon: 0.78, orbX: 0.82, noBoat: true, seed: 77 }) : () => {};
+      const stopCd = () => { stopCd0(); stopBand(); };
       const seg = $('.seg', root), trend = $('#trend', root);
-      if (seg) seg.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$('button', seg).forEach((x) => x.classList.toggle('on', x === b)); $$('.tcols', trend).forEach((p) => { p.hidden = p.dataset.p !== b.dataset.t; }); };
+      if (seg) seg.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$('button', seg).forEach((x) => x.classList.toggle('on', x === b)); $$('.lb-list', trend).forEach((p) => { p.hidden = p.dataset.p !== b.dataset.t; }); };
       const car = $('#fcar', root), dots = $$('#fdots i', root);
       if (car && dots.length) {
         const upd = () => { const w = car.firstElementChild ? car.firstElementChild.getBoundingClientRect().width + 12 : 1; const i = Math.min(dots.length - 1, Math.round(car.scrollLeft / w)); dots.forEach((d, k) => d.classList.toggle('on', k === i)); };

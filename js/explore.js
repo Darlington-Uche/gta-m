@@ -55,7 +55,7 @@ function newsCard(n, i, fresh) {
     ${n.repostedBy ? `<div class="nw-rp">↻ @${esc(n.repostedBy)} reposted</div>` : ''}
     <div class="nw-h"><span class="nw-av">${n.avatar ? `<img src="${esc(n.avatar)}" alt="">` : esc((n.name || '?')[0])}</span><div><b>${esc(n.name)}</b><small>@${esc(n.author || n.handle)} · ${ago(n.createdAt)}</small></div><a class="nw-x" href="${esc(n.url)}" target="_blank" rel="noopener" aria-label="Open on X">${xIcon}</a></div>
     ${n.text ? `<p class="nw-t">${linkify(n.text)}</p>` : ''}${media}${q}
-    <div class="nw-f"><span>♥ ${num(n.likes)}</span><span>↻ ${num(n.reposts)}</span><span>💬 ${num(n.replies)}</span>${n.views ? `<span>👁 ${num(n.views)}</span>` : ''}</div></article>`;
+    <div class="nw-f"><span>${num(n.likes)} likes</span><span>${num(n.reposts)} reposts</span><span>${num(n.replies)} replies</span>${n.views ? `<span>${num(n.views)} views</span>` : ''}</div></article>`;
 }
 function newsHtml(list, f, fresh) {
   const rows = list.filter((n) => f === 'all' || n.handle === f);
@@ -76,7 +76,8 @@ export async function exploreHub(ctx) {
   let trades = feed;
   const body = () => (tab === 'collections' ? collectionsHtml(cols, st.collections) : tab === 'news' ? newsHtml(news, st.news) : feedHtml(trades, st.feed));
   const label = () => SORTS[tab].find(([k]) => k === st[tab])[1];
-  const html = `<div class="xbar" id="xbar"><div class="xseg x3" role="tablist"><i class="xth" aria-hidden="true"></i>
+  const html = `<div class="ph2"><h1 class="display">Explore</h1><a class="btn" href="#/browse">Browse every artwork</a></div>
+    <div class="xbar" id="xbar"><div class="xseg x3" role="tablist"><i class="xth" aria-hidden="true"></i>
       <button role="tab" data-tab="collections" class="${tab === 'collections' ? 'on' : ''}">Collections</button>
       <button role="tab" data-tab="feed" class="${tab === 'feed' ? 'on' : ''}">Feed<i class="ldot" aria-hidden="true"></i></button>
       <button role="tab" data-tab="news" class="${tab === 'news' ? 'on' : ''}">News</button></div>

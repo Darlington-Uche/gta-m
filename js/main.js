@@ -7,17 +7,10 @@ import { homeView as home } from './home.js';
 import { create as createArt, profile } from './me.js';
 import { dropsHub, dropPage } from './drops.js';
 import { createHub, launchWizard } from './launch.js';
+import { px } from './px.js';
+import { mountScene } from './scene.js';
 
-const ic = {
-  home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
-  explore: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
-  cols: '<svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
-  create: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg>',
-  drops: '<svg viewBox="0 0 24 24"><path d="M12 3c3 2 5 5.5 5 9.5L15 16H9l-2-3.5C7 8.5 9 5 12 3z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 16l-2 4 3-1.5M15 16l2 4-3-1.5"/></svg>',
-  wallet: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M7 6l9-3 1 3"/><circle cx="16.5" cy="14.5" r="1.2"/></svg>',
-  me: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
-};
-const NAV = [['/', 'Home', ic.home], ['/explore', 'Explore', ic.explore], ['/drops', 'Drops', ic.drops], ['/create', 'Create', ic.create], ['/me', 'Portfolio', ic.wallet]];
+const NAV = [['/', 'Home', px.home], ['/explore', 'Explore', px.explore], ['/drops', 'Drops', px.drops], ['/create', 'Create', px.create], ['/me', 'Portfolio', px.wallet]];
 const routes = [
   [/^\/?$/, home], [/^\/explore$/, explore], [/^\/browse$/, browse], [/^\/art\/(.+)$/, artwork], [/^\/collections$/, collections], [/^\/collection\/(.+)$/, collection],
   [/^\/drops$/, dropsHub], [/^\/drop\/(.+)$/, dropPage], [/^\/create$/, createHub], [/^\/create\/art$/, () => { location.replace('#/create'); return { html: '' }; }], [/^\/create\/collection$/, launchWizard], [/^\/me(?:\/(\w+))?$/, profile]
@@ -31,7 +24,7 @@ function chrome() {
     <nav class="links">${NAV.filter(([h]) => h !== '/' && h !== '/me').map(([h, l]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${l}</a>`).join('')}</nav>
     <div class="acct"><span class="net ${S.meta && S.meta.isMainnet ? 'main' : ''}">${S.meta ? S.meta.network === 'devnet' ? 'Devnet' : 'Mainnet' : ''}</span>${S.wallet
       ? `<a class="me-chip" href="#/me">${S.avatar ? `<i class="avt"><img src="${esc(S.avatar)}" alt=""></i>` : `<i class="avt" style="--h:${[...String(S.wallet||'x')].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7)}">${esc(((S.profile && S.profile.name) || S.username || S.wallet)[0].toUpperCase())}</i>`}<span><b>${esc((S.profile && S.profile.name) || (S.username ? '@' + S.username : short(S.wallet)))}</b><small>Portfolio</small></span></a>`
-      : '<button class="me-chip" id="cw"><i class="avt ghost"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></i><span><b>Connect</b><small>wallet</small></span></button>'}<a class="bell" href="#/me/notifications" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 20a2 2 0 004 0"/></svg>${S.unread ? '<i class="bdot"></i>' : ''}</a></div>`;
+      : '<button class="me-chip" id="cw"><i class="avt ghost">' + px.wallet + '</i><span><b>Connect</b><small>wallet</small></span></button>'}<a class="bell" href="#/me/notifications" aria-label="Notifications">${px.bell}${S.unread ? '<i class="bdot"></i>' : ''}</a></div>`;
   const an = S.site && S.site.announcement; let bar = $('#ann'); if (an) { if (!bar) { bar = document.createElement('div'); bar.id = 'ann'; document.body.prepend(bar); } bar.textContent = an; } else if (bar) bar.remove();
   $('#dock').innerHTML = NAV.map(([h, l, i]) => `<a href="#${h}" class="${active(h) ? 'on' : ''}">${i}${l}${h === '/me' ? badge : ''}</a>`).join('');
   const cw = $('#cw'); if (cw) cw.onclick = walletModal;
@@ -42,11 +35,13 @@ function chrome() {
 const dropBd = {}; // drop id -> banner, filled by the drop page so its backdrop is its own art
 addEventListener('gta:dropbd', (e) => { dropBd[e.detail.id] = e.detail.url; backdrop(lastBdPath); });
 let bdCur = '', bdFlip = 0, lastBdPath = '', wasSmall = null;
-const BD = { // built-in backdrops: [image, desktop focus, mobile focus]
-  home: ['img/hero.jpg', '60% 35%', '70% 20%'], explore: ['img/explore.jpg', '50% 22%', '72% 20%'], eras: ['img/eras.jpg', '50% 18%', '58% 15%'],
-  create: ['img/submit.jpg', '100% 12%', '88% 10%'], me: ['img/crew.jpg', '50% 16%', '50% 12%']
-};
-const BD_SMALL = { me: ['img/me-mobile.jpg', '50% 30%', '50% 26%'], create: ['img/submit-mobile.jpg', '50% 40%', '50% 38%'] }; // portrait art for phones; the wide one stays for bigger screens
+const SCENE = { home: 'sunset', explore: 'night', eras: 'dusk', create: 'dawn', me: 'vault', drops: 'sunset' }; // built-in pixel scene per page (js/scene.js)
+let sceneKind = '', sceneStop = null;
+function setScene(kind, tall) {
+  const cv = $('#scene'); if (!cv) return; const k = kind ? kind + (tall ? ':tall' : '') : '';
+  if (k === sceneKind) return; sceneKind = k; if (sceneStop) { sceneStop(); sceneStop = null; }
+  if (kind) sceneStop = mountScene(cv, kind, tall ? { horizon: 0.6, orbX: 0.7 } : { horizon: 0.8, orbX: 0.8, noBoat: true });
+}
 const small = () => matchMedia('(max-width: 760px)').matches;
 function backdrop(path) {
   if (wasSmall === null) wasSmall = small();
@@ -56,13 +51,16 @@ function backdrop(path) {
   else if (path === '/collections') { key = 'eras'; custom = b.eras; }
   else if (path.startsWith('/collection/')) { const c = S.collections.find((x) => x.id === decodeURIComponent(path.split('/')[2])); key = 'eras'; custom = (c && (c.banner || c.cover)) || b.eras; }
   else if (path.startsWith('/create')) { key = 'create'; custom = b.create; }
-  else if (path === '/drops') { key = 'home'; custom = b.drops; }
+  else if (path === '/drops') { key = 'drops'; custom = b.drops; }
   else if (path.startsWith('/drop/')) { key = 'eras'; custom = dropBd[decodeURIComponent(path.slice(6))] || ''; }
   else if (path.startsWith('/me')) key = 'me';
   const el = $('#backdrop'); if (!el) return;
   lastBdPath = path;
-  const d = (small() && BD_SMALL[key]) || BD[key], url = custom || (d ? d[0] : '');
-  el.className = url ? 'on' + (key === 'home' ? ' tall' : '') : '';
+  const d = null, url = custom || '';
+  const scene = url ? '' : SCENE[key] || ''; // artwork pages have no backdrop: the art is the picture
+  el.className = (url || scene ? 'on' : '') + (key === 'home' ? ' tall' : '') + (url ? ' img' : ' px');
+  document.body.dataset.bd = url ? 'img' : scene ? (key === 'home' ? 'home' : 'scene') : 'none';
+  setScene(scene, key === 'home');
   if (url === bdCur) return; bdCur = url;
   const layers = $$('i', el); bdFlip ^= 1; const next = layers[bdFlip], prev = layers[bdFlip ^ 1];
   next.classList.remove('fit'); next.dataset.ar = '';
@@ -81,7 +79,7 @@ function fitBackdrop() {
   $$('i', el).forEach((i) => {
     const ar = +i.dataset.ar; if (!ar) { i.classList.remove('fit'); return; }
     const box = el.clientWidth / Math.max(1, el.clientHeight), keep = Math.min(ar, box) / Math.max(ar, box); // share of the image left visible with cover
-    i.classList.toggle('fit', keep < 0.7);
+    i.classList.remove('fit'); void keep; // pixel banners always fill the band
   });
 }
 addEventListener('resize', () => { if (wasSmall !== null && wasSmall !== small() && lastBdPath) backdrop(lastBdPath); wasSmall = small(); clearTimeout(fitBackdrop.t); fitBackdrop.t = setTimeout(fitBackdrop, 150); });
@@ -119,7 +117,7 @@ let nmT = 0; new MutationObserver(() => { clearTimeout(nmT); nmT = setTimeout(()
 
 /* Back-to-top: appears once you are a screen down, on every page. */
 const topBtn = document.createElement('button'); topBtn.id = 'totop'; topBtn.setAttribute('aria-label', 'Back to top');
-topBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'; document.body.appendChild(topBtn);
+topBtn.innerHTML = px.up; document.body.appendChild(topBtn);
 topBtn.onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
 addEventListener('scroll', () => topBtn.classList.toggle('on', scrollY > innerHeight * 0.9), { passive: true });
 
