@@ -254,7 +254,7 @@ h1 .grad, h2 .grad { color: inherit; }
 .dchip, .cx .chips2 > *, .chips2 > *, .chips3 > * { font: 400 20px/1 var(--disp); padding: 6px 10px 8px; background: var(--edge); border: 0; box-shadow: var(--cut); margin: 3px; }
 .dchip.live, .dchip.on { color: var(--green); } .dchip.soon { color: var(--teal); } .dchip.end { color: var(--faint); }
 .cx-tabs { border-bottom: 0; padding: 3px; gap: 3px; display: inline-flex; max-width: 100%; overflow-x: auto; }
-.dpb, .mbar, .pgr-b { background: var(--edge); height: 14px; box-shadow: 0 0 0 3px var(--panel3); margin: 3px; } .dprog span { font: 400 18px/1 var(--disp); color: var(--dim); } .dprog span b { color: var(--paper); } .dpb i, .mbar i, .pgr-b i { height: 100%; background: var(--pink); background-image: repeating-linear-gradient(90deg, transparent 0 9px, var(--edge) 9px 12px); }
+.dpb, .mbar { background: var(--edge); height: 14px; box-shadow: 0 0 0 3px var(--panel3); margin: 3px; } .dprog span { font: 400 18px/1 var(--disp); color: var(--dim); } .dprog span b { color: var(--paper); } .dpb i, .mbar i { height: 100%; background: var(--pink); background-image: repeating-linear-gradient(90deg, transparent 0 9px, var(--edge) 9px 12px); }
 .dc-ban { border-bottom: 3px solid var(--edge); } .dc-nm { font: 400 28px/.9 var(--disp); } .dc-by, .dc-row small { font: 400 18px/1 var(--disp); color: var(--dim); } .dc-row b { font-size: 24px; }
 .dc-logo, .m-logo, .f-logo, .lc-logo { border: 3px solid var(--edge); box-shadow: 0 0 0 3px var(--paper); background: var(--edge); }
 .dcard:hover, .mcard:hover, .fcard:hover, .tile:hover, .lcard:hover, .hcard:hover { transform: translateY(-4px); box-shadow: inset 3px 3px 0 var(--hi), inset -3px -3px 0 var(--lo), 6px 10px 0 var(--pink); border-color: var(--edge); }
