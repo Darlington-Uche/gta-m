@@ -6,4 +6,4 @@ GTA-inspired art marketplace (devnet / play money). Static site — no build ste
 - `js/config.js` — Supabase URL + publishable key. The site talks straight to Supabase (tables `m_*`, RPC functions `m_*`, storage bucket `m-art`); there is no separate backend.
 - `js/data.js` — the artwork catalog; seeds the database on first load and via Admin → Dashboard → Sync catalog.
 - `assets/` — artwork images.
-- Admin panel: `/Trenchfnf/` (password is checked inside the database).
+- Admin panel: `/trench/` (password is checked inside the database).
