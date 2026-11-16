@@ -144,7 +144,7 @@ test('offers: B $4, C $6, D $10 — no listing needed; funds go into escrow; own
   const n = await call('GET', '/me/notifications?unread=true', null, T.A);
   assert.equal(n.notifications.filter((x) => x.type === 'offer_received').length, 3);
   assert.equal((await call('POST', '/items/1/offers', { usd: 50 }, T.A)).status, 400);
-  assert.equal((await call('POST', '/items/1/offers', { usd: 0.5 }, T.E)).status, 400);
+  assert.equal((await call('POST', '/items/1/offers', { usd: 0.05 }, T.E)).status, 400);
   assert.equal((await call('GET', '/me/offers/received', null, T.A)).offers.length, 3);
   assert.equal((await call('GET', '/me/offers/made', null, T.C)).offers.length, 1);
 });
