@@ -8,8 +8,6 @@ import { getSolUsd } from '../services/priceOracle.js';
 import { getItemRaw, metadataFor } from '../services/items.service.js';
 import { liveCollections } from '../services/collections.service.js';
 import { collectionsSummary, collectionDetail, platformStats, recentActivity } from '../services/stats.service.js';
-import { gtaPublic } from '../services/gtamarket.service.js';
-import { publicPool, recentDistributions } from '../services/feepool.service.js';
 import { z } from 'zod';
 import { listNews } from '../services/news.service.js';
 import { telegramWebhook } from '../services/telegram.service.js';
@@ -27,14 +25,12 @@ export const routes = [
         network: config.network, isMainnet: config.isMainnet, chain: chain.name,
         build: 'market-v3', vault: chain.vaultAddress, platformWallet: config.auth.platformWallet, liveCollections: (await liveCollections()).map((c) => c.id),
         solUsd: await getSolUsd().catch(() => null),
-        gtamarket: await gtaPublic().catch(() => ({ enabled: false })),
         settings: { mintingEnabled: s.mintingEnabled, tradingEnabled: s.tradingEnabled, saleFeeBps: s.saleFeeBps, acceptFeeUsd: s.acceptFeeUsd, minOfferUsd: s.minOfferUsd, offerTtlHours: s.offerTtlHours, maxFreeMintsPerWallet: s.maxFreeMintsPerWallet },
         bidWindow: bidWindowState(s),
         site: s.site || {}
       };
     }
   },
-  { method: 'get', path: '/feepool', auth: 'public', summary: 'Holder fee pool: accumulated fees of the open round, when it pays out, and how it is split', handler: async () => ({ pool: await publicPool() }) },
   { method: 'get', path: '/stats', auth: 'public', summary: 'Platform-wide numbers for the home page', handler: async () => ({ stats: await platformStats() }) },
   { method: 'get', path: '/collections', auth: 'public', summary: 'One collection per game era with floor price, volume, owners', handler: async () => ({ collections: await collectionsSummary() }) },
   { method: 'get', path: '/collections/:id/detail', auth: 'public', params: z.object({ id: z.string().min(1).max(60) }), summary: 'Collection page data: headline stats, top offer, holders, activity and a daily buys-vs-sells series',
@@ -45,7 +41,7 @@ export const routes = [
       return { profiles: Object.fromEntries(ws.map((w, i) => [w, w === config.auth.platformWallet ? { name: 'GTA Marketplace', username: 'gtamarketplace', avatar: docs[i]?.avatar || null, verified: true } : { name: docs[i]?.name || null, username: docs[i]?.username || null, avatar: docs[i]?.avatar || null }])) }; } },
   { method: 'post', path: '/telegram/webhook', auth: 'public', summary: 'Telegram button presses (checked with the secret header Telegram sends)', handler: async (req) => telegramWebhook(req.headers, req.body) },
   { method: 'get', path: '/news', auth: 'public', summary: 'Latest posts from the GTA news accounts on X (via FxTwitter, refreshed about every 5 min)', query: z.object({ limit: z.coerce.number().int().min(1).max(100).default(40), handle: z.string().max(40).optional() }), handler: async (req) => listNews(req.valid.query) },
-  { method: 'get', path: '/activity', auth: 'public', summary: 'Recent sales feed', query: z.object({ limit: page.limit.default(30) }), handler: async (req) => { const [a, d] = await Promise.all([recentActivity(req.valid.query.limit), recentDistributions(5).catch(() => [])]); return { activity: [...a, ...d].sort((x, y) => y.at - x.at).slice(0, req.valid.query.limit) }; } },
+  { method: 'get', path: '/activity', auth: 'public', summary: 'Recent sales feed', query: z.object({ limit: page.limit.default(30) }), handler: async (req) => ({ activity: await recentActivity(req.valid.query.limit) }) },
   {
     method: 'get', path: '/metadata/:id.json', auth: 'public', summary: 'Metaplex-standard NFT metadata JSON (this URL is stored on-chain as the NFT uri)',
     handler: async (req, res) => {

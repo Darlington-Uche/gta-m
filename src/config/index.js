@@ -54,7 +54,6 @@ export const config = {
   nftSymbolName: env.COLLECTION_NAME || 'GTA Marketplace',
   priceOracle: {
     fixedSolUsd: env.FIXED_SOL_USD && net.name !== 'mainnet-beta' ? Number(env.FIXED_SOL_USD) : null, // devnet testing only; mainnet always uses the live price
-    fixedGtaUsd: env.FIXED_GTA_USD && net.name !== 'mainnet-beta' ? Number(env.FIXED_GTA_USD) : null, // devnet testing only ($GTAMARKET price per token)
     maxStaleMs: num(env.PRICE_MAX_STALE_MS, 10 * 60 * 1000)
   },
 
@@ -96,10 +95,6 @@ export const SETTINGS_DEFAULTS = {
   maxFreeMintsPerWallet: 3,
   bidWindow: { enabled: false, openMinutes: 120, cycleMinutes: 360 }, // offers only accepted 2h out of every 6h when enabled
   vaultReserveLamports: 10_000_000, // never withdraw below this (rent / fees buffer)
-  // $GTAMARKET (pump.fun token): buyers may pay mints and fixed-price buys in it instead of SOL. Offers stay in SOL.
-  gtamarket: { enabled: true, mint: '7vsy9nxAhNJdRsnndLd5a9Jhf5uVi8BDWr4C9hmZpump', decimals: 6, symbol: '$GTAMARKET', discountBps: 0 },
-  // Fee pool: the platform's half of every sale fee is collected per round, then shared by the top holders when the timer ends.
-  feePool: { enabled: true, roundHours: 24, tokenShareBps: 7000, nftShareBps: 3000, topTokenHolders: 10, topNftHolders: 10, minPayoutLamports: 1_000_000, minPayoutUsd: 0.05, excludeWallets: [] },
   // Site content managed from the admin website (banners, hero text, announcement). Empty = the frontend shows its built-in placeholders.
   site: { heroImage: '', heroTitle: '', heroSubtitle: '', announcement: '', banners: { explore: '', eras: '', create: '' } }
 };

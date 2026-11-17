@@ -132,25 +132,6 @@ main { padding-top: 0; }
 .hud dt { font: 400 20px/1 var(--disp); color: var(--dim); } .hud dd { margin: 4px 0 0; font: 400 50px/.8 var(--disp); color: var(--gold); }
 .hud .hud-net dd { color: var(--teal); text-transform: uppercase; }
 
-/* ---------- home: holder fee pool (below the four HUD boxes) ---------- */
-.pool-px { align-self: stretch; margin: 22px 0 0; padding: 12px 18px 14px; display: grid; gap: 10px; background: var(--edge); box-shadow: var(--cut), var(--drop); min-width: 0; }
-.pool-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
-.pool-tag { padding: 3px 10px 5px; background: var(--pink); color: #fff; font: 400 22px/1 var(--disp); }
-.pool-next { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.pool-next small { font: 400 20px/1 var(--disp); color: var(--dim); } .pool-next b { font: 400 34px/.8 var(--disp); color: var(--teal); font-variant-numeric: tabular-nums; }
-.pool-sum { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; min-width: 0; }
-.pool-sum small { flex: 1 0 100%; font: 400 20px/1 var(--disp); color: var(--dim); }
-.pool-amt { font: 400 50px/.8 var(--disp); color: var(--gold); } .pool-sum em { font: 400 22px/1.1 var(--disp); font-style: normal; color: var(--paper); overflow-wrap: anywhere; min-width: 0; }
-.pool-split { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 18px; padding-top: 10px; border-top: 3px solid var(--night2); font: 400 18px/1.2 var(--read); color: var(--dim); }
-.pool-split b { font: 400 22px/1 var(--disp); color: var(--pink); }
-.tk-dist .tk-img.coin, .tk-img.coin { display: grid; place-items: center; background: var(--gold); color: var(--edge); font: 400 24px/1 var(--disp); padding-bottom: 3px; }
-.tk-dist b { color: var(--gold); }
-
-/* ---------- pay with SOL | $GTAMARKET ---------- */
-.paysw { display: inline-flex; align-self: flex-start; justify-self: start; width: fit-content; background: var(--edge); padding: 3px; gap: 3px; box-shadow: var(--cut); margin: 2px 0; max-width: 100%; }
-.paysw button { padding: 5px 14px 8px; font: 400 22px/1 var(--disp); color: var(--dim); background: transparent; border: 0; cursor: pointer; white-space: nowrap; }
-.paysw button:hover { color: var(--paper); background: var(--panel2); } .paysw button.on { background: var(--gold); color: var(--edge); }
-
 /* ---------- home: trade ticker ---------- */
 .ticker-px { display: flex; align-items: stretch; margin-top: 30px; background: var(--edge); box-shadow: var(--cut); }
 .tk-tag { flex: none; display: flex; align-items: center; gap: 10px; background: var(--pink); color: var(--edge); font: 400 24px/1 var(--disp); padding: 0 16px 3px; }
@@ -331,7 +312,6 @@ h1 .grad, h2 .grad { color: inherit; }
   .hero-px .lede { font-size: 18px; margin-bottom: 18px; } .hero-cta { gap: 14px; margin-bottom: 26px; } .btn.lg { font-size: 24px; padding: 11px 18px 15px; }
   .hud { display: grid; grid-template-columns: 1fr 1fr; } .hud > div { border-right: 0; border-bottom: 3px solid var(--night2); padding: 10px 14px 12px; } .hud > div:nth-child(odd) { border-right: 3px solid var(--night2); }
   .hud .hud-net { display: none; } .hud > div:nth-child(n+3) { border-bottom: 0; } .hud dd { font-size: 40px; }
-  .pool-px { margin-top: 18px; padding: 10px 14px 12px; } .pool-amt { font-size: 40px; } .pool-next b { font-size: 30px; } .pool-sum em { font-size: 20px; } .pool-split { font-size: 17px; }
   .ticker-px { margin-top: 24px; } .tk-tag { font-size: 20px; padding: 0 10px 3px; } .tk { font-size: 20px; padding: 8px 16px 10px 10px; }
   .hs { margin-top: 42px; } .sh2 h2, .sh h2 { font-size: 34px; } .sh2 a { font-size: 20px; white-space: nowrap; }
   .board .hrow.drow { grid-template-columns: minmax(0, 1fr); }

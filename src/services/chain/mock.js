@@ -33,9 +33,6 @@ export class MockChain {
   async assetExists(asset) { return this.assets.has(asset); }
   async hasDelegate(asset, who) { return this.assets.get(asset)?.delegate === who; }
   async listCollectionAssets(collection) { return [...this.assets].filter(([, a]) => !collection || a.collection === collection).map(([asset, a]) => ({ asset, owner: a.owner })); }
-  // $GTAMARKET (mock): balances are generous by default; holders are set by tests via chain.tokenHolders = [{ wallet, units }]
-  async getTokenBalance() { return this.tokenBalance ?? Number.MAX_SAFE_INTEGER / 4; }
-  async getTokenHolders() { return this.tokenHolders || []; }
   async verifyCollection(address) { return address && address !== 'bad' && address.length >= 8 ? { ok: true } : { ok: false, reason: 'mock: not a collection' }; }
   explorerTx(sig) { return `mock://tx/${sig}`; }
   explorerAddress(a) { return `mock://address/${a}`; }

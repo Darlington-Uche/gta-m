@@ -209,7 +209,7 @@ export async function prepareAccept({ wallet, offerId }) {
 }
 
 async function acceptFinalize(ptx) {
-  const d = ptx.data, poolOn = !!((await getSettings()).feePool || {}).enabled;
+  const d = ptx.data;
   await runTx(async (tx) => {
     const offerRef = col('offers').doc(d.offerId), itemRef = col('items').doc(d.itemId), listRef = col('listings').doc(d.itemId);
     const [oS, iS, lS, othersS] = await Promise.all([
@@ -224,7 +224,7 @@ async function acceptFinalize(ptx) {
     if (lS.exists && lS.data().status === 'active') tx.update(listRef, { status: 'cancelled', cancelledAt: now(), reason: 'sold_via_offer' });
     tx.set(col('sales').doc(`offer_${d.offerId}`), { type: 'offer', itemId: d.itemId, asset: d.asset, buyer: d.buyer, seller: d.seller, lamports: d.lamports, saleFee: d.saleFee, sellerPayout: d.sellerPayout, devFee: d.devFee, usd: d.usd, signature: ptx.signature, createdAt: now() });
     ledgerInTx(tx, { type: 'offer_sale_settled', lamports: -d.lamports, wallet: d.buyer, ref: { offerId: d.offerId, itemId: d.itemId, signature: ptx.signature }, deltas: { escrow: -d.lamports } });
-    saleFeeSplitInTx(tx, { saleFee: d.saleFee, seller: d.seller, creator: launch ? launch.wallet : null, platformWallet: config.auth.platformWallet, ref: { offerId: d.offerId, itemId: d.itemId }, payoutId: `creatorfee_${d.offerId}`, toPool: poolOn });
+    saleFeeSplitInTx(tx, { saleFee: d.saleFee, seller: d.seller, creator: launch ? launch.wallet : null, platformWallet: config.auth.platformWallet, ref: { offerId: d.offerId, itemId: d.itemId }, payoutId: `creatorfee_${d.offerId}` });
     ledgerInTx(tx, { type: 'dev_fee', lamports: d.devFee, wallet: d.seller, ref: { offerId: d.offerId }, deltas: { revenue: d.devFee } });
     // everyone else who offered gets their SOL back
     for (const doc of othersS.docs) {

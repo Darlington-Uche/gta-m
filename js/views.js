@@ -1,4 +1,4 @@
-import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, historyFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow, who, http, payBody, payTxt, payToggle, bindPay } from './core.js';
+import { S, D, $, $$, esc, usd, sol, short, ago, items, item, offersFor, historyFor, stats, recentSales, act, runTx, toast, modal, needWallet, imgTag, bidWindow, who, http } from './core.js';
 
 const heart = '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>';
 export const poster = (it, sel) => {
@@ -165,14 +165,13 @@ export async function artwork({ args: [id] }) {
   const youGet = (p) => Math.max(0, p - p * fee - netFee);
   const fl = floor != null ? `<span>Collection floor <b>${usd(floor)}</b></span>` : '<span>No listings yet in this collection</span>';
   let box;
-  const payLn = (u) => (u ? `<span>${payTxt(u)}</span>` : '');
-  if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : (it.platform ? 'Price' : 'Mint price')}</span>${it.platform ? solLine(it.priceSol) : payLn(it.priceUsd)}</div>${it.free || it.platform ? '' : payToggle()}<div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This collection is not open for minting yet.</p>'}`;
+  if (it.state === 'mint') box = `<div class="pr"><b>${usd(it.priceUsd)}</b><span>${it.free ? 'Free to collect' : (it.platform ? 'Price' : 'Mint price')}</span>${solLine(it.priceSol)}</div><div class="acts"><button class="btn primary lg" data-a="mint" ${it.mintable && cfg.mintingEnabled !== false ? '' : 'disabled'}>${it.free ? 'Collect for free' : 'Collect · ' + usd(it.priceUsd)}</button></div>${it.mintable ? '' : '<p class="note">This collection is not open for minting yet.</p>'}`;
   else if (mine && it.listing) box = `<div class="pr"><b>${usd(it.listing.priceUsd)}</b><span>Listed for sale</span>${solLine(it.listing.priceSol)}</div>
       <div class="bx-meta">${fl}<span>You receive about <b>${usd(youGet(it.listing.priceUsd))}</b></span></div>
       <div class="acts"><button class="btn primary lg" data-a="relist">Edit price</button><button class="btn" data-a="unlist">Cancel listing</button></div>${top ? `<button class="btn ok-t" data-acc="${top.id}">Accept top offer · ${usd(top.usd)}</button>` : ''}`;
   else if (mine) box = `<div class="pr"><b>Not listed</b><span>You own this piece</span></div><div class="bx-meta">${fl}${top ? `<span>Top offer <b>${usd(top.usd)}</b></span>` : ''}</div>
       <div class="acts"><button class="btn primary lg" data-a="list">List for sale</button>${top ? `<button class="btn" data-acc="${top.id}">Accept ${usd(top.usd)}</button>` : ''}</div>`;
-  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy now · sold by ' + who(it.listing.seller || it.owner) : 'Owned by ' + who(it.owner)}</span>${it.listing ? payLn(it.listing.priceUsd) : ''}</div>${it.listing ? payToggle() : ''}<div class="bx-meta">${fl}${top ? `<span>Top offer <b>${usd(top.usd)}</b></span>` : ''}</div>
+  else box = `<div class="pr"><b>${it.listing ? usd(it.listing.priceUsd) : 'Not listed'}</b><span>${it.listing ? 'Buy now · sold by ' + who(it.listing.seller || it.owner) : 'Owned by ' + who(it.owner)}</span>${it.listing ? solLine(it.listing.priceSol) : ''}</div><div class="bx-meta">${fl}${top ? `<span>Top offer <b>${usd(top.usd)}</b></span>` : ''}</div>
       <div class="acts">${it.listing ? '<button class="btn primary lg" data-a="buy">Buy now</button>' : ''}${canOffer ? `<button class="btn ${it.listing ? '' : 'primary lg'}" data-a="offer">Make an offer</button>` : ''}${myOffer ? '<span class="st ok">Your offer is in</span>' : ''}</div>${bw && !bw.open ? '<p class="note">Offers are paused right now.</p>' : ''}`;
   const offerRows = offers.length ? offers.map((o) => `<div class="rowc"><div><b>${usd(o.usd)}</b> <small style="display:inline">≈ ${sol(o.sol)}</small><small>${who(o.bidder)} · ${ago(o.createdAt)}</small></div><div class="r">${mine ? `<button class="btn primary sm" data-acc="${o.id}">Accept</button><button class="btn sm" data-rej="${o.id}">Decline</button>` : o.bidder === S.wallet ? `<span class="st ok">Your offer</span><button class="btn sm" data-can="${o.id}">Cancel</button>` : ''}</div></div>`).join('') : '<p class="muted">No offers yet.</p>';
   const html = `<div class="item"><div class="stage glass"><div class="amb" style="background-image:url('${esc(it.img || '')}')"></div>${imgTag(it.img, it.title, 1000, 'main')}</div>
@@ -202,13 +201,12 @@ export async function artwork({ args: [id] }) {
       await runTx(A === 'list' ? 'Listing' : 'Updating price', (ui) => act(A === 'list' ? 'POST' : 'PATCH', `/items/${P}/listing`, { priceUsd: v }, ui), A === 'list' ? 'Listed for sale' : 'Price updated').then(reload, () => {}); };
   });
   const mount = (root) => {
-    bindPay(root, reload); // SOL | $GTAMARKET switch: redraw the page with the other price
     root.onclick = async (e) => {
       const b = e.target.closest('button'); if (!b || !(b.dataset.a || b.dataset.acc || b.dataset.rej || b.dataset.can)) return;
       if (!S.wallet) return needWallet();
       const A = b.dataset.a, P = encodeURIComponent(it.id);
-      if (A === 'mint') await runTx('Collecting', (ui) => act('POST', `/items/${P}/${it.platform ? 'collect' : 'mint'}`, it.platform ? {} : payBody(), ui), 'It\'s yours!').then(reload, () => {});
-      else if (A === 'buy') await runTx('Buying', (ui) => act('POST', `/items/${P}/buy`, payBody(), ui), 'Bought!').then(reload, () => {});
+      if (A === 'mint') await runTx('Collecting', (ui) => act('POST', `/items/${P}/${it.platform ? 'collect' : 'mint'}`, {}, ui), 'It\'s yours!').then(reload, () => {});
+      else if (A === 'buy') await runTx('Buying', (ui) => act('POST', `/items/${P}/buy`, {}, ui), 'Bought!').then(reload, () => {});
       else if (A === 'list' || A === 'relist') listModal(A, P);
       else if (A === 'unlist') await runTx('Updating', (ui) => act('DELETE', `/items/${P}/listing`, undefined, ui), 'Taken off sale').then(reload, () => {});
       else if (A === 'offer') priceModal('Make an offer', 'Send offer', (v) => runTx('Sending offer', (ui) => act('POST', `/items/${P}/offers`, { usd: v }, ui), 'Offer sent — your SOL is held safely until it ends'), top ? top.usd : '', `Minimum $${cfg.minOfferUsd ?? 1}. Charged in SOL; refunded if declined, cancelled or expired.`);

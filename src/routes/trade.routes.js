@@ -36,7 +36,7 @@ export const routes = [
   },
   { method: 'patch', path: '/items/:id/listing', auth: 'user', params: idParam, body: z.object({ priceUsd: usd }), summary: 'Change the price of your listing (no transaction needed)', handler: async (req) => updateListing({ wallet: req.user.wallet, itemId: req.valid.params.id, priceUsd: req.valid.body.priceUsd }) },
   { method: 'delete', path: '/items/:id/listing', auth: 'user', params: idParam, summary: 'Take your NFT off sale', handler: async (req) => cancelListing({ wallet: req.user.wallet, itemId: req.valid.params.id }) },
-  { method: 'post', path: '/items/:id/buy', auth: 'user', params: idParam, body: z.object({ currency: z.enum(['sol', 'gtamarket']).optional() }).optional(), summary: 'PREPARE buying a NFT at its owner-set sale price (atomic tx). Pay in SOL (default) or { currency: "gtamarket" }.', handler: async (req) => prepareBuy({ wallet: req.user.wallet, itemId: req.valid.params.id, currency: req.valid.body?.currency }) },
+  { method: 'post', path: '/items/:id/buy', auth: 'user', params: idParam, summary: 'PREPARE buying a NFT at its owner-set sale price (atomic tx)', handler: async (req) => prepareBuy({ wallet: req.user.wallet, itemId: req.valid.params.id }) },
   // ---- every prepared tx ends here ----
   {
     method: 'post', path: '/tx/submit', auth: 'user',

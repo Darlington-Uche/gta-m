@@ -14,7 +14,6 @@ import { assertUnlocked, lockFor, unlockIf } from './locks.js';
 import { syncItemOwner } from './ownership.service.js';
 import { bad, conflict, forbidden, notFound, unavailable } from '../lib/errors.js';
 import { feeOf, lamportsToSol } from '../lib/money.js';
-import { isGta, quoteGtaUsd, requireGta } from './gtamarket.service.js';
 
 async function requireOwner(wallet, itemId) {
   const item = await getItemRaw(itemId);
@@ -85,7 +84,7 @@ export async function cancelListing({ wallet, itemId }) {
   return { cancelled: true };
 }
 
-export async function prepareBuy({ wallet, itemId, currency }) {
+export async function prepareBuy({ wallet, itemId }) {
   const settings = await getSettings();
   if (!settings.tradingEnabled) throw unavailable('Trading is paused right now');
   const item = await getItemRaw(itemId);
@@ -105,16 +104,6 @@ export async function prepareBuy({ wallet, itemId, currency }) {
   const sellerPayout = q.lamports - saleFee - dev.lamports;
   if (sellerPayout <= 20_000) throw bad('price_too_low', 'Price is too low to cover fees');
 
-  // $GTAMARKET: same split, in token units. The buyer pays the seller directly and the fees to the vault in the same atomic tx.
-  let gta = null;
-  if (isGta(currency)) {
-    const gq = await requireGta(wallet, listing.priceUsd);
-    const feeU = feeOf(gq.units, settings.saleFeeBps), devQ = await quoteGtaUsd(settings.acceptFeeUsd);
-    const devU = Math.min(devQ.units, Math.floor((gq.units - feeU) / 4)), sellerU = gq.units - feeU - devU;
-    if (sellerU <= 0) throw bad('price_too_low', 'Price is too low to cover fees');
-    gta = { gq, saleFee: feeU, devFee: devU, sellerPayout: sellerU };
-  }
-
   const ptxId = newPtxId();
   await runTx(async (tx) => {
     const s = await tx.get(col('items').doc(item.id));
@@ -122,20 +111,16 @@ export async function prepareBuy({ wallet, itemId, currency }) {
     tx.update(col('items').doc(item.id), lockFor(ptxId, 'buy'));
   });
   try {
-    const built = await chain.buildBuyListingTx({ buyer: wallet, seller: listing.seller, asset: item.asset, price: q.lamports, sellerPayout, devFee: dev.lamports, collection: item.collection,
-      token: gta ? { mint: gta.gq.mint, decimals: gta.gq.decimals, sellerUnits: gta.sellerPayout, feeUnits: gta.saleFee + gta.devFee } : null });
-    const data = gta
-      ? { itemId: item.id, asset: item.asset, buyer: wallet, seller: listing.seller, lamports: gta.gq.units, saleFee: gta.saleFee, sellerPayout: gta.sellerPayout, devFee: gta.devFee, usd: listing.priceUsd, currency: 'gtamarket', decimals: gta.gq.decimals, gtaUsd: gta.gq.gtaUsd }
-      : { itemId: item.id, asset: item.asset, buyer: wallet, seller: listing.seller, lamports: q.lamports, saleFee, sellerPayout, devFee: dev.lamports, usd: listing.priceUsd };
+    const built = await chain.buildBuyListingTx({ buyer: wallet, seller: listing.seller, asset: item.asset, price: q.lamports, sellerPayout, devFee: dev.lamports, collection: item.collection });
+    const data = { itemId: item.id, asset: item.asset, buyer: wallet, seller: listing.seller, lamports: q.lamports, saleFee, sellerPayout, devFee: dev.lamports, usd: listing.priceUsd };
     const ptx = await createPtx({ id: ptxId, kind: 'buy_listing', wallet, refId: item.id, data, built });
-    return { ...publicPtx(ptx), txB64: built.txB64, price: gta ? { usd: listing.priceUsd, currency: 'gtamarket', tokens: gta.gq.tokens, gtaUsd: gta.gq.gtaUsd } : { usd: listing.priceUsd, sol: q.sol, lamports: q.lamports, solUsd: q.solUsd } };
+    return { ...publicPtx(ptx), txB64: built.txB64, price: { usd: listing.priceUsd, sol: q.sol, lamports: q.lamports, solUsd: q.solUsd } };
   } catch (e) { await unlockOnly(item.id, ptxId); throw e; }
 }
 
 registerHandler('buy_listing', {
   async finalize(ptx) {
-    const d = ptx.data, tok = d.currency === 'gtamarket', cur = tok ? { currency: 'gtamarket' } : {}, poolOn = !!((await getSettings()).feePool || {}).enabled;
-    const unit = tok ? '$GTAMARKET' : 'SOL', amt = (n) => (tok ? (n / 10 ** (d.decimals || 6)).toLocaleString('en-US', { maximumFractionDigits: 2 }) : lamportsToSol(n).toFixed(3));
+    const d = ptx.data;
     await runTx(async (tx) => {
       const itemRef = col('items').doc(d.itemId), listRef = col('listings').doc(d.itemId);
       const [iS, lS, offS] = await Promise.all([tx.get(itemRef), tx.get(listRef), tx.get(col('offers').where('itemId', '==', d.itemId).where('status', '==', 'active'))]);
@@ -145,13 +130,13 @@ registerHandler('buy_listing', {
     const launch = it && it.launchId ? (await tx.get(col('launches').doc(it.launchId))).data() : null; // its creator gets half the sale fee
       tx.update(itemRef, { owner: d.buyer, lock: null, lastOwnerCheck: now() });
       if (lS.exists) tx.update(listRef, { status: 'sold', soldAt: now(), buyer: d.buyer, signature: ptx.signature });
-      tx.set(col('sales').doc(`listing_${ptx.id}`), { type: 'listing', itemId: d.itemId, asset: d.asset, buyer: d.buyer, seller: d.seller, lamports: d.lamports, saleFee: d.saleFee, sellerPayout: d.sellerPayout, devFee: d.devFee, usd: d.usd, ...cur, signature: ptx.signature, createdAt: now() });
-      saleFeeSplitInTx(tx, { saleFee: d.saleFee, seller: d.seller, creator: launch ? launch.wallet : null, platformWallet: config.auth.platformWallet, ref: { itemId: d.itemId, signature: ptx.signature }, payoutId: `creatorfee_${ptx.id}`, currency: d.currency, toPool: poolOn });
-      ledgerInTx(tx, { type: 'dev_fee', lamports: d.devFee, wallet: d.seller, ref: { itemId: d.itemId }, ...cur, deltas: { revenue: d.devFee } });
+      tx.set(col('sales').doc(`listing_${ptx.id}`), { type: 'listing', itemId: d.itemId, asset: d.asset, buyer: d.buyer, seller: d.seller, lamports: d.lamports, saleFee: d.saleFee, sellerPayout: d.sellerPayout, devFee: d.devFee, usd: d.usd, signature: ptx.signature, createdAt: now() });
+      saleFeeSplitInTx(tx, { saleFee: d.saleFee, seller: d.seller, creator: launch ? launch.wallet : null, platformWallet: config.auth.platformWallet, ref: { itemId: d.itemId, signature: ptx.signature }, payoutId: `creatorfee_${ptx.id}` });
+      ledgerInTx(tx, { type: 'dev_fee', lamports: d.devFee, wallet: d.seller, ref: { itemId: d.itemId }, deltas: { revenue: d.devFee } });
       for (const doc of offS.docs) queueRefundInTx(tx, { id: doc.id, ...doc.data() }, 'refunded');
       for (const [w, type, title, body] of [
         [d.buyer, 'purchase_completed', 'Purchase complete', `${it.title} is now yours.`],
-        [d.seller, 'sale_completed', 'Sold', `${it.title} sold for ${amt(d.lamports)} ${unit}. You received ${amt(d.sellerPayout)} ${unit}.`]
+        [d.seller, 'sale_completed', 'Sold', `${it.title} sold for ${lamportsToSol(d.lamports).toFixed(3)} SOL. You received ${lamportsToSol(d.sellerPayout).toFixed(3)} SOL.`]
       ]) { const n = makeNotification(w, type, title, body, { itemId: d.itemId, signature: ptx.signature }); tx.set(n.ref, n.data); }
     });
     invalidateCatalog();
