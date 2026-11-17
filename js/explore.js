@@ -1,0 +1,133 @@
+// Explore: three fixed tabs. Collections (market list), Feed (live buys and sells) and News (latest posts from GTA accounts on X).
+// The tab bar stays pinned under the header; panes swap in place with a directional slide, and you can swipe between them.
+import { S, $, $$, esc, usd, short, ago, imgTag, http, recentSales, who as whoTag, isPlatform } from './core.js';
+
+const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
+const hue = (a) => ([...String(a || 'x')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
+const TABS = ['collections', 'feed', 'news'];
+const solOf = (u) => { const r = S.meta && S.meta.solUsd; return r && u != null ? u / r : null; };
+const solTxt = (n) => (n == null ? '—' : n === 0 ? '0 SOL' : (n >= 10 ? n.toFixed(2) : n >= 0.1 ? n.toFixed(3) : n.toFixed(4)).replace(/\.?0+$/, '') + ' SOL');
+const usdTxt = (v) => (v == null ? '—' : v === 0 ? 'FREE' : '$' + (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2).replace(/\.00$/, '')));
+const chg = (c) => (c.isNew24 ? '<span class="chg up">▲ New</span>' : c.change24 == null || c.change24 === 0 ? '<span class="chg flat">0%</span>' : `<span class="chg ${c.change24 >= 0 ? 'up' : 'dn'}">${c.change24 >= 0 ? '▲' : '▼'} ${Math.abs(c.change24).toLocaleString()}%</span>`);
+const SORTS = { collections: [['trending', 'Trending'], ['top', 'Top volume'], ['floor', 'Highest floor'], ['new', 'Newest']], feed: [['all', 'Everything'], ['bought', 'Bought'], ['sold', 'Sold'], ['minted', 'Minted']], news: [['all', 'All accounts']] };
+const BY = {
+  trending: (a, b) => (b.vol24Usd || 0) - (a.vol24Usd || 0) || (b.volumeUsd || 0) - (a.volumeUsd || 0) || b.minted - a.minted,
+  top: (a, b) => (b.volumeUsd || 0) - (a.volumeUsd || 0) || b.items - a.items,
+  floor: (a, b) => (b.floorUsd ?? -1) - (a.floorUsd ?? -1),
+  new: (a, b) => (b.createdAt || 0) - (a.createdAt || 0) || b.items - a.items
+};
+
+function collectionsHtml(cols, sortKey) {
+  const list = [...cols].sort(BY[sortKey] || BY.trending), base = S.collections || [];
+  const row = (c, i) => { const m = base.find((x) => x.id === c.id) || {}, cover = c.cover || m.cover || c.banner || m.banner || '';
+    return `<a class="crow" style="--i:${i}" href="#/collection/${encodeURIComponent(c.id)}"><span class="crk">${i + 1}</span><span class="clg">${imgTag(cover, c.name, 160)}</span>
+      <div class="cnm"><b>${esc(c.name)}${isPlatform(c.creator) ? tick : ''}</b><small>${c.floorUsd == null ? 'No floor yet' : solTxt(solOf(c.floorUsd))}</small></div>
+      <div class="cpr"><b>${usdTxt(c.floorUsd)}</b>${chg(c)}</div></a>`; };
+  return list.length ? `<div class="clist">${list.map(row).join('')}</div>` : '<div class="empty"><b>No collections yet</b>They will appear here as soon as they go live.</div>';
+}
+
+const VERB = { mint: 'minted', platform_sale: 'bought from the platform', platform_buy: 'sold to the platform' };
+const side = (a) => (a.type === 'platform_buy' ? 'sold' : a.type === 'mint' ? 'minted' : 'bought');
+const inFeed = (a, f) => f === 'all' || f === side(a) || (f === 'sold' && (a.type === 'listing' || a.type === 'offer'));
+const keyOf = (a) => a.signature || a.itemId + ':' + a.at;
+function feedCard(a, i, fresh) {
+  const who = a.type === 'platform_buy' ? a.seller : a.buyer;
+  const line = a.type === 'listing' || a.type === 'offer' ? `<b>${whoTag(a.buyer)}</b> bought from <b>${whoTag(a.seller)}</b>` : `<b>${whoTag(who)}</b> ${VERB[a.type] || 'traded'}`;
+  return `<article class="fcd ${side(a)}${fresh ? ' fresh' : ''}" style="--i:${Math.min(i, 6)}"><div class="fc-h"><span class="av" style="--h:${hue(who)}"></span><div><p>${line}<span class="tm">· ${ago(a.at)}</span></p><a class="fti" href="#/art/${encodeURIComponent(a.itemId)}">${esc(a.title || 'Artwork')}</a></div><span class="sd ${side(a)}">${side(a)}</span></div>
+    <a class="fc-img" href="#/art/${encodeURIComponent(a.itemId)}">${imgTag(a.image, a.title || '', 700)}</a>
+    <div class="fc-f"><b>${a.usd ? usd(a.usd) : 'FREE'}</b><small>${a.usd ? solTxt(solOf(a.usd)) : 'free mint'}</small>${a.signature ? `<a class="txl" href="https://explorer.solana.com/tx/${esc(a.signature)}${S.meta && S.meta.network === 'devnet' ? '?cluster=devnet' : ''}" target="_blank" rel="noopener">View tx ↗</a>` : ''}</div></article>`;
+}
+function feedHtml(all, f, freshKeys) {
+  const list = all.filter((a) => inFeed(a, f));
+  return list.length ? `<div class="feed">${list.map((a, i) => feedCard(a, i, freshKeys && freshKeys.has(keyOf(a)))).join('')}</div>` : `<div class="empty"><b>${f === 'all' ? 'No trades yet' : 'Nothing ' + f + ' yet'}</b>Every mint, buy and sell shows up here as it happens.</div>`;
+}
+
+/* ---------- News: posts from X, read through FxTwitter ---------- */
+const linkify = (t) => esc(t).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32)}${u.length > 40 ? '…' : ''}</a>`)
+  .replace(/(^|\s)@(\w{1,15})/g, '$1<a href="https://x.com/$2" target="_blank" rel="noopener">@$2</a>').replace(/(^|\s)#(\w+)/g, '$1<a href="https://x.com/hashtag/$2" target="_blank" rel="noopener">#$2</a>');
+const num = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K' : String(n || 0));
+const xIcon = '<svg class="xlogo" viewBox="0 0 24 24" aria-label="X"><path d="M17.8 3h3.1l-6.8 7.8L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.6l11.1 14.5z"/></svg>';
+function newsCard(n, i, fresh) {
+  const media = n.video ? `<div class="nw-media one"><video src="${esc(n.video.url)}" ${n.video.thumb ? `poster="${esc(n.video.thumb)}"` : ''} controls playsinline preload="none"></video></div>`
+    : n.photos && n.photos.length ? `<div class="nw-media n${Math.min(n.photos.length, 4)}">${n.photos.map((p) => `<a href="${esc(n.url)}" target="_blank" rel="noopener"><img src="${esc(p)}" alt="" loading="lazy"></a>`).join('')}</div>` : '';
+  const q = n.quote ? `<a class="nw-q" href="${esc(n.quote.url || n.url)}" target="_blank" rel="noopener"><b>${esc(n.quote.name)}</b> <small>@${esc(n.quote.handle)}</small><p>${esc(n.quote.text)}</p>${n.quote.photo ? `<img src="${esc(n.quote.photo)}" alt="" loading="lazy">` : ''}</a>` : '';
+  return `<article class="nw${fresh ? ' fresh' : ''}" style="--i:${Math.min(i, 6)}">
+    ${n.repostedBy ? `<div class="nw-rp">↻ @${esc(n.repostedBy)} reposted</div>` : ''}
+    <div class="nw-h"><span class="nw-av">${n.avatar ? `<img src="${esc(n.avatar)}" alt="">` : esc((n.name || '?')[0])}</span><div><b>${esc(n.name)}</b><small>@${esc(n.author || n.handle)} · ${ago(n.createdAt)}</small></div><a class="nw-x" href="${esc(n.url)}" target="_blank" rel="noopener" aria-label="Open on X">${xIcon}</a></div>
+    ${n.text ? `<p class="nw-t">${linkify(n.text)}</p>` : ''}${media}${q}
+    <div class="nw-f"><span>${num(n.likes)} likes</span><span>${num(n.reposts)} reposts</span><span>${num(n.replies)} replies</span>${n.views ? `<span>${num(n.views)} views</span>` : ''}</div></article>`;
+}
+function newsHtml(list, f, fresh) {
+  const rows = list.filter((n) => f === 'all' || n.handle === f);
+  return rows.length ? `<div class="news">${rows.map((n, i) => newsCard(n, i, fresh && fresh.has(n.tweetId))).join('')}</div>` : '<div class="empty"><b>No news yet</b>Fresh posts from Rockstar and GTA news accounts land here.</div>';
+}
+const getNews = () => http('GET', '/news?limit=50', null, { auth: false }).catch(() => ({ news: [], accounts: [] }));
+
+export async function exploreHub(ctx) {
+  const q = ctx.q || {};
+  let tab = TABS.includes(q.tab) ? q.tab : 'collections';
+  const st = { collections: SORTS.collections.some(([k]) => k === q.sort) ? q.sort : 'trending', feed: SORTS.feed.some(([k]) => k === q.f) ? q.f : 'all', news: 'all' };
+  const [cols, feed, nw] = await Promise.all([
+    http('GET', '/collections', null, { auth: false }).then((r) => r.collections.filter((c) => c.items > 0)).catch(() => []),
+    recentSales(60).catch(() => []),
+    getNews()
+  ]);
+  let news = nw.news || []; SORTS.news = [['all', 'All accounts'], ...(nw.accounts || []).map((h) => [h.toLowerCase(), '@' + h])];
+  let trades = feed;
+  const body = () => (tab === 'collections' ? collectionsHtml(cols, st.collections) : tab === 'news' ? newsHtml(news, st.news) : feedHtml(trades, st.feed));
+  const label = () => SORTS[tab].find(([k]) => k === st[tab])[1];
+  const html = `<div class="ph2"><h1 class="display">Explore</h1><a class="btn" href="#/browse">Browse every artwork</a></div>
+    <div class="xbar" id="xbar"><div class="xseg x3" role="tablist"><i class="xth" aria-hidden="true"></i>
+      <button role="tab" data-tab="collections" class="${tab === 'collections' ? 'on' : ''}">Collections</button>
+      <button role="tab" data-tab="feed" class="${tab === 'feed' ? 'on' : ''}">Feed<i class="ldot" aria-hidden="true"></i></button>
+      <button role="tab" data-tab="news" class="${tab === 'news' ? 'on' : ''}">News</button></div>
+    <button class="xfil" id="xfil" aria-haspopup="true" aria-expanded="false"><span id="xlab">${esc(label())}</span><svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></svg></button>
+    <div class="xpop" id="xpop" hidden></div></div>
+  <div id="xpane" class="xpane">${body()}</div>`;
+  return {
+    html,
+    mount(root) {
+      const bar = $('#xbar', root), seg = $('.xseg', root), th = $('.xth', root), pane = $('#xpane', root), pop = $('#xpop', root), fil = $('#xfil', root);
+      const thumb = () => { const b = $('button.on', seg); if (b) { th.style.width = b.offsetWidth + 'px'; th.style.transform = `translateX(${b.offsetLeft}px)`; } };
+      const url = () => history.replaceState(null, '', '#/explore' + (tab === 'collections' ? '' : '?tab=' + tab));
+      const paint = (dir, freshKeys) => {
+        const draw = () => { pane.innerHTML = tab === 'feed' && freshKeys ? feedHtml(trades, st.feed, freshKeys) : tab === 'news' && freshKeys ? newsHtml(news, st.news, freshKeys) : body(); $('#xlab', root).textContent = label(); };
+        if (!dir) return draw();
+        pane.style.setProperty('--dx', dir > 0 ? '34px' : '-34px'); pane.classList.remove('in'); pane.classList.add('out');
+        setTimeout(() => { draw(); pane.classList.remove('out'); void pane.offsetWidth; pane.classList.add('in'); }, 150);
+      };
+      const setTab = (t) => { if (t === tab) return scrollTo({ top: 0, behavior: 'smooth' }); const dir = TABS.indexOf(t) - TABS.indexOf(tab); tab = t; $$('button', seg).forEach((b) => b.classList.toggle('on', b.dataset.tab === t)); thumb(); closePop(); url(); paint(dir);
+        const top = bar.getBoundingClientRect().top + scrollY - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 64) - 10; if (scrollY > top) scrollTo({ top, behavior: 'smooth' }); };
+      const closePop = () => { if (pop.hidden) return; pop.classList.remove('open'); fil.setAttribute('aria-expanded', 'false'); setTimeout(() => { pop.hidden = true; }, 180); };
+      const openPop = () => {
+        pop.innerHTML = `<small>${tab === 'collections' ? 'Sort collections' : tab === 'news' ? 'Show posts from' : 'Show trades'}</small>${SORTS[tab].map(([k, l]) => `<button data-k="${k}" class="${k === st[tab] ? 'on' : ''}">${l}<i></i></button>`).join('')}${tab === 'collections' ? '<a href="#/browse">Browse all artworks →</a>' : ''}`;
+        pop.hidden = false; void pop.offsetWidth; pop.classList.add('open'); fil.setAttribute('aria-expanded', 'true');
+      };
+      seg.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
+      fil.addEventListener('click', (e) => { e.stopPropagation(); pop.hidden ? openPop() : closePop(); });
+      pop.addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (!b) return; st[tab] = b.dataset.k; closePop(); paint(1); });
+      const away = (e) => { if (!pop.hidden && !pop.contains(e.target) && e.target !== fil) closePop(); };
+      document.addEventListener('click', away);
+      // swipe left / right on the content to change tab
+      let sx = 0, sy = 0, tracking = false;
+      pane.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; tracking = true; }, { passive: true });
+      pane.addEventListener('touchend', (e) => { if (!tracking) return; tracking = false; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.8) setTab(TABS[Math.max(0, Math.min(TABS.length - 1, TABS.indexOf(tab) + (dx < 0 ? 1 : -1)))]); }, { passive: true });
+      // the bar gets a stronger glass once it is pinned
+      const sentinel = document.createElement('i'); sentinel.className = 'xsent'; bar.before(sentinel);
+      const io = new IntersectionObserver(([en]) => bar.classList.toggle('stuck', !en.isIntersecting), { rootMargin: `-${(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 64) + 12}px 0px 0px 0px` });
+      io.observe(sentinel);
+      // live feed: new trades slide in at the top
+      const poll = setInterval(async () => {
+        if (document.hidden || !pane.isConnected) return;
+        try { const next = await recentSales(60); const have = new Set(trades.map(keyOf)), fresh = new Set(next.map(keyOf).filter((k) => !have.has(k))); trades = next; if (fresh.size && tab === 'feed') paint(0, fresh); } catch (_) { /* keep what we have */ }
+      }, 20000);
+      const npoll = setInterval(async () => { // news: the server pulls from X about every 5 minutes; we just look for anything new
+        if (document.hidden || !pane.isConnected) return;
+        try { const r = await getNews(), have = new Set(news.map((n) => n.tweetId)), fresh = new Set((r.news || []).map((n) => n.tweetId).filter((k) => !have.has(k))); if (r.news && r.news.length) news = r.news; if (fresh.size && tab === 'news') paint(0, fresh); } catch (_) { /* keep what we have */ }
+      }, 60000);
+      requestAnimationFrame(() => { thumb(); seg.classList.add('ready'); pane.classList.add('in'); });
+      addEventListener('resize', thumb);
+      return () => { removeEventListener('resize', thumb); document.removeEventListener('click', away); io.disconnect(); clearInterval(poll); clearInterval(npoll); };
+    }
+  };
+}

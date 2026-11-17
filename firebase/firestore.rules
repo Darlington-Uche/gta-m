@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The API (firebase-admin) bypasses rules. Clients get NO direct access, except:
+    // a signed-in wallet may READ its own notifications (realtime bell icon via Firebase custom token).
+    match /{col}/{id} {
+      allow read: if col.matches('.*_notifications') && request.auth != null && resource.data.wallet == request.auth.token.wallet;
+      allow write: if false;
+    }
+  }
+}
