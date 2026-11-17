@@ -31,8 +31,8 @@ export const routes = [
     handler: async (req) => { const who = likerOf(req); return { itemIds: who ? await likedBy(who) : [] }; }
   },
   {
-    method: 'post', path: '/items/:id/mint', auth: 'user', params: idParam,
+    method: 'post', path: '/items/:id/mint', auth: 'user', params: idParam, body: z.object({ currency: z.enum(['sol', 'gtamarket']).optional() }).optional(),
     summary: 'PREPARE a mint (free or paid, price set by admin). Returns an unsigned tx -> user signs -> POST /tx/submit. The NFT is created on-chain when it confirms.',
-    handler: async (req) => prepareMint({ wallet: req.user.wallet, itemId: req.valid.params.id })
+    handler: async (req) => prepareMint({ wallet: req.user.wallet, itemId: req.valid.params.id, currency: req.valid.body?.currency })
   }
 ];

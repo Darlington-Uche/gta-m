@@ -11,9 +11,10 @@ import { lockFor, isLocked } from './locks.js';
 import { collectionFor } from './collections.service.js';
 import { ensurePermanent } from './permastore.service.js';
 import { conflict, notFound, unavailable } from '../lib/errors.js';
+import { isGta, requireGta } from './gtamarket.service.js';
 import { log } from '../lib/logger.js';
 
-export async function prepareMint({ wallet, itemId }) {
+export async function prepareMint({ wallet, itemId, currency }) {
   const settings = await getSettings();
   if (!settings.mintingEnabled) throw unavailable('Minting is paused right now');
   const itemRef = col('items').doc(String(itemId)), userRef = col('users').doc(wallet);
@@ -41,13 +42,16 @@ export async function prepareMint({ wallet, itemId }) {
   });
 
   try {
-    const q = await quoteUsd(item.priceUsd);
+    const payGta = isGta(currency) && item.priceUsd > 0; // paying in $GTAMARKET: the price goes over in tokens, SOL only covers the (optional) storage fee
+    const q = payGta ? { lamports: 0, solUsd: null } : await quoteUsd(item.priceUsd);
+    const gq = payGta ? await requireGta(wallet, item.priceUsd) : null;
     const perm = await ensurePermanent({ ...pre, ...item }); // uploads image + metadata to Arweave once; the minter reimburses the fee
     const total = q.lamports + perm.storageLamports;
-    const built = await chain.buildMintTx({ buyer: wallet, lamports: total, name: item.title.slice(0, 32), uri: perm.uri, collection: coll.address });
-    const ptx = await createPtx({ id: ptxId, kind: 'mint', wallet, refId: item.id, data: { itemId: item.id, asset: built.asset, collection: coll.address, lamports: total, priceLamports: q.lamports, storageLamports: perm.storageLamports, permanent: perm.permanent, usd: item.priceUsd, solUsd: q.solUsd }, built });
+    const token = gq ? { mint: gq.mint, units: gq.units, decimals: gq.decimals } : null;
+    const built = await chain.buildMintTx({ buyer: wallet, lamports: total, name: item.title.slice(0, 32), uri: perm.uri, collection: coll.address, token });
+    const ptx = await createPtx({ id: ptxId, kind: 'mint', wallet, refId: item.id, data: { itemId: item.id, asset: built.asset, collection: coll.address, lamports: total, priceLamports: q.lamports, storageLamports: perm.storageLamports, permanent: perm.permanent, usd: item.priceUsd, solUsd: q.solUsd, ...(gq ? { currency: 'gtamarket', tokenUnits: gq.units, gtaUsd: gq.gtaUsd, decimals: gq.decimals } : {}) }, built });
     invalidateCatalog();
-    return { ...publicPtx(ptx), txB64: built.txB64, asset: built.asset, price: { usd: item.priceUsd, sol: total / 1e9, lamports: total, priceLamports: q.lamports, storageLamports: perm.storageLamports, storageSol: perm.storageLamports / 1e9, permanent: perm.permanent, solUsd: q.solUsd, free: item.priceUsd === 0 } };
+    return { ...publicPtx(ptx), txB64: built.txB64, asset: built.asset, price: { usd: item.priceUsd, sol: total / 1e9, lamports: total, priceLamports: q.lamports, storageLamports: perm.storageLamports, storageSol: perm.storageLamports / 1e9, permanent: perm.permanent, solUsd: q.solUsd, free: item.priceUsd === 0, ...(gq ? { currency: 'gtamarket', tokens: gq.tokens, gtaUsd: gq.gtaUsd } : {}) } };
   } catch (e) {
     await rollbackMint({ id: ptxId, wallet, data: { itemId: item.id, usd: item.priceUsd } });
     throw e;
@@ -63,7 +67,8 @@ async function finalizeMint(ptx) {
     if (!it) return;
     if (it.status === 'minted') { if (it.asset !== asset) log.error(`mint ${ptx.id}: item ${itemId} already minted with a different asset!`); return; } // idempotent
     tx.update(ref, { status: 'minted', owner: ptx.wallet, asset, collection: ptx.data.collection || null, mintedAt: now(), mintedBy: ptx.wallet, reservedBy: null, lock: null, lastOwnerCheck: now() });
-    tx.set(col('sales').doc(`mint_${ptx.id}`), { type: 'mint', itemId: String(itemId), asset, buyer: ptx.wallet, seller: null, lamports: priceLamports, storageLamports: ptx.data.storageLamports || 0, usd: ptx.data.usd, signature: ptx.signature, createdAt: now() });
+    tx.set(col('sales').doc(`mint_${ptx.id}`), { type: 'mint', itemId: String(itemId), asset, buyer: ptx.wallet, seller: null, lamports: priceLamports, storageLamports: ptx.data.storageLamports || 0, usd: ptx.data.usd, ...(ptx.data.tokenUnits ? { currency: 'gtamarket', tokenUnits: ptx.data.tokenUnits } : {}), signature: ptx.signature, createdAt: now() });
+    if (ptx.data.tokenUnits > 0) ledgerInTx(tx, { type: 'mint_revenue', lamports: ptx.data.tokenUnits, wallet: ptx.wallet, ref: { itemId: String(itemId), ptxId: ptx.id, signature: ptx.signature }, currency: 'gtamarket', deltas: { revenue: ptx.data.tokenUnits } });
     if (priceLamports > 0) ledgerInTx(tx, { type: 'mint_revenue', lamports: priceLamports, wallet: ptx.wallet, ref: { itemId: String(itemId), ptxId: ptx.id, signature: ptx.signature }, deltas: { revenue: priceLamports } });
     const n = makeNotification(ptx.wallet, 'mint_success', 'Minted!', `${it.title} is now in your wallet.`, { itemId: String(itemId), asset, signature: ptx.signature });
     tx.set(n.ref, n.data);

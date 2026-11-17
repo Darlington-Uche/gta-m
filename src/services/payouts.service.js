@@ -7,10 +7,13 @@ import { ledgerInTx } from './vault.service.js';
 import { makeNotification } from './notifications.service.js';
 import { getSettings } from './settings.service.js';
 import { lamportsToSol } from '../lib/money.js';
+import { gtaConfig } from './gtamarket.service.js';
 import { log } from '../lib/logger.js';
 import { config } from '../config/index.js';
 
 const MAX_ATTEMPTS = 8;
+const isTok = (p) => p.currency === 'gtamarket';
+const amtText = (p) => (isTok(p) ? `${(p.lamports / 10 ** (p.decimals || 6)).toLocaleString('en-US', { maximumFractionDigits: 2 })} $GTAMARKET` : `${lamportsToSol(p.lamports).toFixed(4)} SOL`);
 
 /** Call inside a transaction (after all reads). Marks the offer as refunding and queues the payout. */
 export function queueRefundInTx(tx, offer, finalStatus) {
@@ -30,8 +33,12 @@ async function complete(payoutId) {
     if (p.type === 'offer_refund') { offerRef = col('offers').doc(p.ref.offerId); offer = (await tx.get(offerRef)).data(); }
     tx.update(pRef, { status: 'sent', sentAt: now(), updatedAt: now() });
     if (p.type === 'creator_payout') {
-      ledgerInTx(tx, { type: 'creator_payout', lamports: -p.lamports, wallet: p.to, ref: { ...p.ref, signature: p.signature }, deltas: { escrow: -p.lamports } });
-      const fee = p.ref && p.ref.kind === 'sale_fee_share', n = makeNotification(p.to, 'creator_paid', fee ? 'Sale fee share paid' : 'Mint revenue paid', fee ? `${lamportsToSol(p.lamports).toFixed(4)} SOL — your half of the fee from a sale in your collection.` : `${lamportsToSol(p.lamports).toFixed(4)} SOL from your drop is in your wallet.`, p.ref); tx.set(n.ref, n.data);
+      ledgerInTx(tx, { type: 'creator_payout', lamports: -p.lamports, wallet: p.to, ref: { ...p.ref, signature: p.signature }, currency: p.currency, deltas: { escrow: -p.lamports } });
+      const fee = p.ref && p.ref.kind === 'sale_fee_share', n = makeNotification(p.to, 'creator_paid', fee ? 'Sale fee share paid' : 'Mint revenue paid', fee ? `${amtText(p)} — your half of the fee from a sale in your collection.` : `${amtText(p)} from your drop is in your wallet.`, p.ref); tx.set(n.ref, n.data);
+    }
+    if (p.type === 'pool_payout') {
+      ledgerInTx(tx, { type: 'pool_payout', lamports: -p.lamports, wallet: p.to, ref: { ...p.ref, signature: p.signature }, currency: p.currency, deltas: { escrow: -p.lamports } });
+      const n = makeNotification(p.to, 'pool_paid', 'Holder rewards paid', `${amtText(p)} — your share of the marketplace sale fees.`, p.ref); tx.set(n.ref, n.data);
     }
     if (p.type === 'offer_refund') {
       const finalStatus = offer?.finalStatus || 'refunded';
@@ -68,14 +75,18 @@ export async function processPayout(id) {
   // 2) enough funds? (never dip into other bidders' escrow: caller totals are tracked in vault stats)
   const settings = await getSettings();
   const bal = await chain.getBalance(chain.vaultAddress);
-  if (bal < p.lamports + 5000 + Math.min(settings.vaultReserveLamports, 1_000_000)) {
+  const tok = isTok(p), gta = tok ? await gtaConfig() : null;
+  if (tok && !gta.enabled) { await ref.update({ error: '$GTAMARKET payments are disabled', updatedAt: now() }); return 'waiting'; }
+  const tokBal = tok ? await chain.getTokenBalance(chain.vaultAddress, gta.mint) : 0;
+  // token payout: the vault needs the tokens, plus ~0.003 SOL in case the receiver's token account has to be created
+  if (tok ? (tokBal < p.lamports || bal < 3_500_000) : bal < p.lamports + 5000 + Math.min(settings.vaultReserveLamports, 1_000_000)) {
     await ref.update({ error: 'vault balance too low', attempts: p.attempts + 1, updatedAt: now() });
     log.error(`payout ${id}: vault balance too low (${bal})`);
     return 'underfunded';
   }
 
   // 3) build, SAVE signature, then broadcast
-  const built = await chain.prepareVaultTransfer({ to: p.to, lamports: p.lamports });
+  const built = await chain.prepareVaultTransfer({ to: p.to, lamports: p.lamports, ...(tok ? { currency: "gtamarket", mint: gta.mint, decimals: p.decimals || gta.decimals } : {}) });
   await ref.update({ status: 'sending', signature: built.signature, txB64: built.txB64, lastValidBlockHeight: built.lastValidBlockHeight, attempts: p.attempts + 1, error: null, updatedAt: now() });
   try { await chain.broadcast(built.txB64); } catch (e) { await ref.update({ error: e.message, updatedAt: now() }); log.warn(`payout ${id} broadcast: ${e.message}`); }
   for (let i = 0; i < 15; i++) {

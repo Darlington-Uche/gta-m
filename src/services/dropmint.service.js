@@ -18,6 +18,7 @@ import { collectionFor } from './collections.service.js';
 import { ensurePermanent } from './permastore.service.js';
 import { getDrop, revealIfDone } from './launches.service.js';
 import { conflict, forbidden, notFound, unavailable } from '../lib/errors.js';
+import { isGta, requireGta } from './gtamarket.service.js';
 
 export const LAUNCHPAD_FEE_BPS = 500; // platform keeps 5% of creator mint revenue
 
@@ -26,7 +27,7 @@ async function launchCollection(l) {
   throw conflict('not_onchain', 'The creator still has to put this collection on-chain');
 }
 
-export async function prepareDropMint({ wallet, dropId }) {
+export async function prepareDropMint({ wallet, dropId, currency }) {
   const settings = await getSettings();
   if (!settings.mintingEnabled) throw unavailable('Minting is paused right now');
   const d = await getDrop(dropId, wallet);
@@ -54,31 +55,35 @@ export async function prepareDropMint({ wallet, dropId }) {
   });
   try {
     const collection = d.kind === 'platform' ? (await collectionFor(pick)).address : await launchCollection(await getDoc('launches', dropId).then((l) => ({ id: dropId, ...l })));
-    const q = stage.priceUsd > 0 ? await quoteUsd(stage.priceUsd) : { lamports: 0, sol: 0, solUsd: null };
+    const payGta = isGta(currency) && stage.priceUsd > 0;
+    const q = stage.priceUsd > 0 && !payGta ? await quoteUsd(stage.priceUsd) : { lamports: 0, sol: 0, solUsd: null };
+    const gq = payGta ? await requireGta(wallet, stage.priceUsd) : null;
     const item = { ...pick, ...reveal, id: String(pick.id) };
     const perm = d.revealed ? await ensurePermanent(item) : { uri: metadataUri(item), storageLamports: 0, permanent: false }; // unrevealed: our URL, so the reveal can switch the art
     const total = q.lamports + perm.storageLamports;
-    const built = await chain.buildMintTx({ buyer: wallet, lamports: total, name: (d.revealed ? item.title : `${d.name} #?`).slice(0, 32), uri: perm.uri, collection });
+    const built = await chain.buildMintTx({ buyer: wallet, lamports: total, name: (d.revealed ? item.title : `${d.name} #?`).slice(0, 32), uri: perm.uri, collection, token: gq ? { mint: gq.mint, units: gq.units, decimals: gq.decimals } : null });
     const ptx = await createPtx({ id: ptxId, kind: 'dropmint', wallet, refId: item.id, built,
-      data: { itemId: item.id, dropId, kind: d.kind, stageId: stage.id, stageName: stage.name, asset: built.asset, collection, lamports: total, priceLamports: q.lamports, storageLamports: perm.storageLamports, usd: stage.priceUsd, creator: d.kind === 'creator' ? d.creator : null, dropName: d.name } });
+      data: { itemId: item.id, dropId, kind: d.kind, stageId: stage.id, stageName: stage.name, asset: built.asset, collection, lamports: total, priceLamports: q.lamports, storageLamports: perm.storageLamports, usd: stage.priceUsd, creator: d.kind === 'creator' ? d.creator : null, dropName: d.name, ...(gq ? { currency: 'gtamarket', tokenUnits: gq.units, gtaUsd: gq.gtaUsd, decimals: gq.decimals } : {}) } });
     invalidateCatalog();
-    return { ...publicPtx(ptx), txB64: built.txB64, asset: built.asset, price: { usd: stage.priceUsd, sol: total / 1e9, lamports: total }, stage: stage.name };
+    return { ...publicPtx(ptx), txB64: built.txB64, asset: built.asset, price: { usd: stage.priceUsd, sol: total / 1e9, lamports: total, ...(gq ? { currency: 'gtamarket', tokens: gq.tokens, gtaUsd: gq.gtaUsd } : {}) }, stage: stage.name };
   } catch (e) { await rollback({ id: ptxId, data: { itemId: String(pick.id) } }); throw e; }
 }
 
 async function finalize(ptx) {
-  const d = ptx.data, fee = d.kind === 'creator' ? Math.floor((d.priceLamports * LAUNCHPAD_FEE_BPS) / 10000) : d.priceLamports, toCreator = d.priceLamports - fee;
+  const d = ptx.data, tok = d.currency === 'gtamarket', amount = tok ? d.tokenUnits : d.priceLamports; // amount = what the minter paid (SOL lamports, or $GTAMARKET base units)
+  const fee = d.kind === 'creator' ? Math.floor((amount * LAUNCHPAD_FEE_BPS) / 10000) : amount, toCreator = amount - fee;
+  const cur = tok ? { currency: 'gtamarket' } : {};
   await runTx(async (tx) => {
     const ref = col('items').doc(String(d.itemId)), it = (await tx.get(ref)).data();
     if (!it || it.status === 'minted') return; // idempotent
     tx.update(ref, { status: 'minted', owner: ptx.wallet, asset: d.asset, collection: d.collection, mintedAt: now(), mintedBy: ptx.wallet, reservedBy: null, lock: null, lastOwnerCheck: now() });
     tx.update(col('dropmints').doc(ptx.id), { status: 'done', asset: d.asset, signature: ptx.signature, doneAt: now() });
     if (d.kind === 'creator') tx.update(col('launches').doc(d.dropId), { minted: inc(1), status: 'live' });
-    tx.set(col('sales').doc(`mint_${ptx.id}`), { type: 'mint', itemId: String(d.itemId), asset: d.asset, buyer: ptx.wallet, seller: d.creator, lamports: d.priceLamports, usd: d.usd, dropId: d.dropId, stage: d.stageName, signature: ptx.signature, createdAt: now() });
-    if (fee > 0) ledgerInTx(tx, { type: 'mint_revenue', lamports: fee, wallet: ptx.wallet, ref: { itemId: String(d.itemId), ptxId: ptx.id, signature: ptx.signature }, deltas: { revenue: fee } });
+    tx.set(col('sales').doc(`mint_${ptx.id}`), { type: 'mint', itemId: String(d.itemId), asset: d.asset, buyer: ptx.wallet, seller: d.creator, lamports: d.priceLamports, ...(tok ? { currency: 'gtamarket', tokenUnits: d.tokenUnits } : {}), usd: d.usd, dropId: d.dropId, stage: d.stageName, signature: ptx.signature, createdAt: now() });
+    if (fee > 0) ledgerInTx(tx, { type: 'mint_revenue', lamports: fee, wallet: ptx.wallet, ref: { itemId: String(d.itemId), ptxId: ptx.id, signature: ptx.signature }, ...cur, deltas: { revenue: fee } });
     if (toCreator > 0) {
-      ledgerInTx(tx, { type: 'creator_owed', lamports: toCreator, wallet: d.creator, ref: { dropId: d.dropId, ptxId: ptx.id }, deltas: { escrow: toCreator } });
-      tx.set(col('payouts').doc(`creator_${ptx.id}`), { type: 'creator_payout', to: d.creator, lamports: toCreator, status: 'queued', attempts: 0, ref: { dropId: d.dropId, itemId: String(d.itemId) }, createdAt: now(), updatedAt: now() });
+      ledgerInTx(tx, { type: 'creator_owed', lamports: toCreator, wallet: d.creator, ref: { dropId: d.dropId, ptxId: ptx.id }, ...cur, deltas: { escrow: toCreator } });
+      tx.set(col('payouts').doc(`creator_${ptx.id}`), { type: 'creator_payout', to: d.creator, lamports: toCreator, ...(tok ? { currency: 'gtamarket', decimals: d.decimals } : {}), status: 'queued', attempts: 0, ref: { dropId: d.dropId, itemId: String(d.itemId) }, createdAt: now(), updatedAt: now() });
     }
     const n = makeNotification(ptx.wallet, 'mint_success', 'Minted!', `You minted from ${d.dropName}. It is in your wallet${it.preReveal ? ' and reveals soon' : ''}.`, { itemId: String(d.itemId), asset: d.asset, signature: ptx.signature }); tx.set(n.ref, n.data);
   });
