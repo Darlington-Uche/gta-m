@@ -10,6 +10,7 @@ import { syncReveals } from '../services/reveal.service.js';
 import { closeEndedMints, nudgeOffchain } from '../services/launches.service.js';
 import { pullNews } from '../services/news.service.js';
 import { pushTelegram } from '../services/telegram.service.js';
+import { closeRoundIfDue } from '../services/feepool.service.js';
 import { log } from '../lib/logger.js';
 
 const HOLDER = `${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
@@ -31,6 +32,7 @@ export async function runJobsOnce({ force = false } = {}) {
   const step = async (name, fn) => { try { report[name] = await fn(); } catch (e) { report[name] = 'error: ' + e.message; log.error(`job ${name}`, e); } };
   await step('reconcileTx', reconcilePtx);
   await step('expireOffers', expireOffers);
+  await step('feePool', closeRoundIfDue); // queues the holder payouts when the round's timer ends
   await step('payouts', processPayouts);
   await step('reveals', () => syncReveals());
   await step('closeMints', () => closeEndedMints());

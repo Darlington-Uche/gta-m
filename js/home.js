@@ -1,5 +1,5 @@
 // Home: pixel hero + HUD, live trade ticker, drops beside a leaderboard, featured collections, top movers.
-import { S, $, $$, esc, usd, short, ago, imgTag, items, stats, recentSales, http, who } from './core.js';
+import { S, $, $$, esc, usd, short, ago, imgTag, items, stats, recentSales, http, who, tokens, gtaSym } from './core.js';
 import { card as dropCardFull, liveCountdowns } from './drops.js';
 import { mountScene } from './scene.js';
 
@@ -10,6 +10,18 @@ const arrow = (v) => (v == null ? '' : v >= 0 ? '▲' : '▼');
 const pct = (c) => (c.isNew24 ? '<span class="chg up">New</span>' : c.change24 == null ? '' : `<span class="chg ${c.change24 >= 0 ? 'up' : 'dn'}">${arrow(c.change24)} ${Math.abs(c.change24)}%</span>`);
 const coverOf = (c) => c.cover || c.banner || '';
 const floor = (c) => (c.floorUsd == null ? '—' : usd(c.floorUsd));
+
+/* Fee pool: what the platform's share of sale fees has collected this round, and the timer until it is shared out. */
+const poolCard = (p) => {
+  if (!p || !p.enabled) return '';
+  const parts = [`<b class="pool-amt">${solFmt(p.sol || 0)}</b>`];
+  const more = [p.tokens > 0 ? `+ ${tokens(p.tokens)} ${esc(p.symbol || gtaSym())}` : '', p.usd > 0 ? `≈ $${p.usd >= 100 ? Math.round(p.usd).toLocaleString() : p.usd}` : ''].filter(Boolean).join(' · ');
+  const sp = p.split || {}, pc = (b) => Math.round((b || 0) / 100);
+  return `<section class="pool-px" aria-label="Holder rewards pool">
+    <div class="pool-top"><span class="pool-tag">Fee pool</span><span class="pool-next"><small>Pays out in</small><b data-cd="${p.endsAt}">--:--:--</b></span></div>
+    <div class="pool-body"><div class="pool-sum"><small>Collected this round</small>${parts.join('')}${more ? `<em>${more}</em>` : ''}</div></div>
+    <p class="pool-split"><span><b>${pc(sp.tokenBps)}%</b> to the top ${sp.topTokenHolders || 10} ${esc(p.symbol || gtaSym())} holders</span><span><b>${pc(sp.nftBps)}%</b> to the top ${sp.topNftHolders || 10} NFT holders</span></p></section>`;
+};
 
 const sectionHead = (t, more) => `<div class="sh2"><h2>${t}</h2>${more ? `<a href="${more}">View all</a>` : ''}</div>`;
 
@@ -25,6 +37,8 @@ const trendArt = (it, i) => `<a class="lb-row" href="#/art/${encodeURIComponent(
 
 /* Ticker entries: one line per trade (or per fresh drop while there are no trades yet). */
 const tickTrade = (s) => `<a class="tk" href="#/art/${encodeURIComponent(s.itemId)}"><span class="tk-img">${imgTag(s.image, s.title || '', 80)}</span><b>${esc(s.title || 'Artwork')}</b><em>${s.usd ? usd(s.usd) : 'FREE'}</em><span>${s.type === 'mint' ? 'minted by' : 'bought by'} ${who(s.buyer)}</span><small>${ago(s.at)}</small></a>`;
+const solFmt = (n) => (n >= 10 ? n.toFixed(2) : n >= 0.1 ? n.toFixed(3) : n.toFixed(4)).replace(/\.?0+$/, '') + ' SOL';
+const tickDist = (s) => `<span class="tk tk-dist"><span class="tk-img coin" aria-hidden="true">$</span><b>Holder rewards paid</b><em>${[s.sol > 0 ? solFmt(s.sol) : '', s.tokens > 0 ? tokens(s.tokens) + ' ' + gtaSym() : ''].filter(Boolean).join(' + ') || '—'}</em><span>to ${s.recipients} top holder${s.recipients === 1 ? '' : 's'}</span><small>${ago(s.at)}</small></span>`;
 const tickDrop = (it) => `<a class="tk" href="#/art/${encodeURIComponent(it.id)}"><span class="tk-img">${imgTag(it.img, it.title, 80)}</span><b>${esc(it.title)}</b><em>${it.free ? 'FREE' : usd(it.priceUsd)}</em><span>ready to mint</span></a>`;
 
 const featCard = (c) => `<a class="fcard" href="#/collection/${encodeURIComponent(c.id)}">
@@ -37,13 +51,14 @@ const moverCard = (c) => `<a class="mcard glass" href="#/collection/${encodeURIC
   <div class="m-in"><span class="m-logo">${imgTag(c.cover || c.banner, c.name, 80)}</span><div><b>${esc(c.name)}${tick}</b><small>${floor(c)} ${pct(c)}</small></div></div></a>`;
 
 export async function homeView() {
-  const [cols, sales, pop, fresh, st, drops] = await Promise.all([
+  const [cols, sales, pop, fresh, st, drops, pool] = await Promise.all([
     http('GET', '/collections', null, { auth: false }).then((r) => r.collections).catch(() => S.collections || []),
     recentSales(10).catch(() => []),
     items({ sort: 'liked', limit: 8 }).then((r) => r.items).catch(() => []),
     items({ sort: 'recent', status: 'unminted', limit: 6 }).then((r) => r.items).catch(() => []),
     stats().catch(() => ({})),
-    http('GET', '/drops', null, { auth: false }).then((r) => r.drops).catch(() => [])
+    http('GET', '/drops', null, { auth: false }).then((r) => r.drops).catch(() => []),
+    http('GET', '/feepool', null, { auth: false }).then((r) => r.pool).catch(() => null)
   ]);
   const dl = drops.filter((d) => d.status !== 'ended').sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1) || (a.startsAt || 0) - (b.startsAt || 0)).slice(0, 8);
   const list = cols.map((c) => { const m = (S.collections || []).find((x) => x.id === c.id) || {}; return { ...c, cover: c.cover || m.cover || '', banner: c.banner || m.banner || '' }; }).filter((c) => c.items > 0);
@@ -51,14 +66,15 @@ export async function homeView() {
   const featured = [...list].sort((a, b) => (b.live - a.live) || (b.minted - a.minted) || (b.items - a.items)).slice(0, 6);
   const movers = [...list].sort((a, b) => (b.isNew24 ? 1e9 : b.change24 ?? -1e9) - (a.isNew24 ? 1e9 : a.change24 ?? -1e9) || (b.vol24Usd || 0) - (a.vol24Usd || 0) || (b.likes || 0) - (a.likes || 0)).slice(0, 8);
   const site = S.site || {};
-  const tk = sales.length ? sales.map(tickTrade).join('') : fresh.map(tickDrop).join('');
+  const tk = sales.length ? sales.map((x) => (x.type === 'distribution' ? tickDist(x) : tickTrade(x))).join('') : fresh.map(tickDrop).join('');
   const hud = [[st.items ?? 0, 'Artworks'], [st.minted ?? 0, 'Collected'], [st.holders ?? 0, 'Holders'], ['$' + Math.round(st.volumeUsd || 0).toLocaleString(), 'Volume']];
   const html = `<section class="hero-px">
       <h1 class="display">${site.heroTitle ? esc(site.heroTitle) : 'Own the streets.'}</h1>
       <p class="lede">${site.heroSubtitle ? esc(site.heroSubtitle) : 'GTA-inspired art on Solana. Mint it, bid on it, collect it.'}</p>
       <div class="hero-cta"><a class="btn primary lg" href="#/explore">Explore the art</a><a class="btn lg" href="#/drops">See the drops</a></div>
       <button class="ca-px" id="ca-copy" data-ca="${esc(CA)}" aria-label="Copy contract address"><span class="ca-tag">CA</span><code>${esc(CA)}</code><span class="ca-cp">Copy</span></button>
-      <dl class="hud">${hud.map(([n, l]) => `<div><dt>${l}</dt><dd>${n}</dd></div>`).join('')}<div class="hud-net"><dt>Network</dt><dd>${esc(S.meta.network)}</dd></div></dl></section>
+      <dl class="hud">${hud.map(([n, l]) => `<div><dt>${l}</dt><dd>${n}</dd></div>`).join('')}<div class="hud-net"><dt>Network</dt><dd>${esc(S.meta.network)}</dd></div></dl>
+      ${poolCard(pool)}</section>
     ${tk ? `<section class="ticker-px" aria-label="${sales.length ? 'Recent trades' : 'Fresh drops'}"><b class="tk-tag">${sales.length ? 'Live trades' : 'Fresh drops'}</b><div class="tk-win"><div class="tk-track">${tk}${tk}</div></div></section>` : ''}
     <div class="board">
       <section class="hs board-drops">${sectionHead(dl.length ? (dl.some((d) => d.status === 'live') ? 'Minting now' : 'Upcoming drops') : 'Drops', '#/drops')}

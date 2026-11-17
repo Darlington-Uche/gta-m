@@ -22,6 +22,27 @@ export class ApiError extends Error { constructor(message, code, status) { super
 export const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const usd = (n) => (n == null ? '—' : n === 0 ? 'FREE' : '$' + (n >= 100 ? Math.round(n).toLocaleString() : (Math.round(n * 100) / 100).toString()));
 export const sol = (n) => (n == null ? '' : (Math.round(n * 1000) / 1000).toString() + ' SOL');
+/* ---------- paying with SOL or $GTAMARKET (mints + fixed-price buys; offers stay in SOL) ---------- */
+export const gtaOn = () => !!(S.meta && S.meta.gtamarket && S.meta.gtamarket.enabled && S.meta.gtamarket.gtaUsd);
+export const payWith = () => (gtaOn() && ls.get('payWith', 'sol') === 'gtamarket' ? 'gtamarket' : 'sol');
+export const payBody = () => (payWith() === 'gtamarket' ? { currency: 'gtamarket' } : {});
+export const tokens = (n) => (n == null || !isFinite(n) ? '' : n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : n >= 100 ? Math.round(n).toLocaleString() : (Math.round(n * 100) / 100).toString());
+export const gtaSym = () => (S.meta && S.meta.gtamarket && S.meta.gtamarket.symbol) || '$GTAMARKET';
+/** "≈ 0.12 SOL" or "≈ 12.4K $GTAMARKET" for a USD price, following the buyer's choice. */
+export function payTxt(usdv) {
+  if (!usdv) return '';
+  if (payWith() === 'gtamarket') return '≈ ' + tokens(usdv / S.meta.gtamarket.gtaUsd) + ' ' + gtaSym();
+  const r = S.meta && S.meta.solUsd; return r ? '≈ ' + sol(usdv / r) : '';
+}
+/** The little SOL | $GTAMARKET switch. Only shown when the token is live. */
+export function payToggle() {
+  if (!gtaOn()) return '';
+  const c = payWith(), b = (v, l) => `<button type="button" role="radio" aria-checked="${c === v}" class="${c === v ? 'on' : ''}" data-pay="${v}">${l}</button>`;
+  return `<div class="paysw" role="radiogroup" aria-label="Pay with">${b('sol', 'SOL')}${b('gtamarket', gtaSym())}</div>`;
+}
+export function bindPay(root, onChange) {
+  root.addEventListener('click', (e) => { const b = e.target.closest('[data-pay]'); if (!b || !root.contains(b)) return; ls.set('payWith', b.dataset.pay); $$('[data-pay]', root).forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); }); onChange && onChange(b.dataset.pay); });
+}
 export const short = (a) => (a ? a.slice(0, 4) + '…' + a.slice(-4) : '');
 /* Wallet names: <span data-w> tags start as a short address and are swapped for the person's name / @username (or
    "GTA Marketplace" for the platform wallet) once looked up. Lookups are batched and cached for the session. */

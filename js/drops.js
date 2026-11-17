@@ -1,5 +1,5 @@
 // Launchpad pages. Drops hub (Minting now / Upcoming / Past) and a drop page with its mint stages, mint panel and reveal.
-import { S, $, $$, esc, usd, short, imgTag, http, toast, walletModal, who, act, runTx } from './core.js';
+import { S, $, $$, esc, usd, short, imgTag, http, toast, walletModal, who, act, runTx, payBody, payTxt, payToggle, bindPay } from './core.js';
 
 const tick = '<svg class="vf" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 2l2.4 1.9 3-.2 1.1 2.8 2.6 1.6-.6 3 1.2 2.7-2 2.3-.1 3-2.9.9L12 22l-2.7-1.9-2.9-.9-.1-3-2-2.3L5.5 11l-.6-3 2.6-1.6 1.1-2.8 3 .2z"/><path d="M8.2 12.3l2.6 2.6 5-5.2" fill="none"/></svg>';
 const solOf = (u) => { const r = S.meta && S.meta.solUsd; return r && u != null ? u / r : null; };
@@ -126,7 +126,7 @@ export async function dropPage({ args: [id] }) {
       ${d.description ? `<p class="dp-about">${esc(d.description)}</p>` : ''}${d.links && (d.links.x || d.links.site) ? `<div class="dp-links">${d.links.x ? `<a href="${esc(/^https?:/.test(d.links.x) ? d.links.x : 'https://x.com/' + d.links.x.replace(/^@/, ''))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>${esc(d.links.x.replace(/^https?:\/\/(x|twitter)\.com\//, '@'))}</a>` : ''}${d.links.site ? `<a href="${esc(d.links.site)}" target="_blank" rel="noopener">Website ↗</a>` : ''}</div>` : ''}
     </div>
     <aside class="dp-side"><div class="mintp glass" id="mintp">
-      <div class="mp-p"><b>${s ? priceTxt(s.priceUsd) : '—'}</b>${s && s.priceUsd ? `<em>≈ ${solTxt(solOf(s.priceUsd))}</em>` : ''}</div>
+      <div class="mp-p"><b>${s ? priceTxt(s.priceUsd) : '—'}</b>${s && s.priceUsd ? `<em id="mpe">${payTxt(s.priceUsd)}</em>` : ''}</div>${live && s && s.priceUsd ? payToggle() : ''}
       ${bar(d)}
       ${live ? `<div class="mp-q"><span>${used[live.id] ? `${used[live.id]}/${live.perWallet} minted` : 'How many'}</span><div class="qty"><button data-q="-1" aria-label="Less">−</button><b id="qn">1</b><button data-q="1" aria-label="More">+</button></div></div>
       <div class="mp-t"><span>Total</span><b id="qt">${s ? priceTxt(s.priceUsd) : '—'}</b></div>` : ''}
@@ -136,7 +136,8 @@ export async function dropPage({ args: [id] }) {
     html,
     mount(root) {
       let q = 1; const left = live ? Math.max(0, live.perWallet - (used[live.id] || 0)) : s ? s.perWallet : 1, max = Math.max(1, left), price = s ? s.priceUsd : 0;
-      const upd = () => { if (!$('#qn', root)) return; $('#qn', root).textContent = q; $('#qt', root).textContent = price ? usd(price * q) + ' · ≈ ' + solTxt(solOf(price * q)) : 'Free'; };
+      const upd = () => { const e = $('#mpe', root); if (e) e.textContent = payTxt(price); if (!$('#qn', root)) return; $('#qn', root).textContent = q; $('#qt', root).textContent = price ? usd(price * q) + ' · ' + payTxt(price * q) : 'Free'; };
+      bindPay(root, upd); // SOL | $GTAMARKET
       root.addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; q = Math.max(1, Math.min(max, q + +b.dataset.q)); upd(); });
       const go = async () => {
         if (!S.wallet) return walletModal();
@@ -146,7 +147,7 @@ export async function dropPage({ args: [id] }) {
         }
         let done = 0;
         for (let i = 0; i < q; i++) {
-          try { await runTx(q > 1 ? `Minting ${i + 1} of ${q}` : 'Minting', (ui) => act('POST', `/drops/${encodeURIComponent(d.id)}/mint`, {}, ui), i === q - 1 ? (d.revealed ? 'Minted! It is in your wallet' : 'Minted! It reveals soon') : null); done++; }
+          try { await runTx(q > 1 ? `Minting ${i + 1} of ${q}` : 'Minting', (ui) => act('POST', `/drops/${encodeURIComponent(d.id)}/mint`, payBody(), ui), i === q - 1 ? (d.revealed ? 'Minted! It is in your wallet' : 'Minted! It reveals soon') : null); done++; }
           catch (_) { break; }
         }
         if (done) setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 600);

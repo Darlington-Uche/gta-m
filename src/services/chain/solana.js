@@ -16,6 +16,10 @@ import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { TxRejected } from './errors.js';
 
+const ATA_PROGRAM = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+const SYSTEM_PROGRAM = '11111111111111111111111111111111';
+const u64le = (n) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
+
 const sha256hex = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 const ZERO_SIG = (s) => s.every((b) => b === 0);
 // Wallets (Phantom, Backpack...) may add harmless instructions before signing (priority fee, Lighthouse guard). Nothing else is allowed.
@@ -140,14 +144,57 @@ export class SolanaChain {
   }
   _assetRef(asset, owner) { return { publicKey: publicKey(asset), owner: publicKey(owner), oracles: [], lifecycleHooks: [] }; }
 
-  async buildMintTx({ buyer, lamports, name, uri, collection }) {
+  async buildMintTx({ buyer, lamports, name, uri, collection, token }) {
     const u = this.umi;
     const buyerSigner = createNoopSigner(publicKey(buyer));
     const assetSigner = generateSigner(u);
     let b = transactionBuilder();
+    if (token && token.units > 0) b = await this._tokenTransfer(b, { from: buyerSigner, to: this.vaultAddress, mint: token.mint, amount: token.units, decimals: token.decimals, payer: buyerSigner });
     if (lamports > 0) b = b.add(transferSol(u, { source: buyerSigner, destination: publicKey(this.vaultAddress), amount: umiLamports(lamports) }));
     b = b.add(create(u, { asset: assetSigner, collection: this._collection(collection), name, uri, owner: publicKey(buyer), payer: buyerSigner, authority: this.authoritySigner }));
     return this._finish(b, buyerSigner, { asset: assetSigner.publicKey.toString(), extraKeys: { [assetSigner.publicKey.toString()]: Buffer.from(assetSigner.secretKey).toString('base64') } });
+  }
+  // ---- SPL tokens ($GTAMARKET). Built from raw instructions so it works for classic Token and Token-2022 mints alike. ----
+  async tokenProgramOf(mint) {
+    this._tp = this._tp || new Map();
+    if (!this._tp.has(mint)) {
+      const r = await this.rpc('getAccountInfo', [mint, { encoding: 'base64', commitment: 'confirmed' }]);
+      if (!r.value) throw new Error(`token mint ${mint} not found on ${config.network}`);
+      this._tp.set(mint, r.value.owner);
+    }
+    return this._tp.get(mint);
+  }
+  _ata(mint, owner, program) {
+    return this.umi.eddsa.findPda(publicKey(ATA_PROGRAM), [publicKeyBytes(publicKey(owner)), publicKeyBytes(publicKey(program)), publicKeyBytes(publicKey(mint))])[0];
+  }
+  _ix(programId, keys, data, signers = []) {
+    return { instruction: { programId: publicKey(programId), keys: keys.map(([pk, isSigner, isWritable]) => ({ pubkey: publicKey(pk), isSigner, isWritable })), data: Uint8Array.from(data) }, signers, bytesCreatedOnChain: 0 };
+  }
+  /** from (signer) -> to (address): creates the receiver's token account if needed (payer pays the rent), then TransferChecked. */
+  async _tokenTransfer(b, { from, to, mint, amount, decimals, payer }) {
+    const program = await this.tokenProgramOf(mint);
+    const src = this._ata(mint, from.publicKey.toString(), program), dst = this._ata(mint, to, program);
+    return b
+      .add(this._ix(ATA_PROGRAM, [[payer.publicKey.toString(), true, true], [dst.toString(), false, true], [to, false, false], [mint, false, false], [SYSTEM_PROGRAM, false, false], [program, false, false]], [1], [payer])) // CreateIdempotent
+      .add(this._ix(program, [[src.toString(), false, true], [mint, false, false], [dst.toString(), false, true], [from.publicKey.toString(), true, false]], [12, ...u64le(amount), decimals], [from])); // TransferChecked
+  }
+  async getTokenBalance(owner, mint) {
+    const r = await this.rpc('getTokenAccountsByOwner', [owner, { mint }, { encoding: 'jsonParsed', commitment: 'confirmed' }]);
+    return (r.value || []).reduce((a, x) => a + Number(x.account.data.parsed.info.tokenAmount.amount || 0), 0);
+  }
+  /** Largest holders of a token as WALLETS: [{ wallet, units }]. Accounts owned by programs (bonding curve, AMM pools) are dropped. */
+  async getTokenHolders(mint, { max = 20 } = {}) {
+    const largest = (await this.rpc('getTokenLargestAccounts', [mint, { commitment: 'confirmed' }])).value || [];
+    const accs = largest.slice(0, max);
+    if (!accs.length) return [];
+    const infos = (await this.rpc('getMultipleAccounts', [accs.map((a) => a.address), { encoding: 'jsonParsed', commitment: 'confirmed' }])).value || [];
+    const byOwner = new Map();
+    accs.forEach((a, i) => { const o = infos[i]?.data?.parsed?.info?.owner; if (o) byOwner.set(o, (byOwner.get(o) || 0) + Number(a.amount)); });
+    const owners = [...byOwner.keys()];
+    const oInfo = owners.length ? (await this.rpc('getMultipleAccounts', [owners, { encoding: 'base64', dataSlice: { offset: 0, length: 0 }, commitment: 'confirmed' }])).value || [] : [];
+    return owners.map((w, i) => ({ wallet: w, units: byOwner.get(w), program: oInfo[i]?.owner || null }))
+      .filter((r) => r.program === null || r.program === SYSTEM_PROGRAM) // a real wallet is system-owned (or empty); PDAs / pools are owned by programs
+      .map(({ wallet, units }) => ({ wallet, units })).sort((a, b) => b.units - a.units);
   }
   async buildPaymentTx({ payer, lamports }) {
     const s = createNoopSigner(publicKey(payer));
@@ -175,9 +222,15 @@ export class SolanaChain {
     return this._finish(b, s);
   }
   /** Buyer pays the vault; vault pays seller + dev; platform (delegate) moves the NFT. All atomic. */
-  async buildBuyListingTx({ buyer, seller, asset, price, sellerPayout, devFee, collection }) {
+  async buildBuyListingTx({ buyer, seller, asset, price, sellerPayout, devFee, collection, token }) {
     const u = this.umi;
     const buyerSigner = createNoopSigner(publicKey(buyer));
+    if (token) { // $GTAMARKET: the buyer pays the seller their share and the vault the fees, in one atomic tx — no escrow, nothing for the vault to send
+      let tb = await this._tokenTransfer(transactionBuilder(), { from: buyerSigner, to: seller, mint: token.mint, amount: token.sellerUnits, decimals: token.decimals, payer: buyerSigner });
+      tb = await this._tokenTransfer(tb, { from: buyerSigner, to: this.vaultAddress, mint: token.mint, amount: token.feeUnits, decimals: token.decimals, payer: buyerSigner });
+      tb = tb.add(transfer(u, { asset: this._assetRef(asset, seller), collection: this._collection(collection), newOwner: publicKey(buyer), authority: this.authoritySigner, payer: buyerSigner }));
+      return this._finish(tb, buyerSigner);
+    }
     let b = transactionBuilder()
       .add(transferSol(u, { source: buyerSigner, destination: publicKey(this.vaultAddress), amount: umiLamports(price) }))
       .add(transferSol(u, { source: this.vaultSigner, destination: publicKey(seller), amount: umiLamports(sellerPayout) }))
@@ -194,7 +247,12 @@ export class SolanaChain {
     return this._finish(b, buyerSigner);
   }
   /** Fully-signed vault -> wallet transfer (refunds, revenue withdrawals). Signature is known BEFORE broadcast. */
-  async prepareVaultTransfer({ to, lamports }) {
+  async prepareVaultTransfer({ to, lamports, currency, mint, decimals = 6 }) {
+    if (currency === 'gtamarket') {
+      const tb = await this._tokenTransfer(transactionBuilder(), { from: this.vaultSigner, to, mint, amount: lamports, decimals, payer: this.vaultSigner });
+      const built = await this._finish(tb, this.vaultSigner);
+      return { ...built, signature: this.inspectSigned(built.txB64).signature };
+    }
     const b = transferSol(this.umi, { source: this.vaultSigner, destination: publicKey(to), amount: umiLamports(lamports) });
     const built = await this._finish(b, this.vaultSigner);
     return { ...built, signature: this.inspectSigned(built.txB64).signature };
