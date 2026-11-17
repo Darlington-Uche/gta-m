@@ -47,7 +47,7 @@ export const collectionsSummary = memo(async function collectionsSummaryRaw() {
     const vol = mineSales.reduce((a, s) => a + (s.usd || 0), 0);
     const v24 = mineSales.filter((s) => t - s.createdAt < DAY).reduce((a, s) => a + (s.usd || 0), 0), vPrev = mineSales.filter((s) => t - s.createdAt >= DAY && t - s.createdAt < 2 * DAY).reduce((a, s) => a + (s.usd || 0), 0);
     const lows = mineSales.filter((x) => x.type !== 'mint' && (x.usd || 0) > 0 && t - x.createdAt < DAY).map((x) => x.usd), lowSale24 = lows.length ? Math.min(...lows) : null; // floor = the lowest price anything sold for in the last 24h, even a sale to the top offer
-    const lastSale = [...mineSales].filter((x) => (x.usd || 0) > 0).sort((a, b) => b.createdAt - a.createdAt)[0];
+    const lastSale = [...mineSales].filter((x) => x.type !== 'mint' && (x.usd || 0) > 0).sort((a, b) => b.createdAt - a.createdAt)[0];
     const n24 = mineSales.filter((s) => t - s.createdAt < DAY).length;
     const topOffer = Math.max(0, ...actOffers.filter((o) => eraOf.get(o.itemId) === era).map((o) => o.usdAtPlacement || 0)) || null;
     return {
